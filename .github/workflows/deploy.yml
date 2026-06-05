@@ -16,26 +16,19 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 🚚 Paso 1: Clonar e Inyectar Código Fuente en Máquina Virtual
+      - name: "🚚 Paso 1: Clonar e Inyectar Codigo Fuente en Maquina Virtual"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 🚀 Paso 2: Ejecutar Transferencia Sincronizada FTP Blindada
+      - name: "🚀 Paso 2: Ejecutar Transferencia Sincronizada FTP Blindada"
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          # Servidor y puerto mapeados dinámicamente
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           port: 21
-          
-          # REGLA APRENDIDA CRÍTICA: Como tu usuario FTP apunta exactamente a tu ruta física
-          # (/home/tourfindycom/public_html/athlosperformance), configuramos './'
-          # para evitar duplicaciones o creación de carpetas erróneas.
           server-dir: ./
-          
-          # EXCLUSIONES DE DEPLOY: Bloquea la subida de dependencias pesadas de desarrollo local
           exclude: |
             .git*
             .git*/
