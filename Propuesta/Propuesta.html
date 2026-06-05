@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Estratégico: Athlos Performance</title>
+    
+    <!-- Palette: Brilliant Cyber Blues (#0F172A, #06B6D4, #3B82F6) -->
+    <!-- Plan: Intro (Logos & Problem context) -> Solutions (3 pillars) -> Financial Value (Donut & 50% discount) -> The Barter (Bar & API costs) -> Roadmap (Timeline) -> Success Cases -> CTA -->
+    <!-- Chart Choices: Financial Breakdown -> Compare -> Donut Chart (Chart.js Canvas). Cost Comparison -> Compare -> Bar Chart (Chart.js Canvas). NO SVG. -->
+    <!-- CONFIRMATION: NEITHER Mermaid JS NOR SVG were used anywhere in the output. -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, .font-urbanist {
+            font-family: 'Urbanist', sans-serif;
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 1rem;
+        }
+
+        .text-gradient {
+            background: linear-gradient(to right, #06b6d4, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 40vh;
+            max-height: 350px;
+            padding: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        .icon-circle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(6, 182, 212, 0.1);
+            color: #06b6d4;
+            font-size: 28px;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            margin-bottom: 1rem;
+        }
+
+        .timeline-container {
+            position: relative;
+            padding-left: 2rem;
+            margin-top: 2rem;
+        }
+
+        .timeline-line {
+            position: absolute;
+            left: 11px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgba(6, 182, 212, 0.3);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: -2rem;
+            top: 0.3rem;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #06b6d4;
+            border: 4px solid #0f172a;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+        }
+
+        /* Standard text icon styles for logos */
+        .logo-x {
+            font-family: 'Lato', sans-serif;
+            font-size: 28px;
+            color: #06b6d4;
+            opacity: 0.8;
+            font-weight: 300;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        
+        <header class="text-center mb-16">
+            <!-- Brand Integration -->
+            <div class="flex justify-center items-center gap-6 mb-10">
+                <div class="bg-white px-5 py-3 rounded-xl flex items-center shadow-[0_0_20px_rgba(255,255,255,0.15)] h-[80px]">
+                    <img src="logo2.png" alt="AXON_DCD" class="h-[50px] object-contain">
+                </div>
+                <div class="logo-x">✖</div>
+                <img src="logo.jpg" alt="Athlos Performance" class="h-[100px] w-[100px] object-cover rounded-full shadow-[0_0_30px_rgba(108,165,242,0.4)] border-2 border-cyan-500/30">
+            </div>
+
+            <div class="inline-block px-4 py-1 rounded-full bg-cyan-900/30 border border-cyan-500/30 text-cyan-400 font-semibold text-sm mb-4 tracking-widest uppercase">
+                Análisis Ejecutivo y Propuesta de Alianza
+            </div>
+            <h1 class="text-5xl md:text-6xl font-extrabold mb-4 leading-tight">
+                Infraestructura Cognitiva <br>
+                <span class="text-gradient">Athlos Performance BCS</span>
+            </h1>
+            <p class="text-xl text-slate-400 max-w-3xl mx-auto font-light">
+                Transición estratégica de un modelo de "atención artesanal" a un ecosistema de Fricción Cero Operativa mediante Inteligencia Artificial.
+            </p>
+        </header>
+
+        <section class="mb-16">
+            <h2 class="text-3xl font-bold mb-8 border-b border-slate-800 pb-4"><span class="text-cyan-500 mr-2">01.</span>El Problema Operativo</h2>
+            <div class="glass-card p-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <p class="text-lg text-slate-300 leading-relaxed mb-6">
+                            Athlos Performance cuenta con una propuesta de valor premium en la ciencia del deporte. Sin embargo, su crecimiento comercial está limitado por la dependencia de procesos manuales para responder mensajes, perfilar prospectos y agendar citas.
+                        </p>
+                        <div class="bg-slate-800/50 p-6 rounded-lg border border-slate-700 border-l-4 border-l-amber-500">
+                            <h4 class="text-amber-500 font-bold text-xl mb-2">Cuello de Botella Detectado</h4>
+                            <p class="text-slate-400">Pérdida de conversiones por tiempos de respuesta prolongados fuera de horarios laborales y saturación del staff médico/deportivo en labores administrativas.</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-center">
+                        <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-800">
+                            <div class="text-4xl mb-2">⏳</div>
+                            <div class="text-2xl font-bold text-slate-100">Artesanal</div>
+                            <div class="text-sm text-slate-500 mt-1">Modelo Actual</div>
+                        </div>
+                        <div class="bg-cyan-900/20 p-6 rounded-xl border border-cyan-800/50">
+                            <div class="text-4xl mb-2">⚡</div>
+                            <div class="text-2xl font-bold text-cyan-400">Autónomo</div>
+                            <div class="text-sm text-cyan-600/80 mt-1">Modelo Propuesto</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-16">
+            <h2 class="text-3xl font-bold mb-8 border-b border-slate-800 pb-4"><span class="text-cyan-500 mr-2">02.</span>La Solución: Ecosistema Fricción Cero</h2>
+            <p class="text-slate-400 text-lg mb-8 max-w-4xl">Implementación de un motor cognitivo desplegado en tres módulos principales, operando bajo un modelo SaaS seguro, permitiendo al equipo enfocarse exclusivamente en el rendimiento de los atletas.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-card p-8 group hover:-translate-y-2 hover:border-cyan-500/50 hover:shadow-[0_15px_30px_rgba(6,182,212,0.2)] transition-all duration-300 cursor-default">
+                    <div class="icon-circle group-hover:bg-cyan-500/20 group-hover:scale-110 transition-all duration-300"><i class="fa-solid fa-robot"></i></div>
+                    <h3 class="text-2xl font-bold mb-3 text-slate-100">AI FrontDesk 24/7</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Agente inteligente conectado a Instagram y WhatsApp. Capaz de explicar metodologías, precios y resolver dudas complejas al instante, operando ininterrumpidamente 24/7.
+                    </p>
+                </div>
+                
+                <div class="glass-card p-8 group hover:-translate-y-2 hover:border-cyan-500/50 hover:shadow-[0_15px_30px_rgba(6,182,212,0.2)] transition-all duration-300 cursor-default">
+                    <div class="icon-circle group-hover:bg-cyan-500/20 group-hover:scale-110 transition-all duration-300"><i class="fa-solid fa-brain"></i></div>
+                    <h3 class="text-2xl font-bold mb-3 text-slate-100">Extractor NLP</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Algoritmo de Procesamiento de Lenguaje Natural que lee conversaciones y extrae autónomamente Nombre, Teléfono y Objetivo del prospecto sin intervención manual.
+                    </p>
+                </div>
+
+                <div class="glass-card p-8 group hover:-translate-y-2 hover:border-cyan-500/50 hover:shadow-[0_15px_30px_rgba(6,182,212,0.2)] transition-all duration-300 cursor-default">
+                    <div class="icon-circle group-hover:bg-cyan-500/20 group-hover:scale-110 transition-all duration-300"><i class="fa-solid fa-calendar-check"></i></div>
+                    <h3 class="text-2xl font-bold mb-3 text-slate-100">Panel Central CRM</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Dashboard privado donde aterrizan los leads perfilados. Gestión automática de agenda con envío de recordatorios por WhatsApp para garantizar asistencia.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-16">
+            <h2 class="text-3xl font-bold mb-8 border-b border-slate-800 pb-4"><span class="text-cyan-500 mr-2">03.</span>Análisis Financiero y Alianza Comercial</h2>
+            
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                
+                <!-- Left Card: Real Value & Discount -->
+                <div class="glass-card p-8 flex flex-col justify-between hover:border-cyan-500/30 transition-colors">
+                    <div>
+                        <h3 class="text-2xl font-bold mb-4 text-center">Valor Comercial de Infraestructura</h3>
+                        <p class="text-slate-400 text-center mb-6 text-sm">Desglose del costo real de mercado (CAPEX) para diseñar, programar y desplegar esta tecnología a nivel corporativo.</p>
+                        <div class="flex-grow flex items-center justify-center w-full mb-6">
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="costBreakdownChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-700 text-center mt-auto shadow-inner">
+                        <div class="flex items-center justify-center gap-4 mb-2">
+                            <div>
+                                <span class="text-slate-500 block uppercase tracking-wider text-[10px] font-bold">Valor Real Mercado</span>
+                                <span class="text-xl line-through text-slate-500 font-bold">$50,000 MXN</span>
+                            </div>
+                            <div class="text-cyan-500 text-2xl animate-pulse">➔</div>
+                            <div>
+                                <span class="text-cyan-500 block uppercase tracking-wider text-[10px] font-bold bg-cyan-900/30 px-2 py-0.5 rounded">50% OFF Alianza</span>
+                                <span class="text-3xl font-extrabold text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]">$25,000 MXN</span>
+                            </div>
+                        </div>
+                        <p class="text-slate-400 text-sm mt-3 border-t border-slate-800 pt-3">
+                            AXON_DCD absorbe al 100% este costo preferencial de $25,000 mediante el <strong class="text-white">intercambio de 2 a 3 membresías</strong> para nuestro personal.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Right Card: API Costs & 3-Month Bonus -->
+                <div class="glass-card p-8 flex flex-col justify-between hover:border-cyan-500/30 transition-colors">
+                    <div>
+                        <h3 class="text-2xl font-bold mb-4 text-center">Iguala Operativa (Tokens API)</h3>
+                        <p class="text-slate-400 text-center mb-6 text-sm">Al estar el Setup cubierto por el intercambio, Athlos únicamente cubre el costo de consumo en servidores y tokens de la Inteligencia Artificial a partir del 4to mes.</p>
+                        <div class="flex-grow flex items-center justify-center w-full mb-6">
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="comparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 text-center border-b border-slate-700/50 pb-4 mb-4">
+                        <div>
+                            <div class="text-sm text-slate-400">Iguala Estándar SaaS</div>
+                            <div class="text-lg font-bold text-slate-500 line-through decoration-red-500">$2,500 / mes</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-cyan-400 font-bold">Consumo API (Alianza)</div>
+                            <div class="text-2xl font-extrabold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">$250 - $500 <span class="text-sm text-slate-400 font-normal">/ mes</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 3 Month Bonus Highlight -->
+                    <div class="bg-gradient-to-r from-cyan-900/40 to-blue-900/30 border border-cyan-500/40 p-4 rounded-xl text-center shadow-[0_0_15px_rgba(6,182,212,0.15)] mt-auto relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-cyan-500/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                        <h4 class="text-white font-bold text-lg mb-1 flex items-center justify-center gap-2">
+                            <span class="text-xl">🎁</span> Bono de Arranque AXON
+                        </h4>
+                        <p class="text-slate-300 text-sm leading-relaxed">
+                            Absorbemos la inversión en servidores y tokens IA durante los <strong>primeros 3 meses</strong>. A partir del 4to mes, ustedes se harán cargo únicamente del consumo real (aprox. $250 - $500 MXN mensuales), entregándoles un informe de transparencia detallado del uso de la IA.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <section class="mb-16">
+            <h2 class="text-3xl font-bold mb-8 border-b border-slate-800 pb-4"><span class="text-cyan-500 mr-2">04.</span>Roadmap de Despliegue (4 Semanas)</h2>
+            <div class="glass-card p-8 md:p-12 hover:shadow-[0_10px_40px_rgba(6,182,212,0.1)] transition-shadow duration-500">
+                <p class="text-slate-400 text-lg mb-8">El proyecto se implementa en un esquema ágil de 4 semanas exactas tras la firma del acuerdo, asegurando una transición fluida.</p>
+                
+                <div class="timeline-container">
+                    <div class="timeline-line"></div>
+                    
+                    <div class="timeline-item group">
+                        <div class="timeline-dot group-hover:scale-125 group-hover:bg-white group-hover:shadow-[0_0_15px_rgba(6,182,212,1)] transition-all duration-300"></div>
+                        <h4 class="text-xl font-bold text-cyan-400 mb-2">Semana 1: Data Onboarding</h4>
+                        <p class="text-slate-300">Reunión de Kick-off. Recopilación exhaustiva de información clínica, horarios, metodologías y FAQs de Athlos para entrenar la red neuronal de la IA.</p>
+                    </div>
+
+                    <div class="timeline-item group">
+                        <div class="timeline-dot group-hover:scale-125 group-hover:bg-white group-hover:shadow-[0_0_15px_rgba(6,182,212,1)] transition-all duration-300"></div>
+                        <h4 class="text-xl font-bold text-cyan-400 mb-2">Semana 2: Desarrollo e Integración</h4>
+                        <p class="text-slate-300">Programación core del agente cognitivo. Vinculación oficial con Meta (WhatsApp Cloud API e Instagram) y apertura de entornos de prueba.</p>
+                    </div>
+
+                    <div class="timeline-item group">
+                        <div class="timeline-dot group-hover:scale-125 group-hover:bg-white group-hover:shadow-[0_0_15px_rgba(6,182,212,1)] transition-all duration-300"></div>
+                        <h4 class="text-xl font-bold text-cyan-400 mb-2">Semana 3: Despliegue CRM</h4>
+                        <p class="text-slate-300">Entrega de credenciales del Dashboard administrativo al equipo médico. Pruebas de estrés internas del motor de agendamiento y extracción NLP.</p>
+                    </div>
+
+                    <div class="timeline-item group">
+                        <div class="timeline-dot group-hover:scale-125 group-hover:bg-white group-hover:shadow-[0_0_15px_rgba(6,182,212,1)] transition-all duration-300"></div>
+                        <h4 class="text-xl font-bold text-cyan-400 mb-2">Semana 4: Go-Live</h4>
+                        <p class="text-slate-300">Simulaciones finales en vivo. Puesta en marcha definitiva pública. Inicio oficial de la operación bajo el modelo Fricción Cero.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Casos de Éxito / Demos Section -->
+        <section class="mb-16">
+            <h2 class="text-3xl font-bold mb-8 border-b border-slate-800 pb-4 flex items-center justify-between">
+                <div><span class="text-cyan-500 mr-2">05.</span>Ecosistemas Activos (Pruebas Reales)</div>
+                <div class="text-sm font-normal text-slate-500 hidden md:block">Acceso a Demos Interactivos</div>
+            </h2>
+            <p class="text-slate-400 text-lg mb-8 max-w-4xl">Transparencia técnica total. Lo invitamos a explorar la arquitectura, el diseño UI/UX y la fluidez de algunos sistemas operativos corporativos que hemos desarrollado recientemente.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Card 1: Pegaso -->
+                <div class="glass-card p-8 group hover:-translate-y-3 hover:border-cyan-500/60 hover:shadow-[0_20px_40px_rgba(6,182,212,0.25)] transition-all duration-300 flex flex-col h-full relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="icon-circle group-hover:bg-cyan-500 group-hover:text-black group-hover:shadow-[0_0_15px_rgba(6,182,212,0.8)] transition-all duration-300 relative z-10"><i class="fa-solid fa-ship"></i></div>
+                    <h3 class="text-2xl font-bold mb-2 text-slate-100 relative z-10">Pegaso Expediciones</h3>
+                    <p class="text-slate-400 mb-6 text-sm leading-relaxed flex-grow relative z-10">Módulo de agendamiento marítimo y pasarela de pago automatizada.</p>
+                    
+                    <a href="https://pegasoexpediciones.com/portal/infex.html" target="_blank" class="text-cyan-400 hover:text-white text-sm font-bold mb-5 inline-flex items-center gap-2 group-hover:underline relative z-10 w-fit">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Ingresar a la Plataforma
+                    </a>
+                    
+                    <div class="bg-black/60 border border-slate-700/80 rounded-lg p-4 font-mono text-sm relative z-10 shadow-inner group-hover:border-cyan-500/30 transition-colors">
+                        <div class="text-slate-500 mb-2 uppercase tracking-wider text-[10px] font-bold flex items-center gap-2"><i class="fa-solid fa-key"></i> Credenciales de Acceso</div>
+                        <div class="text-cyan-400 mb-1 flex items-center justify-between"><span class="text-slate-400 text-xs w-12">User:</span> <span class="bg-slate-900 px-2 py-0.5 rounded select-all">dacadomx@gmail.com</span></div>
+                        <div class="text-cyan-400 flex items-center justify-between"><span class="text-slate-400 text-xs w-12">Pass:</span> <span class="bg-slate-900 px-2 py-0.5 rounded select-all">*******</span></div>
+                    </div>
+                </div>
+
+                <!-- Card 2: TecniDepot Friends -->
+                <div class="glass-card p-8 group hover:-translate-y-3 hover:border-cyan-500/60 hover:shadow-[0_20px_40px_rgba(6,182,212,0.25)] transition-all duration-300 flex flex-col h-full relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="icon-circle group-hover:bg-cyan-500 group-hover:text-black group-hover:shadow-[0_0_15px_rgba(6,182,212,0.8)] transition-all duration-300 relative z-10"><i class="fa-solid fa-users-gear"></i></div>
+                    <h3 class="text-2xl font-bold mb-2 text-slate-100 relative z-10">TecniDepot Friends</h3>
+                    <p class="text-slate-400 mb-6 text-sm leading-relaxed flex-grow relative z-10">Sistema centralizado de fidelización de clientes, métricas operativas e integración CRM.</p>
+                    
+                    <a href="https://friends.tecnidepot.com/" target="_blank" class="text-cyan-400 hover:text-white text-sm font-bold mb-5 inline-flex items-center gap-2 group-hover:underline relative z-10 w-fit">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Ingresar a la Plataforma
+                    </a>
+                    
+                    <div class="bg-black/60 border border-slate-700/80 rounded-lg p-4 font-mono text-sm relative z-10 shadow-inner group-hover:border-cyan-500/30 transition-colors">
+                        <div class="text-slate-500 mb-2 uppercase tracking-wider text-[10px] font-bold flex items-center gap-2"><i class="fa-solid fa-key"></i> Credenciales de Acceso</div>
+                        <div class="text-cyan-400 mb-1 flex items-center justify-between"><span class="text-slate-400 text-xs w-12">User:</span> <span class="bg-slate-900 px-2 py-0.5 rounded select-all">dacadomx@gmail.com</span></div>
+                        <div class="text-cyan-400 flex items-center justify-between"><span class="text-slate-400 text-xs w-12">Pass:</span> <span class="bg-slate-900 px-2 py-0.5 rounded select-all">*******</span></div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Eluney Kolob -->
+                <div class="glass-card p-8 group hover:-translate-y-3 hover:border-cyan-500/60 hover:shadow-[0_20px_40px_rgba(6,182,212,0.25)] transition-all duration-300 flex flex-col h-full relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="icon-circle group-hover:bg-cyan-500 group-hover:text-black group-hover:shadow-[0_0_15px_rgba(6,182,212,0.8)] transition-all duration-300 relative z-10"><i class="fa-solid fa-leaf"></i></div>
+                    <h3 class="text-2xl font-bold mb-2 text-slate-100 relative z-10">Eluney Kolob</h3>
+                    <p class="text-slate-400 mb-6 text-sm leading-relaxed flex-grow relative z-10">Dashboard administrativo en tiempo real para control operativo, finanzas y reservaciones.</p>
+                    
+                    <a href="https://eluneykolob.tecnidepot.com/" target="_blank" class="text-cyan-400 hover:text-white text-sm font-bold mb-5 inline-flex items-center gap-2 group-hover:underline relative z-10 w-fit">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Ingresar a la Plataforma
+                    </a>
+                    
+                    <div class="bg-black/60 border border-slate-700/80 rounded-lg p-4 font-mono text-sm relative z-10 shadow-inner group-hover:border-cyan-500/30 transition-colors">
+                        <div class="text-slate-500 mb-2 uppercase tracking-wider text-[10px] font-bold flex items-center gap-2"><i class="fa-solid fa-key"></i> Credenciales de Acceso</div>
+                        <div class="text-cyan-400 mb-1 flex items-center justify-between"><span class="text-slate-400 text-xs w-12">User:</span> <span class="bg-slate-900 px-2 py-0.5 rounded select-all">Elune</span></div>
+                        <div class="text-cyan-400 flex items-center justify-between"><span class="text-slate-400 text-xs w-12">Pass:</span> <span class="bg-slate-900 px-2 py-0.5 rounded select-all">*******</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="mb-10">
+            <div class="glass-card p-10 text-center relative overflow-hidden border-cyan-500/50 shadow-[0_10px_50px_rgba(6,182,212,0.15)]">
+                <!-- Background animated glow -->
+                <div class="absolute -top-32 -left-32 w-64 h-64 bg-cyan-500/20 rounded-full blur-[80px] pointer-events-none"></div>
+                <div class="absolute -bottom-32 -right-32 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+                
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent"></div>
+                
+                <h2 class="text-4xl font-extrabold text-white mb-4 relative z-10">¿Listos para escalar la operación?</h2>
+                <p class="text-xl text-slate-300 mb-8 max-w-2xl mx-auto relative z-10">
+                    Hemos diseñado la infraestructura exacta para Athlos Performance. Conectemos ahora mismo para agendar nuestra visita técnica y cerrar los detalles del Setup.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-6 justify-center relative z-10">
+                    
+                    <a href="https://docs.google.com/presentation/d/1PwJDtIFgSJZE5BoJ_lfcWQ-ty5cKNc_CxelTD4qGOAY/edit?usp=sharing" target="_blank" class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-4 px-8 rounded-lg transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] hover:-translate-y-1">
+                        <i class="fa-solid fa-desktop"></i> Ver Presentación de Negocios
+                    </a>
+                    
+                    <a href="https://wa.me/525562065829?text=Hola%20AXON_DCD.%20Hemos%20revisado%20la%20propuesta%20de%20Alianza%20para%20Athlos%20Performance%20y%20estamos%20listos%20para%20avanzar.%20%C2%BFCu%C3%A1ndo%20podemos%20vernos%20para%20cerrar%20los%20detalles%3F" target="_blank" class="inline-flex items-center justify-center gap-2 bg-slate-800/80 hover:bg-slate-700 text-emerald-400 border border-slate-600 font-bold py-4 px-8 rounded-lg transition-all hover:border-emerald-500/50 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:-translate-y-1">
+                        <i class="fa-brands fa-whatsapp text-xl"></i> Cerrar Alianza (WhatsApp)
+                    </a>
+                    
+                </div>
+            </div>
+        </section>
+
+        <footer class="text-center mt-10 border-t border-slate-800 pt-8 pb-12">
+            <p class="text-slate-500 font-urbanist font-bold tracking-widest">AXON_DCD | DCD LABS &copy; 2026</p>
+            <p class="text-slate-600 text-sm mt-2">Tecnología Corporativa y Automatización B2B</p>
+        </footer>
+
+    </div>
+
+    <script>
+        function wrapLabel(text, maxChars = 16) {
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = '';
+            for (const word of words) {
+                if ((currentLine + word).length > maxChars) {
+                    if (currentLine.trim() !== '') lines.push(currentLine.trim());
+                    currentLine = word + ' ';
+                } else {
+                    currentLine += word + ' ';
+                }
+            }
+            if (currentLine.trim() !== '') lines.push(currentLine.trim());
+            return lines;
+        }
+
+        const tooltipConfigObj = {
+            callbacks: {
+                title: function(tooltipItems) {
+                    const item = tooltipItems[0];
+                    let label = item.chart.data.labels[item.dataIndex];
+                    if (Array.isArray(label)) {
+                        return label.join(' ');
+                    } else {
+                        return label;
+                    }
+                }
+            }
+        };
+
+        // Donut Chart - Reflects the 50k REAL value to show what they are getting
+        const donutLabels = [
+            'Setup y Desarrollo Core',
+            'Integración de APIs Meta',
+            'Diseño de Panel CRM'
+        ].map(label => wrapLabel(label));
+
+        const ctxDonut = document.getElementById('costBreakdownChart').getContext('2d');
+        new Chart(ctxDonut, {
+            type: 'doughnut',
+            data: {
+                labels: donutLabels,
+                datasets: [{
+                    data: [28500, 6500, 15000],
+                    backgroundColor: [
+                        '#06b6d4',
+                        '#3b82f6',
+                        '#1e40af'
+                    ],
+                    borderColor: '#0f172a',
+                    borderWidth: 4,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: '#cbd5e1',
+                            font: { family: 'Lato', size: 12 },
+                            padding: 15
+                        }
+                    },
+                    tooltip: tooltipConfigObj
+                },
+                cutout: '70%'
+            }
+        });
+
+        // Bar Chart - Modified to show 25k (Discounted Setup) vs 2.5k (Standard SaaS) vs 400 (Alianza API)
+        const barLabels = [
+            'Setup (50% OFF)',
+            'Mensualidad Promedio'
+        ].map(label => wrapLabel(label));
+
+        const ctxBar = document.getElementById('comparisonChart').getContext('2d');
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: barLabels,
+                datasets: [
+                    {
+                        label: 'Venta Tradicional',
+                        data: [25000, 2500], // Updated: 25k Setup (discounted) / 2.5k SaaS monthly
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Alianza AXON (Barter)',
+                        // 0 in cash for setup (covered by barter), ~400 avg for monthly API
+                        data: [0, 400], 
+                        backgroundColor: 'rgba(6, 182, 212, 0.8)',
+                        borderColor: '#06b6d4',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: '#cbd5e1',
+                            font: { family: 'Lato', size: 12 }
+                        }
+                    },
+                    tooltip: tooltipConfigObj
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { family: 'Lato', size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

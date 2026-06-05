@@ -1,0 +1,57 @@
+# ===================================================================
+# AUTOMATED DEPLOYMENT WORKFLOW — METODOLOGÍA CI/CD DCD LABS
+# DESPLIEGUE SEGURO PARA ATHLOS PERFORMANCE DESDE REPOSITORIO GITHUB
+# ===================================================================
+
+name: Pipeline de Despliegue Automatizado Athlos Performance
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  ftp-deploy:
+    name: Despliegue Continuo de Infraestructura Cognitiva
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🚚 Paso 1: Clonar e Inyectar Código Fuente en Máquina Virtual
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🚀 Paso 2: Ejecutar Transferencia Sincronizada FTP Blindada
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          # Servidor y puerto mapeados dinámicamente
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: 21
+          
+          # REGLA APRENDIDA CRÍTICA: Como tu usuario FTP apunta exactamente a tu ruta física
+          # (/home/tourfindycom/public_html/athlosperformance), configuramos './'
+          # para evitar duplicaciones o creación de carpetas erróneas.
+          server-dir: ./
+          
+          # EXCLUSIONES DE DEPLOY: Bloquea la subida de dependencias pesadas de desarrollo local
+          exclude: |
+            .git*
+            .git*/
+            .github/
+            .github/workflows/**
+            knowledge/
+            knowledge/**
+            CORE/.env
+            logs/
+            logs/**
+            node_modules/
+            node_modules/**
+            z/node_modules/
+            z/node_modules/**
+            .next/
+            .pnp*
+            CLAUDE.md
+            *.sql
+            *.md

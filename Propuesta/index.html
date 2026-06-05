@@ -1,0 +1,329 @@
+<!-- ... existing code ... -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* 1. THE SETUP & BRANDING */
+        :root {
+            --athlos-main: #6ca5f2; /* Azul metálico Athlos */
+            --athlos-dark: #2a589e; /* Azul profundo Athlos */
+            --athlos-glow: rgba(108, 165, 242, 0.3);
+            --athlos-glow-light: rgba(108, 165, 242, 0.1);
+            --bg-black: #000000; /* Negro profundo para fundir con el logo Athlos */
+            --bg-slate: #080c14;
+            --text-light: #f8fafc;
+            --text-muted: #cbd5e1;
+        }
+
+        * { box-sizing: border-box; }
+        
+        p { margin: 0; margin-bottom: 15px; }
+        
+        body {
+            background-color: var(--bg-black);
+            display: grid;
+            gap: 20px;
+            grid-template-columns: 1fr;
+            margin: 0;
+            min-height: 100vh;
+            padding: 20px 0;
+            place-items: center;
+        }
+
+        .slide-container {
+            align-items: center;
+            background: radial-gradient(circle at top left, var(--bg-slate), var(--bg-black));
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            font-family: 'Lato', sans-serif;
+            height: 720px;
+            justify-content: center;
+            overflow: hidden;
+            padding: 60px;
+            position: relative;
+            width: 1280px;
+            border: 1px solid var(--athlos-glow-light);
+        }
+
+        .slide-container::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="1" fill="rgba(108,165,242,0.05)"/></svg>');
+            z-index: 0;
+        }
+
+        .slide-container > * { position: relative; z-index: 1; }
+
+        /* 2. CONSISTENT TYPOGRAPHY */
+        .slide-container h1,
+        .slide-container h2,
+        .slide-container h3 {
+            color: var(--text-light);
+            font-weight: 700;
+            font-family: 'Urbanist', sans-serif;
+            margin: 0;
+        }
+
+        .slide-container p,
+        .slide-container li,
+        .slide-container .subtitle,
+        .slide-container td,
+        .slide-container .number-label {
+            color: var(--text-muted);
+            font-family: 'Lato', sans-serif;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        .slide-container h1 { font-size: 70px; line-height: 1.1; }
+        .slide-container h1 span { color: var(--athlos-main); }
+        
+        .slide-container .slide-title {
+            font-size: 45px;
+            font-weight: 600;
+            margin-bottom: 40px;
+            text-align: left;
+            width: 100%;
+            border-bottom: 2px solid var(--athlos-glow);
+            padding-bottom: 10px;
+        }
+        .slide-container .slide-title span { color: var(--athlos-main); }
+
+        .slide-container h3 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #e2e8f0;
+        }
+
+        .slide-container .subtitle {
+            font-weight: 300;
+            font-size: 22px;
+            margin: 20px auto;
+            color: #94a3b8;
+        }
+
+        .slide-container .content-area {
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            justify-content: center;
+            width: 100%;
+        }
+
+        /* 3. LAYOUT DEFINITIONS */
+        .title-layout { text-align: center; max-width: 900px; }
+
+        .two-column {
+            align-items: flex-start;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            width: 100%;
+        }
+
+        .two-column.tiled { align-items: stretch; }
+        .two-column.tiled > div {
+            background: rgba(10, 15, 26, 0.7);
+            border-radius: 12px;
+            border: 1px solid var(--athlos-glow-light);
+            padding: 40px;
+            text-align: left;
+            backdrop-filter: blur(10px);
+        }
+        .two-column.tiled h3 { color: var(--athlos-main); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+
+        .two-column ul { list-style: none; margin: 0; padding-left: 0; }
+        .two-column li { margin-bottom: 15px; position: relative; padding-left: 25px; }
+        .two-column li::before {
+            content: '\f054';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            color: var(--athlos-main);
+            position: absolute;
+            left: 0;
+            top: 2px;
+            font-size: 14px;
+        }
+
+        .image-wrapper {
+            border-radius: 12px;
+            height: 380px;
+            max-width: 100%;
+            overflow: hidden;
+            width: 100%;
+            border: 1px solid var(--athlos-glow);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+        }
+        .image-wrapper img {
+            height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+            width: 100%;
+            background-color: var(--bg-black);
+        }
+
+        .tiled-content {
+            align-items: stretch;
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            width: 100%;
+        }
+        .tile {
+            align-items: flex-start;
+            background: rgba(10, 15, 26, 0.7);
+            border-radius: 12px;
+            border: 1px solid var(--athlos-glow-light);
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            padding: 30px;
+            text-align: left;
+            backdrop-filter: blur(10px);
+        }
+        .tile .icon {
+            color: var(--athlos-main);
+            font-size: 40px;
+            margin-bottom: 20px;
+            background: var(--athlos-glow-light);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .tile h3 { font-size: 24px; }
+
+        .section-title-layout {
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            justify-content: center;
+            text-align: center;
+            width: 100%;
+        }
+        .section-title-layout h2 { font-size: 60px; margin-bottom: 20px; color: var(--athlos-main); }
+        .section-title-layout p { font-size: 24px; margin: 0 auto; max-width: 700px; color: var(--text-muted); }
+        .section-title-layout hr {
+            background-color: var(--athlos-main);
+            border: none;
+            height: 4px;
+            margin: 30px auto;
+            width: 80px;
+            border-radius: 2px;
+        }
+
+        /* Bleed Image Right */
+        .slide-container.bleed-image-layout {
+            align-items: start;
+            display: grid;
+            gap: 50px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            padding: 0;
+        }
+        .slide-container.bleed-image-layout > .content-container { padding: 60px 0 60px 60px; }
+        .slide-container.bleed-image-layout > .image-container { height: 100%; overflow: hidden; width: 100%; }
+        .slide-container.bleed-image-layout img.bleed-image-side {
+            border-radius: 0 8px 8px 0;
+            display: block;
+            height: 720px;
+            object-fit: cover;
+            object-position: center;
+            width: 100%;
+        }
+        .slide-container.bleed-image-layout .bleed-text-side {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .slide-container.bleed-image-layout .bleed-text-side p { color: var(--text-muted); line-height: 1.6; margin-bottom: 1.2rem; }
+
+        /* Table Layout */
+        .table-layout { width: 100%; }
+        .table-layout table { border-collapse: separate; border-spacing: 0; width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--athlos-glow); }
+        .table-layout th, .table-layout td { padding: 18px 24px; text-align: left; }
+        .table-layout th { background-color: var(--athlos-glow-light); color: var(--athlos-main); font-size: 20px; font-family: 'Urbanist', sans-serif; border-bottom: 1px solid var(--athlos-glow); }
+        .table-layout td { background: rgba(10, 15, 26, 0.4); border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
+        .table-layout tr:last-child td { border-bottom: none; }
+        .table-layout td:last-child { border-right: none; }
+        .table-layout td i { margin-right: 10px; }
+
+        /* Quote Layout */
+        .quote-layout { margin: 0 auto; text-align: center; width: 85%; }
+        .quote-layout blockquote {
+            color: var(--text-light);
+            font-size: 50px;
+            font-weight: 700;
+            font-family: 'Urbanist', sans-serif;
+            line-height: 1.3;
+            margin: 0 0 30px 0;
+            padding: 0 50px;
+            position: relative;
+        }
+        .quote-layout blockquote::before, .quote-layout blockquote::after {
+            color: var(--athlos-glow);
+            content: '"';
+            font-size: 120px;
+            line-height: 0;
+            position: absolute;
+            font-family: 'Lato', sans-serif;
+        }
+        .quote-layout blockquote::before { left: -20px; top: 40px; }
+        .quote-layout blockquote::after { bottom: -10px; right: -20px; }
+        .quote-layout cite { color: var(--athlos-main); font-size: 24px; font-style: normal; letter-spacing: 2px; text-transform: uppercase; }
+
+        /* Highlighted Numbers */
+        .highlight-numbers-layout > div:first-child { flex: 0 0 45%; text-align: center; background: var(--athlos-glow-light); border-radius: 12px; padding: 40px; border: 1px solid var(--athlos-glow); }
+        .highlight-numbers-layout .number {
+            color: var(--athlos-main);
+            font-size: 140px;
+            font-weight: 700;
+            font-family: 'Urbanist', sans-serif;
+            line-height: 1;
+            text-shadow: 0 0 20px var(--athlos-glow);
+        }
+        .highlight-numbers-layout .number-label { font-size: 24px; font-weight: 400; color: var(--text-light); margin-top: 10px; }
+
+        /* Q&A Layout */
+        .qa-layout { margin: 0 auto; text-align: center; width: 100%; align-self: center; }
+        .qa-layout h2 { font-size: 80px; margin-bottom: 20px; color: var(--athlos-main); }
+        .qa-layout p { font-size: 24px; }
+        .qa-layout .contact-info { color: var(--text-muted); font-size: 20px; margin-top: 50px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1); display: inline-block;}
+    </style>
+</head>
+<body>
+
+
+<div class="slide-container" id="slide1">
+    <div class="title-layout">
+        <div class="logo-showcase" style="display: flex; gap: 30px; justify-content: center; align-items: center; margin-bottom: 40px;">
+            <div style="background: white; padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; box-shadow: 0 0 15px rgba(255,255,255,0.1);">
+                <img src="logo2.png" alt="AXON_DCD" style="height: 50px;">
+            </div>
+            <i class="fa-solid fa-xmark" style="color: var(--athlos-main); font-size: 20px; opacity: 0.7;"></i>
+            <img src="logo.jpg" alt="Athlos Performance" style="height: 110px; border-radius: 50%; box-shadow: 0 0 25px var(--athlos-glow);">
+        </div>
+        <p style="color: var(--athlos-main); letter-spacing: 4px; text-transform: uppercase; font-weight: 700;">Alianza Estratégica</p>
+        <h1>Infraestructura <span>Cognitiva</span> para el Rendimiento</h1>
+        <p class="subtitle">Propuesta de Evolución Operativa para Athlos Performance BCS</p>
+    </div>
+</div>
+
+
+<div class="slide-container" id="slide2">
+<!-- ... existing code ... -->
+<div class="slide-container" id="slide13">
+    <div class="qa-layout">
+        <img src="logo.jpg" alt="Athlos Performance" style="height: 130px; border-radius: 50%; margin-bottom: 25px; box-shadow: 0 0 30px var(--athlos-glow);">
+        <h2>¿Listos para escalar?</h2>
+        <p>Aumentemos la capacidad operativa de su laboratorio.</p>
+        <div class="contact-info">
+            <strong>AXON_DCD | DCD LABS</strong><br>
+            Ingeniería B2B y Fricción Cero
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
