@@ -60,6 +60,11 @@ logs/
 *.webm
 *.m4v
 
+# Excepcion: videos productivos de la landing, servidos por Next desde /public.
+# El pipeline FTP despliega el repo via git checkout; sin esta excepcion
+# estos archivos nunca llegarian a produccion.
+!public/media/*.mp4
+
 # --- SISTEMA OPERATIVO ---
 # macOS
 .DS_Store

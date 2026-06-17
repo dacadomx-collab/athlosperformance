@@ -1,0 +1,77 @@
+﻿📄 DOCUMENTO DE ENTREGA (HANDOFF) PARA DESARROLLADOR WEB
+Proyecto: Landing Page Principal - Athlos Performance BCS 
+Objetivo: Conversión de tráfico orgánico en prospectos de alto valor mediante un embudo segmentado (Atletas y Adultos Mayores) conectado a un motor conversacional de inteligencia artificial.
+________________
+
+
+1. RESUMEN EJECUTIVO PARA EL EQUIPO DE DESARROLLO
+Visión Estratégica: Athlos Performance BCS no es un gimnasio convencional; se posiciona como el primer "Laboratorio de Ciencias del Deporte y Movimiento Humano" en La Paz. El objetivo del sitio es proyectar autoridad médica, rigor empírico y transparencia de datos, alejándose de los clichés del fisicoconstructivismo (prohibido usar imágenes de gimnasio tradicionales). Metodología Científica: La operación se basa en la "Fricción Cero", integrando el Athlos Cognitive Engine v1.0 (un asistente virtual IA 24/7) que automatiza la captación y el filtrado de perfiles. La intervención física se diseña exclusivamente a partir del análisis de datos (antropometría, somatocarta, Senior Fitness Test) obtenidos en las Fichas de Evaluación.
+Directrices de UI/UX (Sistema de Diseño Base)
+* Tipografías: Montserrat o Sora para encabezados (innovación y precisión); Inter para cuerpos de texto (legibilidad premium).
+* Paleta de Colores:
+   * Fondo Principal: Azul Profundo Científico (#0E3A5D).
+   * Elementos Secundarios/Subtítulos: Azul Acero (#3F6E8A).
+   * Botones (CTA): Turquesa Tecnológico (#00B8C9).
+   * Fondos de Bloques de Texto: Gris Claro (#F7FAFC).
+* Restricción Técnica: Diseño 100% Mobile-First. Prohibido usar anchos fijos en contenedores.
+________________
+
+
+2. WIREFRAME DE CONTENIDO Y COPY DEFINITIVO (ESTRUCTURA DE LA PÁGINA)
+<Section 1: Hero (Inicio de Alta Intención)>
+* UI Notes: Fondo oscuro (Azul Profundo). Cero imágenes genéricas de pesas. Usar visuales de dashboards médicos, captura de movimiento o análisis biomecánico. Diseño que divida inmediatamente a los dos segmentos de clientes.
+[Copy Definitivo] Tagline (H1): El rendimiento no se improvisa. Se mide. Laboratorio de Ciencias del Ejercicio y Movimiento Humano. Subtítulo (H2): Transformamos datos biomecánicos, funcionales y clínicos en programas de entrenamiento personalizados para rendimiento deportivo, salud y longevidad.
+[Botones CTA]
+* Botón Primario (Turquesa): [Agendar Evaluación Inicial] → (Abre el chat con el asistente IA Athlos v1.0).
+* Botón Secundario (Azul Acero): [Conoce Nuestra Metodología] → (Anclaje a la Sección 3).
+________________
+
+
+<Section 2: Diferenciación Operativa>
+* UI Notes: Fondo Gris Claro (#F7FAFC) para descanso visual. Usar íconos minimalistas.
+[Copy Definitivo] Título (H2): ¿Por qué Athlos no es un gimnasio convencional? Cuerpo de texto: La mayoría de los programas comienzan con ejercicios. Nosotros comenzamos con evidencia. Cada persona es sometida a una evaluación integral que permite identificar limitaciones funcionales, patrones de movimiento, capacidades físicas y factores de riesgo antes de diseñar cualquier intervención. Esto nos permite crear programas más seguros, eficientes y personalizados.
+________________
+
+
+<Section 3: La Metodología (4 Fases)>
+* UI Notes: Presentar como un flujo secuencial interactivo horizontal o de tarjetas (cards).
+[Copy Definitivo] Título (H2): Nuestra Metodología Científica Subtítulo: Un proceso estructurado basado en evaluación, análisis y seguimiento continuo.
+* Fase 1: Evaluación Integral. (Ícono: Clipboard médico). Historial clínico, composición corporal, análisis biomecánico y evaluación funcional.
+* Fase 2: Interpretación de Datos. (Ícono: Dashboard analítico). Analizamos la información obtenida para identificar fortalezas, limitaciones y oportunidades de mejora clínica.
+* Fase 3: Prescripción Personalizada. (Ícono: Molécula). Diseñamos un programa de cargas mecánicas específico basado en evidencia científica y objetivos individuales.
+* Fase 4: Seguimiento y Optimización. (Ícono: Gráfica ascendente). Medimos el progreso periódicamente para ajustar cada variable del programa con precisión matemática.
+________________
+
+
+<Section 4: El Motor del Diagnóstico (Uso de Fichas de Evaluación)>
+* UI Notes: Esta sección explica cómo se personaliza el servicio. Dividir visualmente la pantalla en dos columnas: Izquierda (Atletas), Derecha (Adultos Mayores).
+[Copy Definitivo] Título (H2): El Punto de Partida: Tu Ficha de Evaluación Clínica Cuerpo de texto: Nuestro rigor empírico significa que ninguna decisión de carga física se toma por intuición. Utilizamos protocolos internacionales estandarizados para mapear tu perfil antes de tu primer entrenamiento:
+[Columna 1: Atletas y Rendimiento (Menores de 65)] Analizamos tu estructura desde el interior. Calculamos tu densidad corporal, porcentaje de grasa exacta (Fórmula de Siri), masa ósea (Fórmula de Rocha) y te ubicamos en una Somatocarta matemática. Adicionalmente, evaluamos tus patrones de movimiento (como la compensación de rodillas en sentadilla profunda) para asegurar un entrenamiento libre de fricción articular.
+[Columna 2: Longevidad Activa (Mayores de 65)] Evaluamos los biomarcadores que garantizan tu independencia. Aplicamos el Senior Fitness Test, midiendo fuerza del tren inferior (Chair Stand), agilidad, equilibrio dinámico y riesgo de caída mediante la prueba Timed Up & Go (TUG) con carga cognitiva. Un segundo de mejora en estas pruebas transforma tu seguridad y calidad de vida.
+________________
+
+
+<Section 5: Soluciones Segmentadas>
+* UI Notes: Dos bloques grandes con anclajes distintos, dependiendo de la edad/interés del prospecto.
+[Copy Definitivo]
+Bloque A: ALTO RENDIMIENTO Título (H3): Datos para competir al máximo nivel Cuerpo de texto: Ayudamos a atletas y personas activas a optimizar su rendimiento mediante evaluaciones objetivas que permiten mejorar la fuerza, potencia, movilidad y prevención de lesiones. Beneficios: Mayor eficiencia biomecánica | Programación basada en evidencia | Reducción de riesgo de lesión.
+Bloque B: LONGEVIDAD CLÍNICA (ADULTOS MAYORES) Título (H3): Más años de vida. Más vida en esos años. Cuerpo de texto: Programas especializados para adultos mayores, diseñados a partir de criterios geriátricos que priorizan la seguridad, la preservación de la masa ósea (mitigando la osteopenia) y la autonomía. Beneficios: Prevención de sarcopenia y caídas | Mejora del equilibrio dinámico | Entorno médico supervisado.
+________________
+
+
+<Section 6: Autoridad Científica y Respaldo>
+* UI Notes: Mostrar logotipos de certificaciones médicas y deportivas si están disponibles.
+[Copy Definitivo] Título (H2): La ciencia detrás de cada decisión Cuerpo de texto: Nuestro sistema integra principios de biomecánica, control motor, ciencias del envejecimiento saludable y prevención de lesiones, respaldado por una red médica local y certificaciones internacionales (ISAK, McKenzie, Mulligan). Porque mejorar el rendimiento no depende de entrenar más. Depende de entrenar mejor.
+________________
+
+
+<Section 7: CTA Final (Conversión de Alto Valor)>
+* UI Notes: Bloque destacado con contraste Turquesa y Azul Profundo.
+[Copy Definitivo] Título (H2): Conoce cómo se mueve tu cuerpo antes de decidir cómo entrenarlo. Cuerpo de texto: Agenda una evaluación inicial y recibe un análisis profesional para construir un programa basado en evidencia científica y objetivos reales. [Botón de Conversión CTA]: [Iniciar Onboarding Médico] → (Abre Chat/Formulario conectado al Motor IA FrontDesk). [Botón Secundario de Baja Fricción]: [Hablar con el Staff Médico] → "¿Presenta hernias o desgaste articular? Permita que nuestro equipo valide su caso.".
+________________
+
+
+⚙️ Notas para el Desarrollador (Integración Backend):
+1. Formularios/CTAs: Todos los botones primarios deben lanzar el widget/formulario conectado a la base de datos athlos_engine_db vía la API Webhook en api/webhook_mensajeria.php.
+2. Captación de Datos (Onboarding): El NLP interceptará los datos solicitando 3 variables iniciales: Nombre Completo, Teléfono normalizado (Lada 612) y Objetivo de Salud, antes de ejecutar la deduplicación y crear el registro del lead en el CRM.
+3. Seguridad (Consent Gate): Es obligatorio implementar un Consent Gate de privacidad antes de procesar los datos clínicos en la base de datos para cumplir con la legalidad de datos sensibles (Mandamiento REGLA-01).

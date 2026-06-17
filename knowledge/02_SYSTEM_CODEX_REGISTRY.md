@@ -268,6 +268,50 @@
 | `ReporteRendimiento` | `views/diagnostico/reporte.html` | Page | Pendiente | `atletaId`, `metricas{}`, `percentiles{}` |
 | `AuditLogViewer` | `views/admin/audit_log.html` | Page | Pendiente | `logs[]`, `filtroCapaActivada` |
 | `FormIngestaExcel` | `components/form_ingesta.html` | UI/Logic | Pendiente | `onUpload()`, `resultadoNormalizacion{}` |
+| `AthlosHeader` | `components/athlos/AthlosHeader.tsx` | UI / Navigation | Produccion | Sin props. Renderiza marca, nav principal, CTA, menu movil y toggle de tema. |
+| `ThemeToggle` | `components/athlos/ThemeToggle.tsx` | UI / Theme | Produccion | Sin props. Persiste `athlos_theme` en `localStorage` y actualiza `data-theme`. |
+| `AthlosFooter` | `components/athlos/AthlosFooter.tsx` | UI / Layout | Produccion | Sin props. Renderiza contacto institucional y enlaces externos seguros. |
+| `CtaButton` | `components/athlos/CtaButton.tsx` | UI / Action | Produccion | `href`, `children`, `variant`, atributos anchor. |
+| `HeroSection` | `components/athlos/HeroSection.tsx` | UI / Landing | Produccion | Sin props. Hero mobile-first con copy oficial, CTAs y panel visual cientifico. |
+| `ServiceCard` | `components/athlos/ServiceCard.tsx` | UI / Card | Produccion | `eyebrow`, `title`, `description`, `metric`. |
+| `DifferentiationSection` | `components/athlos/DifferentiationSection.tsx` | UI / Landing | Produccion | Sin props. Copy oficial de diferenciacion + grid de pilares con iconografia minimalista + bloque `evidence-spotlight` con iframe social lazy. |
+| `MethodologyTimeline` | `components/athlos/MethodologyTimeline.tsx` | UI / Landing | Produccion | Sin props. Timeline de 4 fases (`#metodologia`). Cada fase renderiza media propia: `AthlosVideoPlayer` (fases 01 y 03) o retrato de coach con tinte azul (fases 02 y 04), mas icono SVG flotante. |
+| `EvaluationSplitSection` | `components/athlos/EvaluationSplitSection.tsx` | UI / Landing (Client) | Produccion | Sin props. Seccion `#evaluacion` con switcher de tabs accesible (`role="tablist"`) entre perfil Atletas/Longevidad. Mantiene estado `activeSegment` local. |
+| `SegmentedSolutions` | `components/athlos/SegmentedSolutions.tsx` | UI / Landing | Produccion | `segment: AthlosSegment`. Renderiza ficha de evaluacion clinica, bloque de solucion segmentada, card de evidencia social lazy y CTA hacia `#consent-gate`. |
+| `AthlosVideoPlayer` | `components/athlos/AthlosVideoPlayer.tsx` | UI / Media (Client) | Produccion | `src`, `poster`, `label`. Player custom: poster + boton play overlay, controles nativos solo tras interaccion del usuario, tinte azul `mix-blend-mode: color` permanente y filtro `grayscale/saturate` para neutralizar fondos de gimnasio convencional en el material grabado. |
+| `TeamSection` | `components/athlos/TeamSection.tsx` | UI / Landing | Produccion | Sin props. Seccion `#staff` con grid de 3 coaches (1 col movil, 3 col `>=42rem`). Foto cuadrada `border-radius: 8px` sin filtro, pie de foto limpio (nombre + cargo) y expertise a 2 lineas (`line-clamp`). |
+
+### Artefactos Frontend Landing Athlos (Modulos 1-2)
+
+| Archivo | Ruta | Tipo | Estado | Descripcion |
+| :--- | :--- | :--- | :--- | :--- |
+| `package.json` | `package.json` | Config / Next.js | Produccion | Scripts `dev`, `build`, `out`, `clean`; dependencias Next.js 16, React 19 y pnpm. |
+| `next.config.mjs` | `next.config.mjs` | Config / Next.js | Produccion | Static export habilitado con imagenes no optimizadas para hosting estatico. |
+| `tsconfig.json` | `tsconfig.json` | Config / TypeScript | Produccion | TypeScript estricto, path alias `@/*` y configuracion requerida por Next. |
+| `RootLayout` | `app/layout.tsx` | Layout / App Router | Produccion | Metadata SEO base, viewport y carga global de `athlos-theme.css`. |
+| `HomePage` | `app/page.tsx` | Page / Landing | Produccion | Ensambla header, hero, diferenciacion, metodologia, cards base y footer. |
+| `athlos-theme.css` | `styles/athlos-theme.css` | Design System | Produccion | Variables CSS corporativas, light/dark mode, layout mobile-first, microinteracciones y `prefers-reduced-motion` reforzado en panel visual del hero. |
+| `athlosContent` | `lib/athlosContent.ts` | Content Registry | Produccion | Navegacion, contacto institucional, pilares de diferenciacion y fases de metodologia, sin credenciales sensibles. |
+
+### Artefactos Frontend Landing Athlos (Modulo 3)
+
+| Archivo | Ruta | Tipo | Estado | Descripcion |
+| :--- | :--- | :--- | :--- | :--- |
+| `DIFFERENTIATION_PILLARS` | `lib/athlosContent.ts` | Content Registry | Produccion | Array de 3 pilares (titulo + descripcion) derivados del copy oficial de diferenciacion. |
+| `METHODOLOGY_PHASES` | `lib/athlosContent.ts` | Content Registry | Produccion | Array de 4 fases (`step`, `icon`, `title`, `description`) con el copy oficial del handoff. |
+
+### Artefactos Frontend Landing Athlos (Modulo 4)
+
+| Archivo | Ruta | Tipo | Estado | Descripcion |
+| :--- | :--- | :--- | :--- | :--- |
+| `SEGMENT_CONTENT` | `lib/athlosContent.ts` | Content Registry | Produccion | Objeto `atletas` / `longevidad` con copy oficial de evaluacion clinica (Section 4) y solucion segmentada (Section 5), terminologia real de periodizacion (`Mesociclo`, `Microciclo`, `Sesion`) extraida de `knowledge/Menores_65/Menor_65_03 Ficha plan de sesion.xlsx` y metricas clinicas SFT/TUG de `knowledge/Mayores_65/Mayor_65_02 Ficha Evaluación adulto mayor.docx`. |
+| `SOCIAL_EVIDENCE_LINKS` | `lib/athlosContent.ts` | Content Registry | Produccion | 2 de los 6 enlaces de `knowledge/Links_Redes_socailes.txt` asignados a Atletas (Instagram) y Longevidad (Facebook). |
+| `AthlosSegment` | `lib/athlosContent.ts` | Type | Produccion | `"atletas" \| "longevidad"`. Union derivada de `SEGMENT_CONTENT`. |
+| `DIFFERENTIATION_SPOTLIGHT` | `lib/athlosContent.ts` | Content Registry | Produccion | 3er enlace de `Links_Redes_socailes.txt` (Instagram Reel 2), usado en el iframe lazy de `DifferentiationSection`. Quedan 3 enlaces sin asignar, reservados para `EvidenceMediaSection` del Modulo 5. |
+| `ATHLOS_LOCAL_VIDEOS` | `lib/athlosContent.ts` | Content Registry | Produccion | Rutas publicas (`/media/*.mp4` + poster `.jpg`) de los 2 videos locales consumidos por `AthlosVideoPlayer` en `MethodologyTimeline`. El 3er video local (`entrenamiento-fuerza-controlada-laboratorio-athlos.mp4`) queda sin asignar. |
+| `getSocialEmbedSrc()` | `lib/socialEmbed.ts` | Util | Produccion | `(provider: "Instagram" \| "Facebook", href: string): string`. Construye URL de iframe embed oficial por proveedor (Facebook Video Plugin / Instagram `/embed`). |
+| `public/media/*` | `public/media/` | Static Assets | Produccion | Copias de los 2 videos locales + frames extraidos con `ffmpeg` como poster. Excepcion explicita `!public/media/*.mp4` agregada en `.gitignore` (decision del Arquitecto 2026-06-17): estos 2 archivos SI se versionan en Git para que el pipeline `deploy.yml` (basado en `actions/checkout`) los incluya automaticamente. La regla global `*.mp4` se mantiene para cualquier otro video fuera de esta carpeta. |
+| `COACHES` | `lib/athlosContent.ts` | Content Registry | Produccion | Array de 3 coaches (`slug`, `name`, `role`, `expertise`) para `TeamSection`. Rol de Arturo Naranjo (`Asesor Athlos Performance`) tomado literalmente de `knowledge/Menores_65/Menor_65_02 DATOS ANTROMPOMETRÍA ATHLOS.xlsx` (celda `ASESOR: Arturo Naranjo`). |
 
 **Reglas de Interfaz Aplicadas:**
 - `ModalConsentGate`: Bloquea cualquier navegación ulterior en la sesión si `consentGateStatus !== 'aceptado'`. No puede cerrarse sin decisión explícita del usuario.
