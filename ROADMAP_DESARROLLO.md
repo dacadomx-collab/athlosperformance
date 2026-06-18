@@ -325,3 +325,16 @@ Estado final: **arquitectura de dependencias blindada localmente y verificada de
 - [x] **Commit y push ejecutados** bajo autorización explícita del Arquitecto.
 
 Estado final: **pipeline corregido, auditado y verificado de extremo a extremo. Push a `main` ejecutado — el despliegue automático a `athlosperformance.tourfindy.com` está en curso**, sujeto a que el secreto `FTP_PASSWORD` ya esté configurado en GitHub.
+
+---
+
+## 13. Auditoría de Logotipo y .htaccess (2026-06-18)
+
+- [x] **Logotipo — código verificado, sin bug.** `AthlosHeader.tsx` ya importaba el archivo correcto (`athlos-performance-logotipo-circular.jpg`, vía `next/image` con import estático). Build local confirmó: el archivo se genera en `out/_next/static/media/`, y el `src` del HTML apunta exactamente a esa ruta — sin rutas rotas, sin `/_next/image?url=` (gracias a `images.unoptimized: true` ya configurado desde el Módulo 1). **El bug no estaba en el código del componente.**
+- [x] **Causa raíz real encontrada: `.htaccess` nunca llegaba al servidor.** El archivo vivía en la raíz del repo, no en `public/`, así que `next build` nunca lo copiaba a `/out/`. El pipeline (que solo sube `/out/`) jamás lo desplegó — cualquier `.htaccess` visto en producción fue configurado manualmente, desincronizado del repositorio.
+- [x] **Además, el `.htaccess` apuntaba a `index.php`** (`DirectoryIndex index.php` + rewrite a `index.php`), una reliquia de la arquitectura PHP original — exactamente lo contrario del objetivo declarado ("`index.html` como fuente de verdad"). Si ese archivo era el que estaba activo en el servidor, **esta es la explicación más probable del fallo de renderizado** (un `DirectoryIndex` apuntando a un archivo que no existe en el export estático puede romper la carga del documento raíz, arrastrando consigo todos sus recursos referenciados, incluido el logo).
+- [x] **Fix:** nuevo `public/.htaccess` con `DirectoryIndex index.html`, rewrite a `index.html`, `ErrorDocument 404 /404.html` (apuntando al 404 real que genera Next), y las mismas reglas de seguridad (bloqueo de `knowledge/`, `.git/`, extensiones sensibles, headers OWASP). Verificado: viaja correctamente a `out/.htaccess` en cada build.
+- [x] **`local-dir` del workflow revisado:** ya estaba correctamente configurado en `./out/` desde el Módulo 7.3 — no requería cambios. Se evaluó agregar `dangerous-clean-slate: true` para garantizar que ningún archivo de despliegues anteriores persista en el servidor, pero **se descartó**: es una acción destructiva sobre infraestructura remota compartida que el Arquitecto no solicitó explícitamente.
+- [x] **`.htaccess` de la raíz del repo, sin tocar:** posiblemente necesario para el entorno local de XAMPP/backend PHP (`api/conexion.php`). No se eliminó sin autorización explícita.
+
+Build de producción re-confirmado sin errores tras este fix.

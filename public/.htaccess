@@ -1,0 +1,53 @@
+# ===================================================================
+# HTACCESS BLINDAJE Y ENRUTAMIENTO ESTATICO — ATHLOS PERFORMANCE BCS
+# Sirve el export estatico de Next.js (index.html como fuente de verdad)
+# ===================================================================
+
+# Forzar reconocimiento explícito de index.html como DirectoryIndex
+DirectoryIndex index.html
+
+# Desactivar por completo el listado de directorios expuestos en el navegador
+Options -Indexes
+
+# Prevenir la lectura o alteración de enlaces simbólicos no autorizados
+Options -MultiViews
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # --- PROTECCIÓN MILITAR: DENEGAR ACCESO PÚBLICO A CAPAS CRÍTICAS ---
+    # Si intentan mapear los núcleos, bitácoras o gobernanza, Apache los bloquea con código 403 Forbidden
+    RewriteRule ^(knowledge|CORE|logs|\.git|\.github) - [F,L]
+
+    # --- PROTECCIÓN DE EXTENSIONES DE ARCHIVOS SENSIBLES ---
+    <FilesMatch "\\.(env|sql|log|git|md|yml|ini)$">
+        Require all denied
+    </FilesMatch>
+
+    # --- PIPELINE DE ENRUTAMIENTO ENMASCARADO (FRICCIÓN CERO) ---
+    # Si el recurso solicitado no coincide con un archivo físico existente...
+    RewriteCond %{REQUEST_FILENAME} !-f
+    # ...ni con un directorio real del servidor compartido...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    # ...redirigir de forma transparente a index.html (export estatico, sin backend PHP)
+    RewriteRule ^(.*)$ index.html [QSA,L]
+</IfModule>
+
+# --- PAGINA 404 GENERADA POR NEXT.JS ---
+ErrorDocument 404 /404.html
+
+# --- CABECERAS DEFENSIVAS DE SEGURIDAD ESTRICTAS (OWASP TOP 10) ---
+<IfModule mod_headers.c>
+    # Mitigar ataques de suplantación maliciosa de tipos de archivos (MIME-Sniffing)
+    Header set X-Content-Type-Options "nosniff"
+
+    # Bloquear Clickjacking obligando a denegar la renderización dentro de IFRAMES externos
+    Header set X-Frame-Options "DENY"
+
+    # Activar la protección contra scripts maliciosos cross-site (XSS) en navegadores legados
+    Header set X-XSS-Protection "1; mode=block"
+
+    # Forzar políticas de procedencia seguras
+    Header set Referrer-Policy "no-referrer-when-downgrade"
+</IfModule>
