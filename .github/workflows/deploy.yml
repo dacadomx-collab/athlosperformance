@@ -21,8 +21,6 @@ jobs:
 
       - name: "📦 Paso 2: Configurar pnpm"
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - name: "🟢 Paso 3: Configurar Node.js"
         uses: actions/setup-node@v4

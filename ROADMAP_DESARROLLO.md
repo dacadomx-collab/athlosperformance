@@ -314,3 +314,14 @@ Build de producción confirmado sin errores, `/out` verificado localmente con `i
 **Nota de transparencia:** la instrucción original (campo `pnpm` en `package.json`) no habría funcionado tal cual con la versión de pnpm pineada en este proyecto. Se corrigió a la ubicación real (`pnpm-workspace.yaml`) para que la política de seguridad blinde de verdad el pipeline, en vez de quedar como configuración silenciosamente ignorada.
 
 Estado final: **arquitectura de dependencias blindada localmente y verificada de extremo a extremo. Lista para el push de producción**, sujeto únicamente a la creación del secreto `FTP_PASSWORD` en GitHub.
+
+---
+
+## 12. Auditoría Estructural Final de Despliegue (2026-06-17, sexta pasada)
+
+- [x] **Conflicto de versiones P0 resuelto:** se removió `with: version: 11` del paso `pnpm/action-setup@v4` en `deploy.yml`. El instalador ahora lee automáticamente `pnpm@11.5.1` desde el campo `packageManager` de `package.json` — una sola fuente de verdad para la versión de pnpm en todo el pipeline, sin duplicación ni riesgo de desincronización.
+- [x] **Auditoría holística:** revisados `deploy.yml`, `package.json` y `pnpm-workspace.yaml` en conjunto — sin discrepancias de versiones de Node, políticas de build scripts, ni configuración de export estático.
+- [x] **Dry-run completo ejecutado:** `rm -rf .next out node_modules && pnpm install && pnpm build` — cero advertencias, cero errores, `sharp` con binario nativo intacto, `/out` generado con `index.html`, `_next/` y los 3 videos en `media/`.
+- [x] **Commit y push ejecutados** bajo autorización explícita del Arquitecto.
+
+Estado final: **pipeline corregido, auditado y verificado de extremo a extremo. Push a `main` ejecutado — el despliegue automático a `athlosperformance.tourfindy.com` está en curso**, sujeto a que el secreto `FTP_PASSWORD` ya esté configurado en GitHub.
