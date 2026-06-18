@@ -1,5 +1,6 @@
 import Link from "next/link"
-import { ATHLOS_CONTACT } from "@/lib/athlosContent"
+import { ATHLOS_CONTACT, ATHLOS_WHATSAPP_HREF } from "@/lib/athlosContent"
+import { FacebookIcon, InstagramIcon, MailIcon, WhatsappIcon } from "@/components/athlos/ContactIcons"
 
 export function AthlosFooter() {
   return (
@@ -10,13 +11,23 @@ export function AthlosFooter() {
           <p>Laboratorio de Ciencias del Ejercicio y Movimiento Humano en La Paz, BCS.</p>
         </div>
         <div className="footer-links">
-          <Link href={ATHLOS_CONTACT.instagram} target="_blank" rel="noopener noreferrer">
-            Instagram
-          </Link>
-          <Link href={ATHLOS_CONTACT.facebook} target="_blank" rel="noopener noreferrer">
-            Facebook
-          </Link>
-          <a href={`mailto:${ATHLOS_CONTACT.email}`}>Contacto</a>
+          <a href={ATHLOS_WHATSAPP_HREF} target="_blank" rel="noopener noreferrer">
+            <WhatsappIcon />
+            <span>WhatsApp</span>
+          </a>
+          <a href={`mailto:${ATHLOS_CONTACT.email}`}>
+            <MailIcon />
+            <span>Email</span>
+          </a>
+          <a href={ATHLOS_CONTACT.instagram} target="_blank" rel="noopener noreferrer">
+            <InstagramIcon />
+            <span>Instagram</span>
+          </a>
+          <a href={ATHLOS_CONTACT.facebook} target="_blank" rel="noopener noreferrer">
+            <FacebookIcon />
+            <span>Facebook</span>
+          </a>
+          <Link href="#contacto">Contacto</Link>
         </div>
       </div>
     </footer>

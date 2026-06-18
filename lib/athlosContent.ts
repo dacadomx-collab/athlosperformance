@@ -1,8 +1,9 @@
 export const ATHLOS_NAV_ITEMS = [
   { label: "Metodología", href: "#metodologia" },
-  { label: "Evaluación", href: "#evaluacion" },
-  { label: "Programas", href: "#programas" },
-  { label: "Autoridad", href: "#autoridad" }
+  { label: "Evaluación Médica", href: "#evaluacion" },
+  { label: "Nuestro Equipo", href: "#staff" },
+  { label: "Evidencia", href: "#autoridad" },
+  { label: "Contacto", href: "#contacto" }
 ] as const
 
 export const DIFFERENTIATION_SPOTLIGHT = {
@@ -32,7 +33,38 @@ export const COACHES = [
     role: "Asesor Athlos Performance",
     expertise:
       "Asesoría en composición corporal y antropometría; interpretación de datos de cada evaluación."
+  },
+  {
+    slug: "roberto-lopez",
+    name: "Roberto López",
+    role: "Coach Athlos Performance",
+    expertise:
+      "Seguimiento de cargas y periodización del entrenamiento para sostener el progreso en el tiempo."
   }
+] as const
+
+export const EVIDENCE_LINKS = [
+  {
+    provider: "Facebook",
+    label: "Sesión de fuerza controlada en laboratorio",
+    href: "https://www.facebook.com/share/r/1D6BnnZR3F/"
+  },
+  {
+    provider: "Instagram",
+    label: "Resultados medibles de un ciclo de entrenamiento",
+    href: "https://www.instagram.com/p/DX7OY33Ac31/?utm_source=ig_web_button_share_sheet&igsh=MzRlODBiNWFlZA=="
+  },
+  {
+    provider: "Instagram",
+    label: "Detrás de cámaras: evaluación funcional",
+    href: "https://www.instagram.com/reel/DXsJZEfkhC3/?utm_source=ig_web_button_share_sheet&igsh=MzRlODBiNWFlZA=="
+  }
+] as const
+
+export const CERTIFICATIONS = [
+  { name: "ISAK", description: "Antropometría y composición corporal" },
+  { name: "McKenzie", description: "Diagnóstico y terapia mecánica de columna" },
+  { name: "Mulligan", description: "Terapia manual y movilización articular" }
 ] as const
 
 export const ATHLOS_LOCAL_VIDEOS = {
@@ -45,7 +77,17 @@ export const ATHLOS_LOCAL_VIDEOS = {
     src: "/media/prescripcion-carga-mecanica-entrenamiento-athlos.mp4",
     poster: "/media/prescripcion-carga-mecanica-entrenamiento-athlos-poster.jpg",
     label: "Prescripción de carga mecánica"
+  },
+  seguimiento: {
+    src: "/media/entrenamiento-fuerza-controlada-laboratorio-athlos.mp4",
+    poster: "/media/entrenamiento-fuerza-controlada-laboratorio-athlos-poster.jpg",
+    label: "Seguimiento de fuerza controlada"
   }
+} as const
+
+export const ATHLOS_HERO_VIDEO = {
+  src: "/media/entrenamiento-fuerza-controlada-laboratorio-athlos.mp4",
+  poster: "/media/entrenamiento-fuerza-controlada-laboratorio-athlos-poster.jpg"
 } as const
 
 export const DIFFERENTIATION_PILLARS = [
@@ -143,5 +185,9 @@ export const ATHLOS_CONTACT = {
   facebook: "https://www.facebook.com/profile.php?id=61577545693430",
   email: "athlos.performance01@gmail.com",
   phone: "6122047708",
-  address: "Calle Altamirano #2730, La Paz, Baja California Sur"
+  address: "Calle Altamirano #2730, La Paz, Baja California Sur 23000"
 } as const
+
+export const ATHLOS_WHATSAPP_HREF = `https://wa.me/52${ATHLOS_CONTACT.phone}`
+
+export const ATHLOS_MAPS_HREF = "https://maps.app.goo.gl/jxgaXbnfth5a8xmc9"

@@ -1,6 +1,6 @@
 # ===================================================================
-# AUTOMATED DEPLOYMENT WORKFLOW — METODOLOGÍA CI/CD DCD LABS
-# DESPLIEGUE SEGURO PARA ATHLOS PERFORMANCE DESDE REPOSITORIO GITHUB
+# AUTOMATED DEPLOYMENT WORKFLOW — ATHLOS PERFORMANCE BCS
+# Build estatico (Next.js output: "export") + despliegue FTP a cPanel
 # ===================================================================
 
 name: Pipeline de Despliegue Automatizado Athlos Performance
@@ -11,40 +11,37 @@ on:
       - main
 
 jobs:
-  ftp-deploy:
-    name: Despliegue Continuo de Infraestructura Cognitiva
+  build-and-deploy:
+    name: Build Estatico y Despliegue FTP
     runs-on: ubuntu-latest
-    
-    steps:
-      - name: "🚚 Paso 1: Clonar e Inyectar Codigo Fuente en Maquina Virtual"
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: "🚀 Paso 2: Ejecutar Transferencia Sincronizada FTP Blindada"
+    steps:
+      - name: "🚚 Paso 1: Clonar Repositorio"
+        uses: actions/checkout@v4
+
+      - name: "📦 Paso 2: Configurar pnpm"
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+
+      - name: "🟢 Paso 3: Configurar Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: "⬇️ Paso 4: Instalar Dependencias"
+        run: pnpm install --frozen-lockfile
+
+      - name: "🏗️ Paso 5: Construir Sitio Estatico (next build → /out)"
+        run: pnpm build
+
+      - name: "🚀 Paso 6: Desplegar /out via FTP a cPanel"
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
+          server: ftp.tourfindy.com
+          username: ftp_user@athlosperformance.tourfindy.com
           password: ${{ secrets.FTP_PASSWORD }}
           port: 21
-          server-dir: ./
-          exclude: |
-            .git*
-            .git*/
-            .github/
-            .github/workflows/**
-            knowledge/
-            knowledge/**
-            CORE/.env
-            logs/
-            logs/**
-            node_modules/
-            node_modules/**
-            z/node_modules/
-            z/node_modules/**
-            .next/
-            .pnp*
-            CLAUDE.md
-            *.sql
-            *.md
+          local-dir: ./out/
+          server-dir: /home/tourfindycom/public_html/athlosperformance/

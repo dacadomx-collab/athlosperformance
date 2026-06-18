@@ -1,7 +1,10 @@
-import Link from "next/link"
-import type { AnchorHTMLAttributes, ReactNode } from "react"
+"use client"
 
-type CtaVariant = "primary" | "secondary" | "ghost"
+import Link from "next/link"
+import type { AnchorHTMLAttributes, MouseEvent as ReactMouseEvent, ReactNode } from "react"
+import { useConsentGate } from "@/lib/consentGateContext"
+
+type CtaVariant = "primary" | "secondary"
 
 interface CtaButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   href: string
@@ -9,9 +12,27 @@ interface CtaButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   variant?: CtaVariant
 }
 
-export function CtaButton({ href, children, variant = "primary", className = "", ...props }: CtaButtonProps) {
+export function CtaButton({ href, children, variant = "primary", className = "", onClick, ...props }: CtaButtonProps) {
+  const { openConsentGate } = useConsentGate()
+  const classes = `cta-button cta-button--${variant} ${className}`.trim()
+
+  if (href === "#consent-gate") {
+    return (
+      <button
+        type="button"
+        className={classes}
+        onClick={(event) => {
+          onClick?.(event as unknown as ReactMouseEvent<HTMLAnchorElement>)
+          openConsentGate()
+        }}
+      >
+        <span>{children}</span>
+      </button>
+    )
+  }
+
   return (
-    <Link className={`cta-button cta-button--${variant} ${className}`.trim()} href={href} {...props}>
+    <Link className={classes} href={href} onClick={onClick} {...props}>
       <span>{children}</span>
     </Link>
   )

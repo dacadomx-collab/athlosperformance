@@ -1,6 +1,3 @@
-import Image from "next/image"
-import bernardoLobo from "@/assets/img/bernardo-lobo-coach-athlos-performance.jpg"
-import luisMoctezuma from "@/assets/img/luis-moctezuma-coach-athlos-performance.jpg"
 import { ATHLOS_LOCAL_VIDEOS, METHODOLOGY_PHASES } from "@/lib/athlosContent"
 import { AthlosVideoPlayer } from "@/components/athlos/AthlosVideoPlayer"
 
@@ -55,10 +52,15 @@ function PhaseMedia({ step }: { step: string }) {
       )
     case "02":
       return (
-        <div className="media-portrait">
-          <Image src={bernardoLobo} alt="" fill sizes="(min-width: 62rem) 22vw, 90vw" />
-          <span className="media-portrait__tint" aria-hidden="true" />
-          <span className="media-portrait__caption">Bernardo Lobo · Coach Athlos</span>
+        <div className="phase-data-panel">
+          <span className="phase-data-panel__grid" aria-hidden="true" />
+          <div className="phase-data-panel__bars" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+          <span className="phase-data-panel__label">Procesamiento de datos</span>
         </div>
       )
     case "03":
@@ -71,11 +73,11 @@ function PhaseMedia({ step }: { step: string }) {
       )
     case "04":
       return (
-        <div className="media-portrait">
-          <Image src={luisMoctezuma} alt="" fill sizes="(min-width: 62rem) 22vw, 90vw" />
-          <span className="media-portrait__tint" aria-hidden="true" />
-          <span className="media-portrait__caption">Luis Moctezuma · Coach Athlos</span>
-        </div>
+        <AthlosVideoPlayer
+          src={ATHLOS_LOCAL_VIDEOS.seguimiento.src}
+          poster={ATHLOS_LOCAL_VIDEOS.seguimiento.poster}
+          label={ATHLOS_LOCAL_VIDEOS.seguimiento.label}
+        />
       )
     default:
       return null

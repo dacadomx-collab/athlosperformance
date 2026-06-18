@@ -1,4 +1,6 @@
+import { ATHLOS_HERO_VIDEO } from "@/lib/athlosContent"
 import { CtaButton } from "@/components/athlos/CtaButton"
+import { HeroBackgroundVideo } from "@/components/athlos/HeroBackgroundVideo"
 
 const heroMetrics = [
   ["01", "Evaluación integral"],
@@ -20,7 +22,7 @@ export function HeroSection() {
               salud y longevidad.
             </p>
           </div>
-          <div className="hero__actions" id="onboarding">
+          <div className="hero__actions">
             <CtaButton href="#consent-gate">Agendar Evaluación Inicial</CtaButton>
             <CtaButton href="#metodologia" variant="secondary">
               Conoce Nuestra Metodología
@@ -29,7 +31,8 @@ export function HeroSection() {
         </div>
 
         <div className="hero-visual" aria-label="Panel visual de análisis Athlos">
-          <div className="hero-visual__grid" />
+          <HeroBackgroundVideo src={ATHLOS_HERO_VIDEO.src} poster={ATHLOS_HERO_VIDEO.poster} />
+          <span className="hero-visual__tint" aria-hidden="true" />
           <div className="hero-visual__card hero-visual__card--primary">
             <span>Biomecánica</span>
             <strong>92%</strong>
@@ -39,11 +42,6 @@ export function HeroSection() {
             <span>Carga óptima</span>
             <strong>4 fases</strong>
             <small>seguimiento continuo</small>
-          </div>
-          <div className="hero-visual__body-map">
-            <span />
-            <span />
-            <span />
           </div>
         </div>
       </div>

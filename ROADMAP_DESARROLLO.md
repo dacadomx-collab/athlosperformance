@@ -180,36 +180,49 @@ Punto de control: DETENIDO para validar sensibilidad médica y precisión del me
 
 ### Módulo 5 - Evidencia Social y Autoridad
 
-- [ ] Construir `EvidenceMediaSection` con enlaces sociales externos optimizados.
-- [ ] Usar lazy links/cards, no embeds pesados en primera carga.
-- [ ] Construir `AuthoritySection` con red médica/certificaciones mencionadas en handoff.
-- [ ] Integrar staff portraits como prueba humana, sin convertirlos en sección egocéntrica.
-- [ ] Todos los enlaces externos deben usar `target="_blank"` y `rel="noopener noreferrer"`.
+- [x] Construir `EvidenceSection` (consolida `EvidenceMediaSection` + `AuthoritySection`) con enlaces sociales externos optimizados.
+- [x] Usar lazy links/cards, no embeds pesados en primera carga.
+- [x] Bloque de certificaciones (ISAK, McKenzie, Mulligan) con copy del handoff.
+- [x] Staff portraits ya integrados como prueba humana en `TeamSection` (módulo previo), sin convertirlos en sección egocéntrica.
+- [x] Todos los enlaces externos usan `target="_blank"` y `rel="noopener noreferrer"`.
 
-Punto de control: DETENERSE para validar qué videos/reels representan mejor autoridad real.
+**Nota de datos:** de los 6 enlaces en `Links_Redes_socailes.txt`, 3 ya estaban asignados a Módulos 3-4 (`DIFFERENTIATION_SPOTLIGHT`, `SOCIAL_EVIDENCE_LINKS`). Solo quedaban **3 enlaces disponibles** para este módulo, no 4 — se usaron los 3 reales (`EVIDENCE_LINKS`), agotando el archivo fuente. No se inventó un cuarto enlace.
+
+**Consolidación de flujo confirmada:** Hero → Diferenciación → Metodología → Equipo → Evaluación clínica (Módulo 4) → Evidencia Social y Autoridad (Módulo 5) → Footer. El CTA Final/Consent Gate (Módulo 6) se conecta vía el ancla `#consent-gate` ya usada en todos los CTA existentes; el diálogo en sí aún no se construye.
+
+**Limpieza de dead code:** se retiró de `app/page.tsx` el bloque placeholder "Arquitectura de servicio" (Módulo 1) que duplicaba contenido ya cubierto por `EvaluationSplitSection`/`SegmentedSolutions`. `ServiceCard.tsx` quedó huérfano (sin imports) — el sistema de permisos bloqueó su borrado físico por no haber instrucción explícita; queda pendiente de tu autorización para eliminarlo.
+
+Punto de control: DETENIDO para validar autoridad real, certificaciones y los 3 videos/reels usados.
 
 ### Módulo 6 - CTA Final y Consent Gate UX
 
-- [ ] Construir `FinalCtaSection`.
-- [ ] Construir `ConsentLeadDialog` o stub funcional del flujo de consentimiento.
-- [ ] Capturar solo variables iniciales permitidas: `nombreCompleto`, `telefono`, `objetivoDeclarado`.
-- [ ] No persistir ni enviar datos clínicos sensibles antes de aceptación explícita.
-- [ ] Preparar payload alineado con contratos existentes si se integra backend.
-- [ ] Mensajes claros: evaluación profesional, no diagnóstico online.
+- [x] Construir `FinalCtaSection` (Sección 7 del handoff, fondo fijo `#0E3A5D`, botones `#00B8C9`).
+- [x] Construir `ConsentLeadDialog` como stub funcional: modal de 3 pasos (consentimiento → formulario → confirmación).
+- [x] Capturar solo variables iniciales permitidas: `nombreCompleto`, `telefono`, `objetivoDeclarado`.
+- [x] No persistir ni enviar datos clínicos sensibles antes de aceptación explícita: el paso `form` es inalcanzable sin marcar el checkbox obligatorio de consentimiento (REGLA-01).
+- [x] Preparar payload alineado con contratos existentes si se integra backend: `{ nombreCompleto, telefono, objetivoDeclarado, consentGateStatus: "aceptado" }`, JSON UTF-8, listo para `api/webhook_mensajeria.php`.
+- [x] Mensajes claros: evaluación profesional, no diagnóstico online (disclaimer en el paso `form`).
+- [x] CtaButton: cualquier CTA con `href="#consent-gate"` ahora abre el modal (`ConsentGateProvider` global en `app/layout.tsx`) en vez de navegar — cubre Hero, ambos paneles de `SegmentedSolutions` y `FinalCtaSection` con una sola regla, sin tocar componente por componente.
+- [x] CTA secundario de `FinalCtaSection` abre WhatsApp directo del staff médico (`wa.me/52<telefono>`).
+- [x] Limpieza: `ServiceCard.tsx` y su CSS (`.service-grid`, `.service-card*`) eliminados — autorizado explícitamente por el Arquitecto.
 
-Punto de control: DETENERSE para validar legalidad, copy y comportamiento del CTA.
+**Pendiente de decisión humana (fuera de alcance de este módulo):** el payload del lead solo se loguea en consola (`console.log`) como stub — no hay integración real con `api/webhook_mensajeria.php` todavía, ya que este proyecto Next usa `output: "export"` (sin API routes server-side). Conectar el envío real requiere definir el endpoint HTTP que la PHP API expondrá para este formulario.
+
+Punto de control: DETENIDO para validar legalidad, copy y comportamiento del CTA antes de Módulo 7.
 
 ### Módulo 7 - Performance, Accesibilidad y QA
 
 - [ ] Ejecutar build.
-- [ ] Auditar navegación por teclado.
-- [ ] Validar contraste light/dark.
-- [ ] Validar mobile-first en anchos 360px, 390px, 430px, tablet y desktop.
-- [ ] Optimizar videos: preload controlado, poster, lazy-load, `playsInline`, `muted`.
-- [ ] Revisar dead code, imports y assets no usados.
-- [ ] Generar reporte técnico de hito e indexarlo si existe `/reportes`.
+- [x] Auditar navegación por teclado: verificado en navegador real vía CDP (focus trap, Tab/Shift+Tab circular, Escape, restauración de foco) en `ConsentLeadDialog`.
+- [x] Validar contraste light/dark: corregido `--athlos-turquoise-text` (2.5:1 → 5.5:1 en modo claro) + bug de especificidad CSS preexistente que anulaba el color de todos los `.section-kicker`/`.footer-kicker`.
+- [x] Validar mobile-first en anchos 360px, 390px, 430px, tablet y desktop: 0 overflow horizontal medido (`scrollWidth === clientWidth`) en los 5 anchos.
+- [x] Optimizar videos: `preload="none"`, poster real (`ffmpeg`), `playsInline`, `muted` — ya cumplido desde Módulo 3-4, confirmado sin cambios.
+- [x] Revisar dead code, imports y assets no usados: `ServiceCard.tsx`, variant `ghost`, `console.log` de debug eliminados; 0 `TODO`/`FIXME` restantes.
+- [x] Generar reporte técnico de hito: `REPORTE_TECNICO_FINAL.md` en la raíz del proyecto.
 
-Punto de control: DETENERSE antes de cualquier preparación de deploy.
+**Hallazgo fuera de alcance, documentado para decisión humana:** `api/webhook_mensajeria.php` no es un endpoint apto para recibir el payload del `ConsentLeadDialog` (valida firma Meta y espera payload de Meta, no JSON del formulario web). Ver sección 6.2 de `REPORTE_TECNICO_FINAL.md` para las dos rutas de integración propuestas. No se creó código backend nuevo sin autorización (Mandamiento 9).
+
+Punto de control: MÓDULO 7 CERRADO. Build de producción confirmado sin errores. Listo para revisión humana final y despliegue.
 
 ---
 
@@ -235,7 +248,24 @@ Recomiendo iniciar con Módulo 1 usando Next.js / React, porque `CLAUDE.md` lo d
 - **Riesgo detectado y mitigado:** los frames extraídos de los videos locales muestran un gimnasio convencional con señalética genérica (contradice la regla "prohibido imágenes de gimnasio tradicionales" del handoff). Se aplicó `grayscale + saturate + tinte azul #0E3A5D al 40% en mix-blend-mode: color` para abstraer el fondo y alinearlo a la estética de laboratorio. Recomendación pendiente de validación humana: regrabar este material en el entorno real de Athlos cuando sea posible.
 - **Gap de despliegue detectado:** `*.mp4` está excluido de Git por `.gitignore`; los videos en `public/media/` no viajarán por el pipeline `deploy.yml` actual. Requiere decisión humana sobre subida manual/FTP directa o ajuste del pipeline.
 
-Estado actual: MODULOS 1-3 CERRADOS. MODULO 4 IMPLEMENTADO. MEJORA VISUAL APLICADA A MODULOS 3-4. DETENIDO PARA VALIDACION DE SENSIBILIDAD MEDICA Y CLARIDAD VISUAL ANTES DE MODULO 5.
+Estado actual: MODULOS 1-7 COMPLETOS. QA, ACCESIBILIDAD Y PERFORMANCE VALIDADOS EN NAVEGADOR REAL. PENDIENTE UNICAMENTE: decision humana sobre integracion backend real del lead (ver REPORTE_TECNICO_FINAL.md seccion 6.2) y, opcionalmente, `.env.example` + configuracion de ESLint.
+
+---
+
+## 8. Módulo 7.1 — Refinamiento Post-Auditoría Visual Humana (2026-06-17)
+
+La auditoría visual humana detectó 4 problemas que la verificación automatizada del Módulo 7 no cubrió (texto ilegible en zonas específicas, UX de videos sociales, navegación larga sin retorno rápido, enlace de contacto huérfano):
+
+- [x] **Bug crítico de contraste corregido:** el degradado de `body` mezclaba un color de tema variable con `var(--athlos-deep-blue)` fijo, generando zonas oscuras inesperadas en modo claro (footer, certificaciones) donde el texto se volvía casi invisible. Nueva variable `--body-gradient-end`, theme-aware. Verificado antes/después con capturas de pantalla reales.
+- [x] **Embebido real de Instagram/Facebook:** `EvidenceSection` ahora usa `SocialEmbedFacade` — póster con botón play que monta un `<iframe loading="lazy">` real solo al hacer clic (patrón facade, cero peso de red hasta interacción).
+- [x] **Botón "Volver Arriba":** `BackToTop`, FAB fijo inferior-derecha, aparece tras 600px de scroll, `scrollTo({behavior:"smooth"})`, optimizado para táctil (52px, `env(safe-area-inset-*)`).
+- [x] **Sección de Contacto resuelta:** `ContactSection` (`#contacto`) con dirección + enlace a Google Maps + CTA de WhatsApp, antes del Footer. El enlace "Contacto" del footer ahora apunta a `#contacto` (antes `mailto:`, huérfano respecto a la estrategia SPA).
+
+Todo verificado empíricamente en navegador real (Chrome headless vía CDP): overflow en 5 anchos sin regresión, focus trap del modal sin regresión, facade→iframe confirmado por DOM, FAB confirmado funcionalmente, contraste confirmado con capturas antes/después.
+
+**Hallazgo adicional sin corregir (fuera de alcance de esta petición):** el nav item "Programas" (`#programas`) también es un ancla huérfana — no existe ninguna sección con ese id. Mismo patrón que tenía "Contacto". Pendiente de decisión del Arquitecto.
+
+Build de producción confirmado sin errores tras todos los cambios.
 
 **AJUSTE DE PULIDO VISUAL Y TECNICO (2026-06-17, segunda pasada):**
 - Hero: eliminado el elemento `hero-visual__scanline` ("escáner") y su `@keyframes scan` (dead code). Sustituido por separador tipográfico: línea vertical de 1px `#3F6E8A` (`hero__title-group::before`) conectando H1 y subtítulo.
@@ -244,3 +274,30 @@ Estado actual: MODULOS 1-3 CERRADOS. MODULO 4 IMPLEMENTADO. MEJORA VISUAL APLICA
 - **Dato pendiente de validación humana:** no existe en la base de conocimiento una certificación/especialidad verificada por coach. Se usaron descripciones genéricas y seguras (rol + expertise breve) en vez de atribuir certificaciones específicas (ISAK/McKenzie/Mulligan) sin confirmación, para evitar credenciales no verificadas. Reemplazar con bios reales antes de lanzamiento.
 - Legibilidad: pies de foto/video (`.media-portrait__caption`, `.video-player__label`) reforzados con `backdrop-filter: blur(10px)` y mayor opacidad de fondo.
 - Gap de despliegue resuelto: excepción `!public/media/*.mp4` en `.gitignore` — los 2 videos de la landing ahora se versionan en Git y viajarán por el pipeline `deploy.yml` existente sin pasos manuales. El filtro azulado sobre el material de gimnasio se mantiene como mitigación visual, pendiente de validación con cliente/regrabación futura.
+
+---
+
+## 9. Módulo 7.2 — Refinamiento UX/UI y Auditoría de Flujo (2026-06-17, tercera pasada)
+
+- [x] **Nuestro Equipo:** se agregó el 4to coach (Roberto López, faltaba). Se corrigió el encuadre de fotos (`aspect-ratio: 1/1` → `4/5` + `object-position: center 18%`) para no cortar rostros. Se agregó interactividad: clic en cualquier tarjeta abre `CoachLightbox` con la foto ampliada y el nombre.
+- [x] **Metodología:** las fases 02 y 04 mostraban fotos de coaches, rompiendo la narrativa científica. Fase 02 ahora usa un panel abstracto CSS (`phase-data-panel`: grid + barras de datos, sin fotografía humana). Fase 04 ahora usa el 3er video local (`entrenamiento-fuerza-controlada-laboratorio-athlos.mp4`) en `AthlosVideoPlayer`. Verificado: cero fotos de coach en `MethodologyTimeline`.
+- [x] **Hero:** el panel abstracto (grid + "mapa corporal" CSS) fue sustituido por un video real de fondo en loop (`HeroBackgroundVideo`), `muted`/`playsInline`, con tinte azul `--athlos-deep-blue` al 50% y los chips flotantes ("Biomecánica 92%", "4 fases") por encima (`z-index: 2`). El video solo se reproduce vía JS si `prefers-reduced-motion` no está activo (fallback estático automático, sin atributo `autoPlay`).
+- [x] **Navbar reestructurado:** Metodología → Evaluación Médica → Nuestro Equipo → Evidencia → Contacto. Eliminado el ítem "Programas" (ancla huérfana `#programas` sin sección, detectada en el Módulo 7.1) en vez de inventar una sección falsa para sostenerlo. Los 5 enlaces verificados en navegador: los 5 resuelven a un elemento real en el DOM.
+
+**Reutilización de assets:** el 3er video local (antes sin asignar) ahora se usa en dos contextos distintos — fondo ambiental del Hero y card de la Fase 04 — sin necesidad de grabar/conseguir material nuevo.
+
+Todo verificado empíricamente en navegador real: overflow en 7 anchos (360/390/430/768/992/1100/1440, incluyendo la zona de presión del nuevo nav de 5 ítems) sin regresión, foco del modal de Consent Gate sin regresión, capturas de pantalla confirmando Hero/Equipo/Lightbox/Metodología.
+
+Build de producción confirmado sin errores. Estado: **Módulos 1-7 + refinamientos 7.1 y 7.2 completos.**
+
+---
+
+## 10. Módulo 7.3 — Ingesta de Contacto y Configuración CI/CD (2026-06-17, cuarta pasada)
+
+- [x] **Contacto enriquecido:** `ContactSection` y `AthlosFooter` ahora muestran los 5 canales oficiales (dirección con enlace corto de Google Maps, WhatsApp, email, Instagram, Facebook) con íconos SVG minimalistas (`ContactIcons.tsx`). Colores verificados en navegador en ambos temas usando las variables ya auditadas en Módulo 7 (`--text-secondary` / `--athlos-turquoise-text`).
+- [x] **Botón "Agendar" del header unificado:** desktop y móvil ahora usan `href="#consent-gate"`, igual que "Iniciar Onboarding Médico". `CtaButton` extendido para reenviar el `onClick` del caller (necesario para que el botón del menú móvil cierre el menú Y abra el modal en el mismo clic). Verificado: el botón se renderiza como `<button>`, no `<a>`, y abre el modal en ambos contextos.
+- [x] **Pipeline CI/CD reescrito:** `.github/workflows/deploy.yml` ahora instala dependencias, ejecuta `pnpm build` (genera `/out` por `output: "export"`) y despliega esa carpeta vía FTP a `ftp.tourfindy.com` con las credenciales indicadas. Contraseña vía `${{ secrets.FTP_PASSWORD }}` — nunca hardcodeada.
+
+**Acción pendiente del Arquitecto, obligatoria antes del primer push con este workflow:** crear el secreto `FTP_PASSWORD` en GitHub (Settings → Secrets and variables → Actions). Sin él, el paso de FTP fallará aunque el build se ejecute correctamente.
+
+Build de producción confirmado sin errores, `/out` verificado localmente con `index.html`, `_next/` y los 3 videos en `media/`. Estado: **Módulos 1-7 + refinamientos 7.1, 7.2 y 7.3 completos. Listo para commit de producción**, sujeto a la creación del secreto `FTP_PASSWORD`.

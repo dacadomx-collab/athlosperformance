@@ -49,7 +49,7 @@ export function AthlosHeader() {
 
         <div className="site-header__actions">
           <ThemeToggle />
-          <CtaButton className="site-header__cta" href="#onboarding" variant="primary">
+          <CtaButton className="site-header__cta" href="#consent-gate" variant="primary">
             Agendar
           </CtaButton>
           <button
@@ -76,7 +76,7 @@ export function AthlosHeader() {
               </Link>
             ))}
           </nav>
-          <CtaButton href="#onboarding" onClick={closeMenu}>
+          <CtaButton href="#consent-gate" onClick={closeMenu}>
             Agendar Evaluación Inicial
           </CtaButton>
         </div>

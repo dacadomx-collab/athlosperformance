@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next"
 import "@/styles/athlos-theme.css"
+import { BackToTop } from "@/components/athlos/BackToTop"
+import { ConsentLeadDialog } from "@/components/athlos/ConsentLeadDialog"
+import { ConsentGateProvider } from "@/lib/consentGateContext"
 
 export const metadata: Metadata = {
   title: "Athlos Performance BCS | Laboratorio de Ciencias del Ejercicio",
@@ -17,7 +20,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        <ConsentGateProvider>
+          {children}
+          <ConsentLeadDialog />
+        </ConsentGateProvider>
+        <BackToTop />
+      </body>
     </html>
   )
 }
