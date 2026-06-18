@@ -334,6 +334,16 @@ Todo lo anterior verificado en navegador real (Chrome headless via CDP): overflo
 
 **Accion pendiente del Arquitecto (obligatoria antes del primer push a `main` con este workflow):** crear el secreto `FTP_PASSWORD` en GitHub → Settings → Secrets and variables → Actions → New repository secret, con la contraseña real de `ftp_user@athlosperformance.tourfindy.com`. Sin este secreto, el paso de despliegue FTP fallara (el workflow de build SI se ejecutara correctamente).
 
+### Artefactos Frontend Landing Athlos (Modulo 7.4 — Auditoria Estructural de Despliegue)
+
+| Archivo | Ruta | Tipo | Estado | Descripcion |
+| :--- | :--- | :--- | :--- | :--- |
+| `pnpm-workspace.yaml` | `pnpm-workspace.yaml` | Config / pnpm | Produccion | **Correccion de raiz, no ubicacion original solicitada.** Se intento declarar `pnpm.onlyBuiltDependencies` dentro de `package.json` (instruccion original); pnpm 11.5.1 emite `[WARN] The "pnpm" field in package.json is no longer read by pnpm` — esa clave se ignora silenciosamente en esta version. La ubicacion real y funcional es `pnpm-workspace.yaml` (ver `https://pnpm.io/settings`). Contenido final: `onlyBuiltDependencies: [sharp]` + `allowBuilds: { sharp: true }` (esta segunda clave la escribe automaticamente `pnpm approve-builds`, no se edito a mano). |
+| `package.json` (revertido) | `package.json` | Config | Produccion | El campo `"pnpm": { "onlyBuiltDependencies": [...] }` fue removido tras confirmar que pnpm 11.5.1 no lo lee — dejarlo habria sido config muerta y enganosa (Mandamiento 8). |
+| Aprobacion de build de `sharp` | N/A (estado en `pnpm-workspace.yaml`) | Supply-chain security | Produccion | `onlyBuiltDependencies` por si solo NO desbloquea el script de instalacion ya bloqueado de una corrida previa — se requirio ejecutar `pnpm approve-builds sharp` (no interactivo, sin prompts) para registrar la aprobacion real. Verificado con reinstalacion limpia (`rm -rf node_modules && pnpm install --frozen-lockfile`): cero advertencias, cero `ERR_PNPM_IGNORED_BUILDS`. Binario nativo confirmado en `node_modules/.pnpm/@img+sharp-win32-x64@0.34.5/.../sharp-win32-x64.node`, `sharp` cargado y funcional (`vips 8.17.3`). |
+
+**Diagnostico final:** `pnpm build` genera `/out` con integridad total — `index.html`, `_next/`, y los 3 videos `.mp4` + sus posters en `media/`. La arquitectura de dependencias esta blindada localmente (lockfile + `pnpm-workspace.yaml` versionados) y lista para que el pipeline de GitHub Actions ejecute `pnpm install --frozen-lockfile` sin bloqueos de supply-chain ni pasos de terminal improvisados.
+
 ### Artefactos Frontend Landing Athlos (Modulos 1-2)
 
 | Archivo | Ruta | Tipo | Estado | Descripcion |

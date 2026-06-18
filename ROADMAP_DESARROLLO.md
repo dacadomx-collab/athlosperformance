@@ -301,3 +301,16 @@ Build de producción confirmado sin errores. Estado: **Módulos 1-7 + refinamien
 **Acción pendiente del Arquitecto, obligatoria antes del primer push con este workflow:** crear el secreto `FTP_PASSWORD` en GitHub (Settings → Secrets and variables → Actions). Sin él, el paso de FTP fallará aunque el build se ejecute correctamente.
 
 Build de producción confirmado sin errores, `/out` verificado localmente con `index.html`, `_next/` y los 3 videos en `media/`. Estado: **Módulos 1-7 + refinamientos 7.1, 7.2 y 7.3 completos. Listo para commit de producción**, sujeto a la creación del secreto `FTP_PASSWORD`.
+
+---
+
+## 11. Módulo 7.4 — Auditoría Estructural de Despliegue (2026-06-17, quinta pasada)
+
+- [x] **Hotfix de terminal eliminado del workflow:** `pnpm config set only-built-dependencies sharp` ya no existe en `deploy.yml`; el paso de instalación quedó reducido a `pnpm install --frozen-lockfile`.
+- [x] **Política de dependencias declarada de forma nativa** — con una corrección de ubicación real: la instrucción original pedía declarar `pnpm.onlyBuiltDependencies` dentro de `package.json`, pero `pnpm 11.5.1` advierte explícitamente que ese campo **ya no se lee** ahí. La ubicación funcional correcta es `pnpm-workspace.yaml` (nuevo archivo). Se removió el campo muerto de `package.json`.
+- [x] **Aprobación real del build de `sharp`:** declarar `onlyBuiltDependencies` no fue suficiente por sí solo — se requirió `pnpm approve-builds sharp` (no interactivo) para que pnpm registrara la aprobación. Verificado con reinstalación 100% limpia (`rm -rf node_modules`): cero advertencias, binario nativo `@img/sharp-win32-x64` presente y funcional.
+- [x] **Dry-run de `pnpm build` ejecutado:** `/out` generado con integridad total — `index.html`, `_next/`, y los 3 videos `.mp4` + posters en `media/`.
+
+**Nota de transparencia:** la instrucción original (campo `pnpm` en `package.json`) no habría funcionado tal cual con la versión de pnpm pineada en este proyecto. Se corrigió a la ubicación real (`pnpm-workspace.yaml`) para que la política de seguridad blinde de verdad el pipeline, en vez de quedar como configuración silenciosamente ignorada.
+
+Estado final: **arquitectura de dependencias blindada localmente y verificada de extremo a extremo. Lista para el push de producción**, sujeto únicamente a la creación del secreto `FTP_PASSWORD` en GitHub.

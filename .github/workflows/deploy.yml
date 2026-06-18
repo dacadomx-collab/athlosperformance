@@ -22,18 +22,16 @@ jobs:
       - name: "📦 Paso 2: Configurar pnpm"
         uses: pnpm/action-setup@v4
         with:
-          version: 11.5.1
+          version: 11
 
       - name: "🟢 Paso 3: Configurar Node.js"
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22"
           cache: "pnpm"
 
       - name: "⬇️ Paso 4: Instalar Dependencias"
-        run: |
-          pnpm config set only-built-dependencies sharp
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: "🏗️ Paso 5: Construir Sitio Estatico (next build → /out)"
         run: pnpm build
