@@ -31,7 +31,9 @@ jobs:
           cache: "pnpm"
 
       - name: "⬇️ Paso 4: Instalar Dependencias"
-        run: pnpm install --frozen-lockfile
+        run: |
+          pnpm config set only-built-dependencies sharp
+          pnpm install --frozen-lockfile
 
       - name: "🏗️ Paso 5: Construir Sitio Estatico (next build → /out)"
         run: pnpm build
