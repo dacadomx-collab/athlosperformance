@@ -338,3 +338,14 @@ Estado final: **pipeline corregido, auditado y verificado de extremo a extremo. 
 - [x] **`.htaccess` de la raíz del repo, sin tocar:** posiblemente necesario para el entorno local de XAMPP/backend PHP (`api/conexion.php`). No se eliminó sin autorización explícita.
 
 Build de producción re-confirmado sin errores tras este fix.
+
+---
+
+## 14. Corrección de Destino FTP y Diagnóstico de Localhost (2026-06-18)
+
+- [x] **`server-dir` corregido:** la cuenta FTP está enjaulada en la raíz del subdominio (`athlosperformance.tourfindy.com`), por lo que la ruta absoluta de cPanel (`/home/tourfindycom/public_html/athlosperformance/`) creaba subcarpetas anidadas dentro de esa misma raíz en vez de depositar ahí directamente. Cambiado a `server-dir: ./` — el contenido de `/out` se deposita ahora en la raíz real de la sesión FTP.
+- [x] **Diagnóstico de "localhost colgado":** revisé `ConsentGateProvider` y `ConsentLeadDialog` — sin loops de estado, sin dependencias inestables en los `useEffect` (`closeConsentGate` viene de `useCallback` con `[]`). La causa real era un proceso de `next dev` con varias horas de antigüedad (acumulado de turnos anteriores en esta misma sesión), no un bug de código.
+- [x] **Purga ejecutada:** `rm -rf .next out node_modules/.cache` + proceso viejo terminado + `pnpm dev` limpio. Medido empíricamente: primera petición 4.0s (compilación inicial normal de Turbopack), peticiones subsecuentes **150-170ms** — muy por debajo del umbral de 500ms.
+- [x] **Verificación final de `/out`:** `.htaccess` y el logotipo (`athlos-performance-logotipo-circular.jpg` → `_next/static/media/...jpg`) confirmados presentes, con rutas raíz-relativas (`/_next/...`) coherentes con el nuevo `server-dir: ./`.
+
+Estado final: **pipeline corregido para la jaula FTP real, entorno local saneado y verificado por debajo de 500ms, build de producción íntegro. Listo para el push definitivo.**
