@@ -321,6 +321,19 @@
 
 **Verificado en navegador real con datos de prueba (staff + coach + admin + atleta + cita del día, creados y eliminados en esta misma sesión):** dashboard admin con conteos correctos, dashboard coach mostrando la tarjeta del atleta del día con semáforo `sin_dato`, envío del wizard con RPE=7 y 2 compensaciones marcadas → filas confirmadas en `evaluaciones_biomecanica` y `sesiones_entrenamiento`, aislamiento de rol confirmado (admin recibe 403 al intentar `dashboard/coach.php`).
 
+### Fase 5 — API FrontDesk, Motor de Reglas de Negocio y Athlos Score™ (2026-07-08)
+
+| Archivo | Ruta | Estado | Descripción |
+| :--- | :--- | :--- | :--- |
+| `05_schema_alertas_membresias.sql` | `knowledge/sql/` | Producción | Tabla `alertas_renovacion` (semáforo de consumo de sesiones). `UNIQUE(id_membresia, tipo_alerta)` + `ON DUPLICATE KEY UPDATE` evita duplicar alertas en evaluaciones sucesivas. |
+| `leads_webhook.php` | `public/ssos/api/leads_webhook.php` | Producción | `POST` — ingesta de leads desde Next.js/motor conversacional. Auth por `X-Athlos-Api-Key` (no sesión). Consent Gate (403 si `consentimiento_legal !== true`), deduplicación por teléfono normalizado, upsert en `leads_prospectos`. |
+| `athlos_score.php` | `public/ssos/api/athlos_score.php` | Producción | `GET ?id_atleta=` — devuelve el Athlos Score™ (0-100) + payload de radar. Auth doble: sesión BackOffice (admin/coach/super_admin) o `X-Athlos-Api-Key`. |
+| `AthlosBusinessRules.php` | `public/ssos/config/AthlosBusinessRules.php` | Producción | Clase con `deducirSesionAtleta()` (descuento FIFO de sesiones + alertas amarillo/rojo) y `generarAthlosScore()` (30% Fuerza/SFT, 30% Movilidad/Biomecánica, 40% Composición/Grasa, con renormalización de pesos si falta alguna dimensión). |
+| `helpers.php` (ampliado) | `public/ssos/config/helpers.php` | Producción | Nuevos: `ssos_normalize_phone()`, `api_apply_cors()` (usa `ALLOWED_ORIGINS` del `.env`), `api_require_key()`, `api_json_input()`, `api_respond()`. |
+| `coach_evaluacion.php` (ampliado) | `public/ssos/dashboard/coach_evaluacion.php` | Producción | Tras guardar la evaluación, invoca `AthlosBusinessRules::deducirSesionAtleta()` y muestra el resultado (sesiones restantes / alerta) en la misma pantalla de éxito. |
+
+**Bug encontrado y corregido en Fase 5:** ninguno nuevo de PDO (la lección de placeholders repetidos de Fase 4 ya se aplicó desde el inicio en estas queries). Verificado en navegador real: Consent Gate (403), auth por API key (401 sin ella), deduplicación por teléfono con distintos formatos de entrada, ciclo completo de deducción de 3→2 (alerta amarillo)→1→0 (membresía `agotada`, alerta rojo), y Athlos Score con matemática confirmada (`0.30×60 + 0.30×100 + 0.40×75 = 78`) vía sesión y vía API key.
+
 ---
 
 ## 🧩 REGISTRO DE COMPONENTES FRONTEND

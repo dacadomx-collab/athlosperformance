@@ -96,3 +96,90 @@ function log_sesion_evento(?int $id_usuario, string $email_intento, string $tipo
         'ua'         => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255),
     ]);
 }
+
+// =============================================================================
+// HELPERS DE API (Fase 5 — Webhook FrontDesk y endpoints JSON internos)
+// =============================================================================
+
+/**
+ * Normaliza un teléfono a dígitos puros con código de país (patrón ya usado
+ * en api/webhook_mensajeria.php: normalize_phone()). Antepone 52 (México) si
+ * el número no trae código de país y tiene longitud de 10 dígitos.
+ */
+function ssos_normalize_phone(string $raw): ?string
+{
+    $digits = preg_replace('/\D+/', '', $raw) ?? '';
+
+    if ($digits === '') {
+        return null;
+    }
+
+    if (strlen($digits) === 10) {
+        $digits = '52' . $digits;
+    }
+
+    if (strlen($digits) < 10 || strlen($digits) > 15) {
+        return null;
+    }
+
+    return $digits;
+}
+
+/**
+ * Aplica cabeceras CORS según ALLOWED_ORIGINS del .env y responde de
+ * inmediato a peticiones OPTIONS (preflight).
+ */
+function api_apply_cors(): void
+{
+    $allowed = array_map('trim', explode(',', $_ENV['ALLOWED_ORIGINS'] ?? ''));
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+    if ($origin !== '' && in_array($origin, $allowed, true)) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Vary: Origin');
+    }
+
+    header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, X-Athlos-Api-Key');
+
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
+}
+
+/** Envía una respuesta JSON estandarizada y termina la ejecución. */
+function api_respond(int $http_code, string $status, array $data = []): never
+{
+    http_response_code($http_code);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(array_merge(['status' => $status], $data), JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+/**
+ * Exige una API key válida en la cabecera X-Athlos-Api-Key (contra
+ * API_WEBHOOK_SECRET del .env). Responde 401 y termina si falta o no coincide.
+ */
+function api_require_key(): void
+{
+    $secreto = $_ENV['API_WEBHOOK_SECRET'] ?? '';
+    $recibido = $_SERVER['HTTP_X_ATHLOS_API_KEY'] ?? '';
+
+    if ($secreto === '' || $recibido === '' || !hash_equals($secreto, $recibido)) {
+        api_respond(401, 'error', ['code' => 'UNAUTHORIZED', 'message' => 'API key inválida o ausente.']);
+    }
+}
+
+/** Decodifica el body JSON de la petición actual; responde 400 si es inválido. */
+function api_json_input(): array
+{
+    $raw = file_get_contents('php://input') ?: '';
+    $data = json_decode($raw, true);
+
+    if (!is_array($data)) {
+        api_respond(400, 'error', ['code' => 'INVALID_JSON', 'message' => 'El body debe ser un JSON válido.']);
+    }
+
+    return $data;
+}

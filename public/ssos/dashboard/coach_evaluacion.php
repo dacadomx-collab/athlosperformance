@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config/helpers.php';
+require_once __DIR__ . '/../config/AthlosBusinessRules.php';
 
 require_role('coach', 'super_admin');
 
@@ -26,6 +27,7 @@ if (!$atleta) {
 
 $errores = [];
 $exito = false;
+$deduccion = null;
 
 $checklist_items = [
     'feet_flatten'           => 'Pie se aplana / prona',
@@ -84,6 +86,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $db->commit();
                 $exito = true;
+
+                // Motor de reglas de negocio: descuenta 1 sesión de la membresía
+                // activa del atleta. Se ejecuta fuera de la transacción anterior
+                // (ya confirmada) para que un fallo aquí no invalide la captura
+                // clínica ya guardada.
+                $deduccion = AthlosBusinessRules::deducirSesionAtleta($db, $id_atleta);
             } catch (\Throwable $e) {
                 if ($db->inTransaction()) {
                     $db->rollBack();
@@ -111,6 +119,23 @@ require __DIR__ . '/../partials/header.php';
     <div class="alert alert-success ssos-alert" role="alert">
         <strong>Evaluación guardada.</strong> RPE y checklist de Sentadilla Overhead registrados.
     </div>
+
+    <?php if ($deduccion && $deduccion['deducted']): ?>
+        <div class="alert alert-info ssos-alert" role="alert">
+            Sesión descontada de la membresía. Sesiones restantes:
+            <strong><?= (int) $deduccion['sesiones_restantes'] ?></strong>.
+            <?php if ($deduccion['alerta'] === 'amarillo'): ?>
+                <span class="badge text-bg-warning">Alerta de renovación: quedan 2 sesiones</span>
+            <?php elseif ($deduccion['alerta'] === 'rojo'): ?>
+                <span class="badge text-bg-danger">Sin sesiones — requiere renovación</span>
+            <?php endif; ?>
+        </div>
+    <?php elseif ($deduccion && $deduccion['reason'] === 'sin_membresia_activa_con_saldo'): ?>
+        <div class="alert alert-warning ssos-alert" role="alert">
+            El atleta no tiene una membresía activa con saldo de sesiones. No se descontó ninguna sesión.
+        </div>
+    <?php endif; ?>
+
     <a href="coach.php" class="btn btn-ssos-turquesa">Volver a Atletas del Día</a>
 <?php else: ?>
     <form method="post" novalidate>

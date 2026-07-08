@@ -67,8 +67,109 @@ auto-bloqueo → login → redirección por rol → logout → control de acceso
 3. Hacer push a `main` (o merge del PR que se genere) para que `deploy.yml` publique `public/ssos/` automáticamente.
 4. Visitar `https://athlosperformance.tourfindy.com/ssos/setup_admin.php` una sola vez para crear el Super Admin real de producción (el archivo se autobloquea después).
 
-## 5. Próximos pasos (fuera del alcance de esta entrega)
+## 5. Fase 4 — Dashboards y Pie de Cancha (entregada 2026-07-07)
 
-- Middleware de autenticación ya cubre login/logout/roles; falta CRUD de usuarios para que el Super Admin cree cuentas Admin/Coach sin tocar la DB manualmente.
-- Fase 4: BackOffice "Pie de Cancha" (captura ≤30s) y Wizard SFT con semaforización automática vía `percentiles_sft_referencia`.
+Layout compartido (`partials/header.php`/`footer.php`, `css/main.css`, `js/main.js`) con navbar +
+menú hamburguesa (Offcanvas), toggle día/noche y botón "Volver arriba". Dashboard Admin con widgets
+reales y tabla de clientes; Dashboard Coach "Pie de Cancha" con tarjetas grandes de "Atletas del Día"
+(semáforo desde la última evaluación SFT) y wizard de captura (slider RPE + checklist Sentadilla
+Overhead de 8 botones táctiles). Verificado extremo a extremo con datos de prueba reales. Bug
+encontrado y corregido: reutilización inválida de un placeholder PDO nombrado en la query de
+"Atletas del Día" (`PDO::ATTR_EMULATE_PREPARES => false` no permite repetir `:id_staff`).
+
+⚠️ **`/ssos` no es accesible en `localhost:3000`** — ese puerto es el dev server de Next.js (sin
+runtime PHP). En local se visita vía Apache/XAMPP: `http://localhost/Athlos_Performance/public/ssos/`.
+
+## 6. Fase 5 — API FrontDesk, Motor de Reglas de Negocio y Athlos Score™ (entregada 2026-07-08)
+
+Nuevo script de schema: `knowledge/sql/05_schema_alertas_membresias.sql` (tabla `alertas_renovacion`,
+aplicado y validado antes de escribir PHP, por REGLA DE PIEDRA). Nuevos helpers en `config/helpers.php`:
+`ssos_normalize_phone()`, `api_apply_cors()`, `api_require_key()`, `api_json_input()`, `api_respond()`.
+
+### 6.1 Endpoint: `POST /ssos/api/leads_webhook.php`
+
+Ingesta de leads desde el frontend Next.js / motor conversacional. Autenticado con cabecera
+`X-Athlos-Api-Key` (secreto compartido en `.env` → `API_WEBHOOK_SECRET`, **no** la sesión del
+BackOffice — este endpoint lo llaman sistemas, no personas logueadas). Aplica el Consent Gate
+(REGLA-01) y deduplica por teléfono normalizado (REGLA-04) antes de tocar `leads_prospectos`.
+
+**Payload que el frontend Next.js debe enviar:**
+```json
+{
+  "nombre_completo": "Juan Pérez",
+  "telefono": "6121234567",
+  "objetivo_salud": "Bajar % de grasa y mejorar rendimiento en ciclismo",
+  "consentimiento_legal": true,
+  "canal_origen": "whatsapp",
+  "email": "juan@correo.com"
+}
+```
+`canal_origen` y `email` son opcionales (`canal_origen` cae a `"whatsapp"` si falta o no es
+`whatsapp|instagram|facebook` — ese ENUM ya existe en producción y no se modificó en esta entrega).
+
+**Respuestas:**
+| Caso | HTTP | Body |
+| :--- | :--- | :--- |
+| Falta o no coincide `X-Athlos-Api-Key` | 401 | `{"status":"error","code":"UNAUTHORIZED",...}` |
+| `consentimiento_legal` falso/ausente | 403 | `{"status":"error","code":"LEGAL_PRIVACY_VIOLATION",...}` |
+| Validación de campos falla | 422 | `{"status":"error","code":"VALIDATION_ERROR","errors":[...]}` |
+| Lead nuevo | 201 | `{"status":"success","action":"created","id_lead":123,"consent_gate_status":"aceptado"}` |
+| Lead existente (mismo teléfono) | 200 | `{"status":"success","action":"updated","id_lead":123,"consent_gate_status":"aceptado"}` |
+
+Verificado en navegador real (curl): rechazo sin API key, rechazo con consentimiento falso/ausente,
+creación válida, y actualización por deduplicación (mismo teléfono con distinto formato de captura
+`"6129998877"` vs `"612 999 8877"` → mismo `id_lead`, `objetivo_declarado` actualizado al más reciente).
+
+### 6.2 Motor de reglas de negocio: `config/AthlosBusinessRules.php`
+
+- **`deducirSesionAtleta(PDO $db, int $id_atleta): array`** — se invoca desde
+  `dashboard/coach_evaluacion.php` después de guardar cada evaluación. Descuenta 1 sesión de la
+  membresía activa más antigua (FIFO) con saldo > 0. Si el atleta no tiene membresía activa con
+  saldo, no falla — devuelve `deducted: false` (estado de negocio válido, no error). Al cruzar 2
+  sesiones restantes registra alerta `amarillo`; al llegar a 0, marca la membresía `agotada` y
+  registra alerta `rojo`, en `alertas_renovacion` (`UNIQUE(id_membresia, tipo_alerta)` evita duplicar
+  la alerta en evaluaciones posteriores — la refresca).
+- Verificado con 3 evaluaciones reales sobre una membresía de 3 sesiones: 3→2 (alerta amarillo),
+  2→1, 1→0 (membresía marcada `agotada`, alerta rojo). Ambas alertas confirmadas en `alertas_renovacion`.
+
+### 6.3 Endpoint: `GET /ssos/api/athlos_score.php?id_atleta=123`
+
+- **`generarAthlosScore(PDO $db, int $id_atleta): array`** — índice 0-100 ponderado: 30% Fuerza
+  (última `evaluaciones_sft.semaforo_general`: verde=100/amarillo=60/rojo=20), 30% Movilidad
+  (última `evaluaciones_biomecanica`: `(8 - compensaciones marcadas) / 8 × 100`), 40% Composición
+  (última `evaluaciones_antropometria.clasificacion_grasa`, mapeada 5-100). Dimensiones sin datos se
+  excluyen y el peso se renormaliza entre las disponibles — nunca bloquea el reporte por falta de
+  una sola evaluación, pero tampoco inventa un valor (REGLA-05).
+- Auth: sesión activa del BackOffice (`admin`/`coach`/`super_admin`) **o** `X-Athlos-Api-Key` (para
+  que el frontend Next.js también pueda pedirlo directamente).
+- Respuesta lista para un gráfico de radar:
+```json
+{
+  "status": "success",
+  "atleta": { "id_atleta": 2, "nombre_completo": "Atleta Score Test" },
+  "athlos_score": 78,
+  "dimensiones": {
+    "fuerza": { "score": 60, "fuente": "evaluaciones_sft", "fecha": "2026-07-08" },
+    "movilidad": { "score": 100, "fuente": "evaluaciones_biomecanica", "fecha": "2026-07-08" },
+    "composicion": { "score": 75, "fuente": "evaluaciones_antropometria", "fecha": "2026-07-08" }
+  },
+  "radar": { "labels": ["Fuerza", "Movilidad", "Composición"], "valores": [60, 100, 75] }
+}
+```
+Verificado en navegador real: cálculo `0.30×60 + 0.30×100 + 0.40×75 = 78` confirmado, acceso vía
+sesión de coach y vía API key ambos exitosos, acceso sin ninguna credencial → 401.
+
+### 6.4 Nueva variable de entorno
+
+`public/ssos/.env` (local) y `.env.example` (versionable) ganan la sección `[API_INTERNA]` con
+`API_WEBHOOK_SECRET` y `[SEGURIDAD_CORS]` con `ALLOWED_ORIGINS`. **Acción pendiente del Super Admin
+en producción:** generar un secreto real (`php -r "echo bin2hex(random_bytes(32));"`) y agregarlo al
+`.env` de producción (mismo archivo que ya se documentó en la sección 4.2) — el frontend Next.js debe
+enviarlo en `X-Athlos-Api-Key` en cada llamada a `/ssos/api/*`.
+
+## 7. Próximos pasos (fuera del alcance de esta entrega)
+
+- CRUD de usuarios para que el Super Admin cree cuentas Admin/Coach sin tocar la DB manualmente.
+- Vincular `athlos_score.php` a una vista de radar real en el frontend Next.js (Chart.js/Recharts).
 - Notificaciones por email (SMTP) — credenciales ya disponibles en `core/.env`, sin consumir todavía.
+- Panel de `alertas_renovacion` en el Dashboard Admin (hoy sólo se generan y persisten, no se listan).
