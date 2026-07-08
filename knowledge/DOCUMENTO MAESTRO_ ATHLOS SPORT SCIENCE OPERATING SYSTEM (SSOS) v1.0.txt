@@ -1,0 +1,58 @@
+﻿DOCUMENTO MAESTRO: ATHLOS SPORT SCIENCE OPERATING SYSTEM (SSOS) v1.0
+1. Visión y Propósito del Sistema
+El Athlos Sport Science Operating System (SSOS) v1.0 no es un simple CRM ni un software administrativo convencional para gimnasios. Es un sistema nervioso central diseñado para un Laboratorio de Ciencias del Deporte. Su propósito fundamental es digitalizar la toma de decisiones clínicas y deportivas, reduciendo la fricción administrativa a cero y operando bajo una arquitectura de evaluación científica continua. El sistema integra un motor cognitivo autónomo (Athlos Cognitive Engine v1.0) para captación y filtrado, junto con un entorno de BackOffice para la prescripción hiper-personalizada del entrenamiento.
+2. Arquitectura del Sistema (RBAC - Role-Based Access Control)
+El sistema opera bajo un modelo estricto de control de acceso para garantizar la privacidad de los datos clínicos y operativos.
+Rol
+	Nivel de Acceso y Funciones Principales
+	SUPER ADMIN
+(Dirección de Laboratorio)
+	Control total del sistema, bases de datos (SQL/Excel), logs de auditoría de seguridad y configuración global de la IA.
+	ADMIN
+(Administración / Recepción)
+	Gestión del módulo de Clientes.xlsx. Control de la agenda (regla estricta de cupo: máx. 4 personas/hora), cobranza, asignación y deducción de sesiones (ej. 5, 8, 10, 12, Mensual, Senior).
+	COACH ESPECIALISTA
+(Staff de Laboratorio)
+	Vista "Pie de Cancha" optimizada para móviles/tablets. Captura de evaluaciones (Antropometría, SFT, Biomecánica), registro de sesiones (RPE, cargas) y acceso al historial clínico. Sin acceso a datos financieros.
+
+NOTA DE IMPLEMENTACIÓN (2026-07-08): el BackOffice SSOS implementa este RBAC como un
+Dashboard Único y dinámico (public/ssos/dashboard/index.php) en vez de pantallas
+fragmentadas por rol — el mismo archivo renderiza condicionalmente las secciones
+Control, Clientes/Membresías y Pie de Cancha según el rol de la sesión activa.
+Detalle técnico completo en knowledge/RESUMEN_EJECUCION_SISTEMA.md.
+
+	3. Flujos Operativos y Módulos Core
+Módulo 1: AI FrontDesk (Captación Omnicanal y Onboarding)
+* Intercepción Inteligente: Respuestas 24/7 en WhatsApp, Instagram y Facebook basadas en las directrices de Athlos.
+* Extractor NLP (Natural Language Processing): Captura estructurada de Nombre, Teléfono (Lada 612) y Objetivo de Salud antes de sugerir una agenda.
+* Filtro de Intención: Clasificación inmediata entre Alto Rendimiento, Rehabilitación o Longevidad Clínica (Adultos Mayores).
+* Consent Gate (Seguridad P0): Requerimiento explícito de aceptación de términos antes de procesar o almacenar información de salud.
+* Motor de Riesgo y Handoff: Escalamiento automático a un humano ante menciones de dolor agudo, cirugías recientes o condiciones cardiovasculares.
+Módulo 2: BackOffice y Flujo "Pie de Cancha" (SSOS UI)
+Diseñado con un enfoque Mobile-First (Celular y Tablet) y Modo Día/Noche, con interfaz médica, no de hoja de cálculo.
+* Dashboard Diario del Coach: Visión cronológica simplificada de los atletas del día. Semáforos de estado: Verde (Vigente), Amarillo (Evaluación Próxima a Vencer), Rojo (Sin Sesiones/Acceso Bloqueado).
+* Captura Rápida (Regla de 30 Segundos): Interacciones táctiles mediante botones grandes, tarjetas (cards) y sliders (ej. Escala RPE del 1 al 10). Minimización de entrada de texto manual.
+* Asistente de Evaluaciones (Wizard):
+   * Menores de 65 (Performance): Captura de pliegues, perímetros y cálculo automático de Composición Corporal y Somatocarta.
+   * Mayores de 65 (Senior): Interfaz de Senior Fitness Test (SFT) (Chair Stand, TUG, Arm Curl) con semaforización automática de resultados sin consultar tablas externas.
+   * Análisis Biomecánico: Checklist rápido de compensaciones en sentadilla (ej. Knees Move Inward, Heels Rise).
+Módulo 3: Dashboards de Retención e Inteligencia (Athlos Index)
+* Dashboards para el Cliente (Performance): Visualización sencilla de métricas clave mediante Radar Charts (Fuerza, Movilidad, Composición). Introducción del Athlos Score™, un índice unificado de progreso físico.
+* Dashboards para Adultos Mayores: Enfoque emocional centrado en la independencia funcional (Reducción de Riesgo de Caída, Mejora en Velocidad de Marcha, Autonomía).
+4. Automatizaciones Inteligentes (Reglas de Negocio)
+1. Deducción y Bloqueo de Agenda: El sistema descuenta sesiones automáticamente y bloquea el agendamiento si un cliente llega a 0 créditos o presenta un riesgo médico no evaluado.
+2. Alertas de Renovación: Notificación automática (WhatsApp/Email) al cliente y al FrontDesk cuando restan 2 sesiones en el paquete activo.
+3. Recordatorio de Reevaluación: Bloqueo preventivo de un nuevo ciclo de entrenamiento si han pasado más de 6 semanas sin actualizar métricas (SFT o Antropometría).
+4. Sugerencias Biomecánicas Inteligentes: Si el coach marca una compensación severa (ej. Valgo dinámico), el sistema sugiere automáticamente protocolos de activación en la sesión del día.
+5. Directrices Técnicas y Estándares UI/UX
+* Estructura Responsiva: Experiencia optimizada y fluida en resoluciones Desktop, Tablet y Mobile.
+* Accesibilidad Visual: Modo Día / Modo Noche para adaptarse al entorno de iluminación del laboratorio, con un Botón de Volver Arriba (Back to Top) y un Menú de Hamburguesa elegante para navegación compacta.
+* Colores Institucionales (Regla ORO de maquetación ARF-GRID): Azul Profundo Científico (#0E3A5D), Azul Acero (#3F6E8A), Turquesa Tecnológico (#00B8C9) y Gris Claro (#F7FAFC) para descanso visual.
+* Tipografías: Montserrat/Sora (Encabezados) e Inter (Cuerpos de texto).
+6. Base de Datos de Referencia (Ingesta Estructurada)
+El sistema mapeará y migrará la operación actual desde los siguientes orígenes de datos:
+* Clientes.xlsx (Cobranza y membresías).
+* Menor_65_02 DATOS ANTROMPOMETRÍA ATHLOS.xlsx
+* Menor_65_03 Ficha plan de sesion.xlsx
+* Mayor_65_03 Ficha plan de sesion.xlsx
+* Ficha Evaluación adulto mayor (SFT)

@@ -235,7 +235,7 @@ $ssos_active_nav = 'dashboard';
 require __DIR__ . '/../partials/header.php';
 ?>
 
-<span class="ssos-role-badge">Super Admin · AXON_DCD</span>
+<span class="ssos-role-badge">Dirección de Laboratorio</span>
 <h2 class="mt-3">Migración Histórica — Clientes.xlsx</h2>
 <p class="text-body-secondary">
     Sube el archivo <code>Clientes.xlsx</code> (hoja "Clientes": Cliente, Nombre, Programa, Pago, Fecha).

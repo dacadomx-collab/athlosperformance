@@ -351,6 +351,15 @@
 
 **Bug encontrado y corregido en Fase 6:** mismo patrón que Fases 4/5 — placeholder PDO `:sesiones` repetido en el `INSERT` de `membresias` dentro de `migrar_excel.php`. Corregido con nombres distintos (`:sesiones_totales`/`:sesiones_restantes`).
 
+### Fase 7 — Restructuración Total: `.env` único, Dashboard Unificado y UI (2026-07-08)
+
+| Cambio | Archivos | Estado | Descripción |
+| :--- | :--- | :--- | :--- |
+| `.env` único | `core/.env`(.example), `public/ssos/config/conexion.php` | Producción | `public/ssos/.env`(.example) **eliminados**. `conexion.php` lee sólo `core/.env`. Certificación de conexión con fallback automático `localhost` → host público de `APP_URL`; `ssos_db()` lanza `RuntimeException` claro si ninguno responde. Verificado read-only contra la BD real de producción (23 tablas); escritura de prueba en prod bloqueada por el clasificador de seguridad — decisión del Super Admin: verificar en vivo él mismo (ver `RESUMEN_EJECUCION_SISTEMA.md` §8.1). |
+| Dashboard Único | `public/ssos/dashboard/index.php` (nuevo); `admin.php`/`coach.php`/`super_admin.php` (eliminados) | Producción | Una sola vista, secciones `#control`/`#clientes`/`#pie-de-cancha` condicionadas por rol. `redirect_to_dashboard()` y `partials/header.php` actualizados. Verificado con las 3 cuentas de rol: cada una ve exactamente sus secciones. |
+| Navbar corregido | `public/ssos/css/main.css`, `partials/header.php` | Producción | Bug real: `.ssos-theme-toggle` (`position:fixed` esquina superior derecha) se superponía con `.navbar-toggler` de Bootstrap (misma esquina). Corregido: toggle ahora vive dentro de `.ssos-navbar-actions` (flex, `gap:1rem`), sin `position:fixed`. |
+| Limpieza de marca | Toda la interfaz + seed de `roles` en `01_schema_usuarios_rbac.sql` | Producción | "(AXON_DCD)" eliminado; badges ahora "Dirección de Laboratorio" / "Administración / Recepción" / "Coach Especialista". Menciones históricas en registros fechados de este documento se conservan intactas (bitácora, no interfaz). |
+
 ---
 
 ## 🧩 REGISTRO DE COMPONENTES FRONTEND

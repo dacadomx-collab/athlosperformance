@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS staff (
 
 -- Ahora que `staff` existe, se cierra el FK lógico declarado en usuarios.id_staff
 -- (01_schema_usuarios_rbac.sql). Un usuario del BackOffice puede o no ligarse a
--- una ficha operativa de staff (el Super Admin/AXON_DCD suele no tenerla).
+-- una ficha operativa de staff (el rol Dirección de Laboratorio suele no tenerla).
 ALTER TABLE usuarios
     ADD CONSTRAINT fk_usuarios_staff FOREIGN KEY (id_staff) REFERENCES staff (id_staff)
         ON DELETE SET NULL ON UPDATE CASCADE;

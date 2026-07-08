@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Header compartido de la app autenticada SSOS.
+ * Header compartido de la app autenticada SSOS (Dashboard Único).
  * Requiere que el caller haya hecho require_login() antes de incluir esto y
  * que exista $ssos_page_title (string) y opcionalmente $ssos_active_nav (string).
  */
@@ -13,18 +13,13 @@ $ssos_rol = $_SESSION['clave_rol'] ?? '';
 $ssos_nombre = $_SESSION['nombre_completo'] ?? '';
 
 $ssos_rol_label = match ($ssos_rol) {
-    'super_admin' => 'Super Admin · AXON_DCD',
-    'admin'       => 'Admin · Recepción',
-    'coach'       => 'Coach · Especialista',
+    'super_admin' => 'Dirección de Laboratorio',
+    'admin'       => 'Administración / Recepción',
+    'coach'       => 'Coach Especialista',
     default       => '',
 };
 
-$ssos_dashboard_href = match ($ssos_rol) {
-    'super_admin' => ssos_base_url() . '/dashboard/super_admin.php',
-    'admin'       => ssos_base_url() . '/dashboard/admin.php',
-    'coach'       => ssos_base_url() . '/dashboard/coach.php',
-    default       => ssos_base_url() . '/login.php',
-};
+$ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
 ?>
 <!DOCTYPE html>
 <html lang="es" data-theme="light">
@@ -38,14 +33,17 @@ $ssos_dashboard_href = match ($ssos_rol) {
 <body class="ssos-app-body">
 
 <nav class="navbar ssos-navbar">
-    <div class="container-fluid">
+    <div class="container-fluid ssos-navbar-row">
         <a class="navbar-brand" href="<?= e($ssos_dashboard_href) ?>">
             <img src="<?= e(ssos_base_url()) ?>/img/logo.jpg" alt="Athlos Performance">
             <span>Athlos SSOS</span>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#ssosOffcanvasNav" aria-controls="ssosOffcanvasNav" aria-label="Abrir menú">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+        <div class="ssos-navbar-actions">
+            <button type="button" class="ssos-theme-toggle ssos-theme-toggle--inline" data-ssos-theme-toggle aria-label="Cambiar modo día/noche">🌙</button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#ssosOffcanvasNav" aria-controls="ssosOffcanvasNav" aria-label="Abrir menú">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
     </div>
 </nav>
 
@@ -62,15 +60,19 @@ $ssos_dashboard_href = match ($ssos_rol) {
 
         <nav class="nav nav-pills flex-column mb-auto">
             <a class="nav-link <?= $ssos_active_nav === 'dashboard' ? 'active' : '' ?>" href="<?= e($ssos_dashboard_href) ?>">Dashboard</a>
-            <?php if ($ssos_rol === 'coach'): ?>
-                <a class="nav-link <?= $ssos_active_nav === 'pie_de_cancha' ? 'active' : '' ?>" href="<?= e(ssos_base_url()) ?>/dashboard/coach.php">Pie de Cancha</a>
+            <?php if ($ssos_rol === 'super_admin'): ?>
+                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#control">Control</a>
+            <?php endif; ?>
+            <?php if (in_array($ssos_rol, ['admin', 'super_admin'], true)): ?>
+                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#clientes">Clientes y Membresías</a>
+            <?php endif; ?>
+            <?php if (in_array($ssos_rol, ['coach', 'admin', 'super_admin'], true)): ?>
+                <a class="nav-link <?= $ssos_active_nav === 'pie_de_cancha' ? 'active' : '' ?>" href="<?= e($ssos_dashboard_href) ?>#pie-de-cancha">Pie de Cancha</a>
             <?php endif; ?>
         </nav>
 
         <a href="<?= e(ssos_base_url()) ?>/logout.php" class="btn btn-outline-secondary btn-sm mt-3">Cerrar sesión</a>
     </div>
 </div>
-
-<button type="button" class="ssos-theme-toggle" data-ssos-theme-toggle aria-label="Cambiar modo día/noche">🌙</button>
 
 <main class="ssos-main">

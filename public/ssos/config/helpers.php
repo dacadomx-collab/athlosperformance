@@ -46,15 +46,16 @@ function ssos_base_url(): string
     return rtrim($_ENV['APP_URL'] ?? '', '/');
 }
 
-/** Redirige al dashboard correspondiente según clave_rol y termina la ejecución. */
+/**
+ * Redirige al Dashboard Único (todos los roles entran al mismo archivo;
+ * el contenido se renderiza condicionalmente por rol dentro de él) y
+ * termina la ejecución.
+ */
 function redirect_to_dashboard(string $clave_rol): never
 {
-    $destino = match ($clave_rol) {
-        'super_admin' => '/dashboard/super_admin.php',
-        'admin'       => '/dashboard/admin.php',
-        'coach'       => '/dashboard/coach.php',
-        default       => '/login.php',
-    };
+    $destino = in_array($clave_rol, ['super_admin', 'admin', 'coach'], true)
+        ? '/dashboard/index.php'
+        : '/login.php';
     header('Location: ' . ssos_base_url() . $destino);
     exit;
 }

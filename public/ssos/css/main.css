@@ -47,6 +47,13 @@ body.ssos-app-body {
     padding: 0.65rem 1rem;
 }
 
+.ssos-navbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
 .ssos-navbar .navbar-brand {
     color: var(--ssos-navbar-text);
     font-weight: 700;
@@ -60,6 +67,12 @@ body.ssos-app-body {
     width: 2.1rem;
     object-fit: cover;
     border-radius: 6px;
+}
+
+.ssos-navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .ssos-navbar .navbar-toggler {
@@ -93,8 +106,6 @@ body.ssos-app-body {
 
 .ssos-theme-toggle,
 .ssos-back-to-top {
-    position: fixed;
-    right: 1rem;
     width: 2.75rem;
     height: 2.75rem;
     border-radius: 50%;
@@ -110,11 +121,19 @@ body.ssos-app-body {
     z-index: 1050;
 }
 
-.ssos-theme-toggle {
-    top: 1rem;
+/* Dentro del navbar (ssos-navbar-actions) el toggle es un ítem flex normal,
+   nunca position:fixed — así nunca se superpone con el navbar-toggler
+   (bug corregido: ambos competían antes por la misma esquina superior derecha). */
+.ssos-theme-toggle--inline {
+    flex-shrink: 0;
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: 1rem;
 }
 
 .ssos-back-to-top {
+    position: fixed;
+    right: 1rem;
     bottom: 1.25rem;
     opacity: 0;
     pointer-events: none;

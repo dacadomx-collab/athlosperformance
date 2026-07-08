@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/helpers.php';
 require_once __DIR__ . '/../config/AthlosBusinessRules.php';
 
-require_role('coach', 'super_admin');
+require_role('coach', 'admin', 'super_admin');
 
 $db = ssos_db();
 
@@ -136,7 +136,7 @@ require __DIR__ . '/../partials/header.php';
         </div>
     <?php endif; ?>
 
-    <a href="coach.php" class="btn btn-ssos-turquesa">Volver a Atletas del Día</a>
+    <a href="index.php#pie-de-cancha" class="btn btn-ssos-turquesa">Volver a Atletas del Día</a>
 <?php else: ?>
     <form method="post" novalidate>
         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">

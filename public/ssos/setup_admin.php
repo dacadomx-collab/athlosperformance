@@ -100,7 +100,7 @@ if (!$ya_instalado && $_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="ssos-auth-brand">
             <img src="img/logo.jpg" alt="Athlos Performance" class="ssos-auth-logo">
             <h1>Athlos SSOS v1.0</h1>
-            <small>Instalación inicial · Super Admin (AXON_DCD)</small>
+            <small>Instalación inicial · Dirección de Laboratorio</small>
         </div>
 
         <?php if ($ya_instalado && !$exito): ?>

@@ -14,7 +14,7 @@ SET time_zone = '+00:00';
 -- -----------------------------------------------------------------------------
 -- Tabla: roles
 -- Catálogo cerrado de roles del sistema (RBAC). Ver Sección 3 del Documento
--- Maestro SSOS: SUPER ADMIN (AXON_DCD), ADMIN (FrontDesk), COACH (Pie de Cancha).
+-- Maestro SSOS: Dirección de Laboratorio, Administración/Recepción, Coach Especialista.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS roles (
     id_rol TINYINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -28,9 +28,9 @@ CREATE TABLE IF NOT EXISTS roles (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO roles (clave_rol, nombre_rol, descripcion) VALUES
-    ('super_admin', 'Super Admin (AXON_DCD)', 'Control absoluto de base de datos, credenciales API, logs de auditoría y configuración del motor cognitivo de IA.'),
-    ('admin', 'Admin (Recepción / FrontDesk)', 'Gestión comercial de clientes, agenda, cobros, catálogo de paquetes/membresías y alertas de vencimiento. Sin acceso a configuración del motor IA.'),
-    ('coach', 'Coach / Especialista', 'Interfaz Pie de Cancha: captura táctil de antropometría, SFT, biomecánica y sesiones. Aislado de datos financieros y cobros globales.')
+    ('super_admin', 'Dirección de Laboratorio', 'Control absoluto de base de datos, credenciales API, logs de auditoría y configuración del motor cognitivo de IA.'),
+    ('admin', 'Administración / Recepción', 'Gestión comercial de clientes, agenda, cobros, catálogo de paquetes/membresías y alertas de vencimiento. Sin acceso a configuración del motor IA.'),
+    ('coach', 'Coach Especialista', 'Interfaz Pie de Cancha: captura táctil de antropometría, SFT, biomecánica y sesiones. Aislado de datos financieros y cobros globales.')
 ON DUPLICATE KEY UPDATE nombre_rol = VALUES(nombre_rol), descripcion = VALUES(descripcion);
 
 -- -----------------------------------------------------------------------------
@@ -97,7 +97,7 @@ ON DUPLICATE KEY UPDATE id_rol = id_rol;
 -- Tabla: usuarios
 -- Credenciales de acceso al BackOffice. Un usuario puede o no estar ligado a
 -- un registro de `staff` (02_schema_agenda_sesiones.sql define `staff`).
--- El Super Admin (AXON_DCD) puede no tener ficha de staff operativo.
+-- El rol Dirección de Laboratorio puede no tener ficha de staff operativo.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS usuarios (
     id_usuario INT UNSIGNED NOT NULL AUTO_INCREMENT,
