@@ -23,6 +23,88 @@ $verClientes = in_array($rol, ['admin', 'super_admin'], true);
 $verPieDeCancha = in_array($rol, ['coach', 'admin', 'super_admin'], true);
 $verControl = $rol === 'super_admin';
 
+// ── Alta de usuarios del staff (Coach/Administración), sólo Dirección ───────
+$erroresUsuarioNuevo = [];
+$usuarioNuevoCreado = false;
+
+if ($verControl && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'crear_usuario') {
+    if (!csrf_validate($_POST['csrf_token'] ?? null)) {
+        $erroresUsuarioNuevo[] = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
+    } else {
+        $nombreNuevo = trim((string) ($_POST['nombre_completo'] ?? ''));
+        $emailNuevo = trim((string) ($_POST['email'] ?? ''));
+        $rolNuevo = (string) ($_POST['rol_nuevo'] ?? '');
+        $passwordNuevo = (string) ($_POST['password'] ?? '');
+        $especialidadNueva = trim((string) ($_POST['especialidad'] ?? ''));
+
+        if ($nombreNuevo === '' || mb_strlen($nombreNuevo) > 150) {
+            $erroresUsuarioNuevo[] = 'El nombre es obligatorio (máximo 150 caracteres).';
+        }
+        if (!filter_var($emailNuevo, FILTER_VALIDATE_EMAIL)) {
+            $erroresUsuarioNuevo[] = 'El correo no es válido.';
+        }
+        if (!in_array($rolNuevo, ['coach', 'admin'], true)) {
+            $erroresUsuarioNuevo[] = 'Selecciona un rol válido (Coach o Administración).';
+        }
+        if (mb_strlen($passwordNuevo) < 8) {
+            $erroresUsuarioNuevo[] = 'La contraseña debe tener al menos 8 caracteres.';
+        }
+        if ($rolNuevo === 'coach' && $especialidadNueva === '') {
+            $erroresUsuarioNuevo[] = 'La especialidad es obligatoria para cuentas de Coach.';
+        }
+
+        if (empty($erroresUsuarioNuevo)) {
+            try {
+                $db->beginTransaction();
+
+                $stmt = $db->prepare('SELECT id_usuario FROM usuarios WHERE email = :email LIMIT 1');
+                $stmt->execute(['email' => $emailNuevo]);
+                if ($stmt->fetch()) {
+                    throw new \RuntimeException('Ya existe un usuario con ese correo.');
+                }
+
+                $idStaffNuevo = null;
+                if ($rolNuevo === 'coach') {
+                    $stmt = $db->prepare(
+                        'INSERT INTO staff (nombre_completo, especialidad, email, activo) VALUES (:nombre, :especialidad, :email, 1)'
+                    );
+                    $stmt->execute(['nombre' => $nombreNuevo, 'especialidad' => $especialidadNueva, 'email' => $emailNuevo]);
+                    $idStaffNuevo = (int) $db->lastInsertId();
+                }
+
+                $stmt = $db->prepare('SELECT id_rol FROM roles WHERE clave_rol = :clave');
+                $stmt->execute(['clave' => $rolNuevo]);
+                $idRolNuevo = $stmt->fetchColumn();
+
+                $stmt = $db->prepare(
+                    'INSERT INTO usuarios (id_rol, id_staff, nombre_completo, email, password_hash, activo, requiere_cambio_password)
+                     VALUES (:id_rol, :id_staff, :nombre, :email, :hash, 1, 1)'
+                );
+                $stmt->execute([
+                    'id_rol' => $idRolNuevo,
+                    'id_staff' => $idStaffNuevo,
+                    'nombre' => $nombreNuevo,
+                    'email' => $emailNuevo,
+                    'hash' => password_hash($passwordNuevo, PASSWORD_DEFAULT),
+                ]);
+
+                $db->commit();
+                $usuarioNuevoCreado = true;
+            } catch (\Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                if ($e->getMessage() === 'Ya existe un usuario con ese correo.') {
+                    $erroresUsuarioNuevo[] = $e->getMessage();
+                } else {
+                    $erroresUsuarioNuevo[] = 'No se pudo crear el usuario. Detalle técnico registrado en el log del servidor.';
+                    error_log('[SSOS dashboard crear_usuario] ' . $e->getMessage());
+                }
+            }
+        }
+    }
+}
+
 // ── Sección Control (sólo Dirección de Laboratorio) ─────────────────────────
 if ($verControl) {
     $total_usuarios = (int) $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
@@ -111,14 +193,34 @@ require __DIR__ . '/../partials/header.php';
         Control absoluto de base de datos, usuarios del sistema y auditoría de seguridad.
     </p>
 
+    <?php if ($usuarioNuevoCreado): ?>
+        <div class="alert alert-success ssos-alert" role="alert">Usuario creado exitosamente.</div>
+    <?php endif; ?>
+    <?php foreach ($erroresUsuarioNuevo as $errorUsuario): ?>
+        <div class="alert alert-danger ssos-alert" role="alert"><?= e($errorUsuario) ?></div>
+    <?php endforeach; ?>
+
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <button type="button" class="btn btn-ssos-turquesa" data-bs-toggle="modal" data-bs-target="#modalNuevoUsuario">
+            + Nuevo Usuario del Staff
+        </button>
+        <a href="<?= e(ssos_base_url()) ?>/admin/migrar_excel.php" class="btn btn-ssos-primary">
+            📥 Ejecutar Migración Inicial de Clientes.xlsx
+        </a>
+    </div>
+
     <div class="ssos-widget-grid">
-        <div class="ssos-widget">
-            <div class="ssos-widget-value"><?= $total_usuarios ?></div>
-            <div class="ssos-widget-label">Usuarios del BackOffice</div>
+        <div class="ssos-widget card shadow-sm border-0">
+            <div class="card-body">
+                <div class="ssos-widget-value"><?= $total_usuarios ?></div>
+                <div class="ssos-widget-label">Usuarios del BackOffice</div>
+            </div>
         </div>
-        <div class="ssos-widget">
-            <div class="ssos-widget-value"><?= $total_atletas_control ?></div>
-            <div class="ssos-widget-label">Atletas Registrados</div>
+        <div class="ssos-widget card shadow-sm border-0">
+            <div class="card-body">
+                <div class="ssos-widget-value"><?= $total_atletas_control ?></div>
+                <div class="ssos-widget-label">Atletas Registrados</div>
+            </div>
         </div>
     </div>
 
@@ -176,6 +278,49 @@ require __DIR__ . '/../partials/header.php';
             </tbody>
         </table>
     </div>
+
+    <div class="modal fade" id="modalNuevoUsuario" tabindex="-1" aria-labelledby="modalNuevoUsuarioLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" class="modal-content">
+                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="accion" value="crear_usuario">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalNuevoUsuarioLabel">Nuevo Usuario del Staff</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nuevo_nombre" class="form-label">Nombre completo</label>
+                        <input type="text" class="form-control" id="nuevo_nombre" name="nombre_completo" maxlength="150" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nuevo_email" class="form-label">Correo</label>
+                        <input type="email" class="form-control" id="nuevo_email" name="email" maxlength="150" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nuevo_rol" class="form-label">Rol</label>
+                        <select class="form-select" id="nuevo_rol" name="rol_nuevo" required>
+                            <option value="coach">Coach Especialista</option>
+                            <option value="admin">Administración / Recepción</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nuevo_especialidad" class="form-label">Especialidad (sólo Coach)</label>
+                        <input type="text" class="form-control" id="nuevo_especialidad" name="especialidad" maxlength="100" placeholder="Ej. Fuerza y Acondicionamiento">
+                    </div>
+                    <div class="mb-3">
+                        <label for="nuevo_password" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="nuevo_password" name="password" minlength="8" required>
+                        <div class="form-text">Mínimo 8 caracteres.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-ssos-turquesa">Crear Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </section>
 <?php endif; ?>
 
@@ -187,17 +332,23 @@ require __DIR__ . '/../partials/header.php';
     </p>
 
     <div class="ssos-widget-grid">
-        <div class="ssos-widget">
-            <div class="ssos-widget-value"><?= (int) $clientes_activos ?></div>
-            <div class="ssos-widget-label">Clientes Activos</div>
+        <div class="ssos-widget card shadow-sm border-0">
+            <div class="card-body">
+                <div class="ssos-widget-value"><?= (int) $clientes_activos ?></div>
+                <div class="ssos-widget-label">Clientes Activos</div>
+            </div>
         </div>
-        <div class="ssos-widget">
-            <div class="ssos-widget-value"><?= (int) $evaluaciones_pendientes ?></div>
-            <div class="ssos-widget-label">Evaluaciones Pendientes</div>
+        <div class="ssos-widget card shadow-sm border-0">
+            <div class="card-body">
+                <div class="ssos-widget-value"><?= (int) $evaluaciones_pendientes ?></div>
+                <div class="ssos-widget-label">Evaluaciones Pendientes</div>
+            </div>
         </div>
-        <div class="ssos-widget">
-            <div class="ssos-widget-value"><?= (int) $membresias_por_vencer ?></div>
-            <div class="ssos-widget-label">Membresías por Vencer (7 días)</div>
+        <div class="ssos-widget card shadow-sm border-0">
+            <div class="card-body">
+                <div class="ssos-widget-value"><?= (int) $membresias_por_vencer ?></div>
+                <div class="ssos-widget-label">Membresías por Vencer (7 días)</div>
+            </div>
         </div>
     </div>
 
@@ -280,6 +431,14 @@ require __DIR__ . '/../partials/header.php';
         <?php endforeach; ?>
     </div>
 </section>
+<?php endif; ?>
+
+<?php if ($verControl && !empty($erroresUsuarioNuevo)): ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            new bootstrap.Modal(document.getElementById('modalNuevoUsuario')).show();
+        });
+    </script>
 <?php endif; ?>
 
 <?php require __DIR__ . '/../partials/footer.php'; ?>

@@ -173,13 +173,15 @@ body.ssos-app-body {
     margin: 1.5rem 0;
 }
 
+/* .card/.card-body de Bootstrap aportan sombra y radio; aquí sólo
+   sobreescribimos el fondo/borde para que respeten el tema día/noche.
+   main.css carga después de bootstrap.min.css, así que esta regla ya
+   gana la cascada de forma natural — sin necesidad de !important. */
 .ssos-widget {
     flex: 1 1 14rem;
     max-width: 18rem;
     background: var(--ssos-surface);
     border: 1px solid var(--ssos-border);
-    border-radius: 14px;
-    padding: 1.25rem;
     text-align: center;
 }
 

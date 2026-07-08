@@ -41,9 +41,29 @@ function csrf_validate(?string $token): bool
 }
 
 /** URL base de la app /ssos, sin barra final. */
+/**
+ * URL base de la app /ssos, calculada dinámicamente a partir de la petición
+ * actual (esquema + host + subcarpeta hasta "/ssos" inclusive) — NUNCA desde
+ * `APP_URL` del .env. `APP_URL` en `core/.env` está fijo al dominio de
+ * producción; usarlo aquí rompía todos los assets (logo, css/main.css,
+ * js/main.js) cuando la app se probaba en local (`/Athlos_Performance/public/ssos`
+ * en vez de `/ssos` en la raíz del dominio de producción). Bug real detectado
+ * y corregido: rutas de logo/CSS "rotas" en el Dashboard Único eran en
+ * realidad enlaces absolutos apuntando al dominio de producción equivocado.
+ */
 function ssos_base_url(): string
 {
-    return rtrim($_ENV['APP_URL'] ?? '', '/');
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ($_SERVER['SERVER_PORT'] ?? '') === '443'
+        || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+    $scheme = $https ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? (parse_url($_ENV['APP_URL'] ?? '', PHP_URL_HOST) ?: 'localhost');
+
+    $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+    $pos = strpos($scriptDir, '/ssos');
+    $basePath = $pos !== false ? substr($scriptDir, 0, $pos + 5) : $scriptDir;
+
+    return $scheme . '://' . $host . $basePath;
 }
 
 /**

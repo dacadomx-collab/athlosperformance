@@ -340,12 +340,86 @@ actualiza las filas existentes sin duplicar). Las menciones históricas de "AXON
 registros fechados de `02_SYSTEM_CODEX_REGISTRY.md` y en entregas anteriores de este mismo archivo
 se dejaron intactas deliberadamente — son bitácora de decisiones pasadas, no interfaz.
 
-## 9. Próximos pasos (fuera del alcance de esta entrega)
+## 9. Fase 8 — Favicon, corrección de rutas rotas, gestión activa y SEO local (2026-07-08)
 
-- **Pendiente de tu parte:** primera visita real a `setup_admin.php` en producción para certificar
-  la escritura real contra `tourfindycom_athlosp_db` (ver §8.1).
-- CRUD de usuarios para que el Super Admin cree cuentas Admin/Coach sin tocar la DB manualmente.
+Disparada por auditoría visual real del Super Admin tras crear su cuenta en producción y entrar al
+Dashboard Único — primera confirmación de que el flujo completo (Fases 1-7) funciona en producción.
+
+### 9.1 Bug real encontrado y corregido: rutas de logo/CSS "rotas" (REGLA 2)
+
+**Causa raíz:** `ssos_base_url()` devolvía `$_ENV['APP_URL']` tal cual — un valor **estático**, fijo
+al dominio de producción en `core/.env` (única fuente de verdad desde la Fase 7). Cuando el Dashboard
+se visita desde cualquier contexto donde la ruta real no coincide con ese dominio fijo, **todas** las
+rutas absolutas construidas con `ssos_base_url()` (logo, `css/main.css`, `js/main.js`) apuntaban al
+lugar equivocado → imagen rota, sin estilos. `login.php`/`setup_admin.php` no mostraban el bug porque
+usan rutas relativas simples (`img/logo.jpg`), no `ssos_base_url()`.
+
+**Corrección permanente:** `ssos_base_url()` ahora se calcula **dinámicamente en cada petición** a
+partir de `$_SERVER['HTTP_HOST']` (esquema+host reales) y `$_SERVER['SCRIPT_NAME']` (trunca hasta
+`/ssos` inclusive, sin importar la subcarpeta) — nunca de `APP_URL`. Funciona correctamente sin
+ninguna configuración adicional tanto en local (`/Athlos_Performance/public/ssos`) como en producción
+(`/ssos` en la raíz del dominio). Verificado en navegador real (curl): las 3 rutas (`css/main.css`,
+`img/logo.jpg`, `js/main.js`) devuelven `200` con la URL absoluta correcta tras el fix.
+
+### 9.2 Favicon universal (REGLA 1)
+
+Generado `favicon.ico` (48×48, desde el logo institucional) con `ffmpeg`, colocado en dos lugares
+(cada app sirve su propia copia — no comparten servidor de assets):
+- `public/favicon.ico` — Next.js lo detecta automáticamente por convención de `app/` y lo inyecta
+  vía la API de `metadata.icons`; verificado en el HTML exportado (`<link rel="icon" href="/favicon.ico"/>`).
+- `public/ssos/img/favicon.ico` — referenciado con `<link rel="icon" type="image/x-icon">` agregado
+  a `partials/header.php` (Dashboard, todas las vistas autenticadas), `login.php`, `setup_admin.php`
+  y `atleta/reporte.php`. `migrar_excel.php` ya hereda el de `header.php`.
+
+### 9.3 Tarjetas Bootstrap explícitas para widgets (REGLA 2.3)
+
+Los 5 widgets numéricos (Usuarios, Atletas Registrados, Clientes Activos, Evaluaciones Pendientes,
+Membresías por Vencer) ahora usan `.card.shadow-sm.border-0` + `.card-body` de Bootstrap en vez de
+sólo la clase custom `.ssos-widget` — sombra y radio los aporta Bootstrap; `main.css` sólo sobreescribe
+fondo/borde para que respeten el tema día/noche (cascada natural, `main.css` carga después de
+Bootstrap — cero `!important`). Las tablas ya usaban `.table.table-hover.align-middle` desde su
+creación en fases anteriores; no requirieron cambio.
+
+### 9.4 Módulo de Gestión Activa en la sección Control (REGLA 3)
+
+Nuevo en `dashboard/index.php`, sección Control (sólo Dirección de Laboratorio):
+- **Modal "+ Nuevo Usuario del Staff"** (Bootstrap modal): Nombre, Email, Rol (Coach/Administración),
+  Especialidad (obligatoria sólo si Rol=Coach — crea también la ficha en `staff`), Contraseña. El
+  handler POST (mismo archivo `index.php`, `accion=crear_usuario`) valida, verifica email duplicado,
+  crea `staff` (si aplica) + `usuarios` en una transacción, y refresca la tabla "Usuarios del sistema"
+  en la misma carga de página. Si hay errores de validación, un pequeño script reabre el modal
+  automáticamente para no perder el contexto del usuario.
+- **Botón "📥 Ejecutar Migración Inicial de Clientes.xlsx"** enlaza directamente a `admin/migrar_excel.php`.
+
+**⚠️ Limitación de verificación honesta:** no pude ejecutar una prueba de clic real de este modal
+(POST real de alta de usuario) porque, tras la unificación de la Fase 7, toda petición de la app cae
+automáticamente al servidor remoto de producción cuando no existe un usuario MySQL local que empate
+`core/.env` (intento de crearlo bloqueado en la Fase 7 por reutilizar la contraseña real). Verifiqué
+esto de forma concluyente: una consulta de diagnóstico confirmó `@@hostname = chir205.websitehostserver.net`
+(el propio host de producción) en vez de mi máquina local. Hice una revisión exhaustiva de código en su
+lugar (sin placeholders PDO repetidos — el bug de las Fases 4/5/6 —, transacción correcta, orden de
+queries correcto para que el usuario nuevo aparezca de inmediato en la tabla). **Pendiente:** que el
+Super Admin pruebe el modal una vez en producción para la certificación final de escritura.
+
+### 9.5 SEO Local y Schema.org (REGLA 4)
+
+`app/layout.tsx`: `title`/`description`/`keywords` actualizados exactamente al texto pedido,
+`openGraph` (`og:title`, `og:description`, `og:image` usando el poster del video hero ya existente,
+`og:url`, `og:type`, `og:locale`) + `twitter:card`, y un bloque `<script type="application/ld+json">`
+con schema `SportsActivityLocation` (nombre, dirección postal completa, teléfono, email, geo
+aproximado de La Paz — coordenadas a nivel ciudad, no geocodificación exacta de la calle —, y
+`sameAs` con Instagram/Facebook). Semántica HTML (`<header>`, `<main>`, `<section>`, `<footer>`,
+`<h1>` único) ya era correcta desde módulos anteriores — verificado, sin cambios necesarios.
+Verificado con `pnpm build` real: HTML exportado contiene las 3 categorías de metadatos y el JSON-LD
+completo y bien formado.
+
+## 10. Próximos pasos (fuera del alcance de esta entrega)
+
+- **Pendiente de tu parte:** probar en vivo el modal "+ Nuevo Usuario del Staff" y el botón de
+  migración en producción (ver §9.4) — no se pudieron ejecutar-probar desde este entorno.
+- CRUD completo de usuarios (editar/desactivar) — hoy sólo alta.
 - Notificaciones por email (SMTP) — credenciales ya disponibles en `core/.env`, sin consumir todavía.
 - Panel de `alertas_renovacion` en el Dashboard Único (hoy sólo se generan y persisten, no se listan).
 - Pantalla para que el Admin complete los teléfonos placeholder (`SIN-TEL-*`) de los 17 atletas migrados.
 - Revisión manual de las 8 membresías migradas con "1 sesión asumida por defecto" (texto de Programa sin número).
+- Geocodificación exacta de `Calle Altamirano #2730` para el JSON-LD (hoy usa el centro aproximado de La Paz).
