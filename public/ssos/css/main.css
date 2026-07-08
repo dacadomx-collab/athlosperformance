@@ -4,6 +4,13 @@
    ============================================================================= */
 
 :root {
+    /* Declarar color-scheme explícito por tema es el fix real del bug de
+       "texto oscuro sobre fondo oscuro": sin esto, el navegador renderiza
+       los controles nativos (input/select) según el modo oscuro del SO,
+       independientemente de nuestro toggle — combinado con el color de
+       texto que sí fija Bootstrap, el resultado era oscuro sobre oscuro. */
+    color-scheme: light;
+
     --athlos-azul-profundo: #0E3A5D;
     --athlos-azul-acero: #3F6E8A;
     --athlos-turquesa: #00B8C9;
@@ -19,6 +26,8 @@
 }
 
 [data-theme="dark"] {
+    color-scheme: dark;
+
     --ssos-bg: #0A1D2E;
     --ssos-surface: #12293D;
     --ssos-text: #F0F5F8;
@@ -295,6 +304,13 @@ body.ssos-app-body {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    box-shadow: 0 10px 24px rgba(14, 58, 93, 0.12);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pdc-athlete-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(14, 58, 93, 0.18);
 }
 
 .pdc-athlete-card .pdc-athlete-name {
@@ -319,6 +335,12 @@ body.ssos-app-body {
     text-transform: uppercase;
     letter-spacing: 0.03em;
     min-height: 3.5rem;
+    touch-action: manipulation;
+    transition: background-color 0.12s ease, transform 0.08s ease;
+}
+
+.pdc-start-btn:active {
+    transform: scale(0.97);
 }
 
 .pdc-start-btn:hover,
@@ -369,7 +391,12 @@ body.ssos-app-body {
     justify-content: center;
     text-align: center;
     cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    touch-action: manipulation;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease;
+}
+
+.pdc-check-btn:active {
+    transform: scale(0.96);
 }
 
 .pdc-check-btn input {
@@ -390,4 +417,92 @@ body.ssos-app-body {
     flex-wrap: wrap;
     justify-content: center;
     gap: 1rem;
+}
+
+/* ─── Overrides explícitos de componentes Bootstrap para modo día/noche ────
+   Bootstrap trae sus propias variables de tema (--bs-*) que no conocen
+   nuestro --data-theme. Sin esto, el modal/formularios se ven siempre en
+   modo claro (o, peor, con fondo nativo oscuro del SO + texto oscuro fijo
+   de Bootstrap = el bug de contraste reportado). */
+
+.modal-content {
+    background: var(--ssos-surface);
+    color: var(--ssos-text);
+    border: 1px solid var(--ssos-border);
+}
+
+.modal-header,
+.modal-footer {
+    border-color: var(--ssos-border);
+}
+
+.btn-close {
+    filter: var(--ssos-btn-close-filter, none);
+}
+
+[data-theme="dark"] .btn-close {
+    --ssos-btn-close-filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.form-label,
+.form-check-label,
+.form-text {
+    color: var(--ssos-text);
+}
+
+.form-control,
+.form-select {
+    background-color: var(--ssos-bg);
+    color: var(--ssos-text);
+    border: 1px solid var(--ssos-border);
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--ssos-bg);
+    color: var(--ssos-text);
+    border-color: var(--athlos-turquesa);
+    box-shadow: 0 0 0 0.2rem rgba(0, 184, 201, 0.25);
+}
+
+.form-control::placeholder {
+    color: var(--ssos-text-muted);
+    opacity: 1;
+}
+
+/* ─── Navegación por pestañas del Dashboard Único ───────────────────────── */
+
+.ssos-tabs {
+    border-bottom: 1px solid var(--ssos-border);
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.ssos-tabs .nav-link {
+    color: var(--ssos-text-muted);
+    font-weight: 600;
+    border: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+    padding: 0.75rem 1.1rem;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.ssos-tabs .nav-link:hover {
+    color: var(--athlos-turquesa);
+}
+
+.ssos-tabs .nav-link.active {
+    color: var(--ssos-text);
+    background: transparent;
+    border-bottom-color: var(--athlos-turquesa);
+}
+
+.ssos-tab-pane {
+    animation: ssos-tab-fade-in 0.25s ease;
+}
+
+@keyframes ssos-tab-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }

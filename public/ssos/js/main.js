@@ -64,4 +64,20 @@
         rpeSlider.addEventListener("input", updateRpe);
         updateRpe();
     }
+
+    // ─── Dashboard Único: activar la pestaña Bootstrap indicada en el hash de
+    // la URL (ej. enlaces del menú hamburguesa a "index.php#control" desde
+    // cualquier otra página funcionan igual que si ya estuvieras en el tab). ──
+    function activarTabDesdeHash() {
+        var hash = window.location.hash.replace("#", "");
+        if (!hash || typeof bootstrap === "undefined") {
+            return;
+        }
+        var boton = document.getElementById("tab-btn-" + hash);
+        if (boton) {
+            new bootstrap.Tab(boton).show();
+        }
+    }
+    document.addEventListener("DOMContentLoaded", activarTabDesdeHash);
+    window.addEventListener("hashchange", activarTabDesdeHash);
 })();

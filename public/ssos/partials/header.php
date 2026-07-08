@@ -60,15 +60,17 @@ $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
         <?php endif; ?>
 
         <nav class="nav nav-pills flex-column mb-auto">
-            <a class="nav-link <?= $ssos_active_nav === 'dashboard' ? 'active' : '' ?>" href="<?= e($ssos_dashboard_href) ?>">Dashboard</a>
             <?php if ($ssos_rol === 'super_admin'): ?>
-                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#control">Control</a>
+                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#control" data-bs-dismiss="offcanvas">📊 Dirección y Control</a>
             <?php endif; ?>
             <?php if (in_array($ssos_rol, ['admin', 'super_admin'], true)): ?>
-                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#clientes">Clientes y Membresías</a>
+                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#clientes" data-bs-dismiss="offcanvas">👥 Clientes y Membresías</a>
             <?php endif; ?>
             <?php if (in_array($ssos_rol, ['coach', 'admin', 'super_admin'], true)): ?>
-                <a class="nav-link <?= $ssos_active_nav === 'pie_de_cancha' ? 'active' : '' ?>" href="<?= e($ssos_dashboard_href) ?>#pie-de-cancha">Pie de Cancha</a>
+                <a class="nav-link <?= $ssos_active_nav === 'pie_de_cancha' ? 'active' : '' ?>" href="<?= e($ssos_dashboard_href) ?>#pie-de-cancha" data-bs-dismiss="offcanvas">🏋️‍♂️ Pie de Cancha</a>
+            <?php endif; ?>
+            <?php if ($ssos_rol === 'super_admin'): ?>
+                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#herramientas" data-bs-dismiss="offcanvas">🛠️ Herramientas & API</a>
             <?php endif; ?>
         </nav>
 

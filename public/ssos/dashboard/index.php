@@ -2,14 +2,15 @@
 declare(strict_types=1);
 
 /**
- * ATHLOS SSOS v1.0 — DASHBOARD ÚNICO Y DINÁMICO POR ROL
+ * ATHLOS SSOS v1.0 — DASHBOARD ÚNICO Y DINÁMICO POR ROL (NAVEGACIÓN POR PESTAÑAS)
  *
  * Reemplaza los dashboards fragmentados (super_admin.php/admin.php/coach.php,
- * eliminados). Todos los roles entran aquí tras login(); el contenido se
- * renderiza condicionalmente según `clave_rol`:
- *   - super_admin: TODAS las secciones (Control, Clientes/Membresías, Pie de Cancha).
- *   - admin: Clientes/Membresías + Pie de Cancha.
- *   - coach: sólo Pie de Cancha.
+ * eliminados en la Fase 7). El contenido se organiza en 4 pestañas Bootstrap,
+ * cada una visible sólo si el rol de la sesión la tiene autorizada:
+ *   - Dirección y Control (super_admin)
+ *   - Clientes y Membresías (admin + super_admin)
+ *   - Pie de Cancha (coach + admin + super_admin)
+ *   - Herramientas & API (super_admin)
  */
 
 require_once __DIR__ . '/../config/helpers.php';
@@ -22,6 +23,7 @@ $rol = $_SESSION['clave_rol'];
 $verClientes = in_array($rol, ['admin', 'super_admin'], true);
 $verPieDeCancha = in_array($rol, ['coach', 'admin', 'super_admin'], true);
 $verControl = $rol === 'super_admin';
+$verHerramientas = $rol === 'super_admin';
 
 // ── Alta de usuarios del staff (Coach/Administración), sólo Dirección ───────
 $erroresUsuarioNuevo = [];
@@ -105,7 +107,7 @@ if ($verControl && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ??
     }
 }
 
-// ── Sección Control (sólo Dirección de Laboratorio) ─────────────────────────
+// ── Tab: Dirección y Control (sólo Dirección de Laboratorio) ────────────────
 if ($verControl) {
     $total_usuarios = (int) $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
     $total_atletas_control = (int) $db->query('SELECT COUNT(*) FROM atletas')->fetchColumn();
@@ -120,7 +122,7 @@ if ($verControl) {
     )->fetchAll();
 }
 
-// ── Sección Clientes y Membresías (Admin + Dirección) ───────────────────────
+// ── Tab: Clientes y Membresías (Admin + Dirección) ──────────────────────────
 if ($verClientes) {
     $clientes_activos = (int) $db->query(
         "SELECT COUNT(*) FROM atletas WHERE estatus = 'activo'"
@@ -143,6 +145,17 @@ if ($verClientes) {
            AND fecha_fin BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)"
     )->fetchColumn();
 
+    // Defensivo: 05_schema_alertas_membresias.sql pudo no haberse aplicado aún
+    // en este servidor. Ante tabla faltante, degradamos a 0 en vez de tumbar
+    // todo el tab — mejor UX que un error 500 por una migración pendiente.
+    try {
+        $alertas_renovacion_activas = (int) $db->query(
+            "SELECT COUNT(*) FROM alertas_renovacion WHERE atendida = 0"
+        )->fetchColumn();
+    } catch (\Throwable) {
+        $alertas_renovacion_activas = 0;
+    }
+
     $ultimos_clientes = $db->query(
         "SELECT id_atleta, nombre_completo, telefono, estatus, tipo_membresia, fecha_ingreso
          FROM atletas
@@ -151,7 +164,7 @@ if ($verClientes) {
     )->fetchAll();
 }
 
-// ── Sección Pie de Cancha (Coach + Admin + Dirección) ───────────────────────
+// ── Tab: Pie de Cancha (Coach + Admin + Dirección) ──────────────────────────
 if ($verPieDeCancha) {
     $id_staff = $_SESSION['id_staff'] ?? null;
     $filtro_staff_sql = $id_staff !== null && $rol === 'coach' ? 'AND da.id_staff = :id_staff' : '';
@@ -172,11 +185,36 @@ if ($verPieDeCancha) {
     $atletas_del_dia = $stmt->fetchAll();
 }
 
+// ── Tab: Herramientas & API (sólo Dirección de Laboratorio) ─────────────────
+if ($verHerramientas) {
+    try {
+        $db_host_actual = (string) $db->query('SELECT @@hostname')->fetchColumn();
+    } catch (\Throwable) {
+        $db_host_actual = 'No disponible';
+    }
+}
+
 $etiquetasRol = [
     'super_admin' => 'Dirección de Laboratorio',
     'admin' => 'Administración / Recepción',
     'coach' => 'Coach Especialista',
 ];
+
+// ── Orden de pestañas visibles + cuál queda activa por defecto ──────────────
+$tabsDisponibles = [];
+if ($verControl) {
+    $tabsDisponibles[] = ['id' => 'control', 'icono' => '📊', 'label' => 'Dirección y Control'];
+}
+if ($verClientes) {
+    $tabsDisponibles[] = ['id' => 'clientes', 'icono' => '👥', 'label' => 'Clientes y Membresías'];
+}
+if ($verPieDeCancha) {
+    $tabsDisponibles[] = ['id' => 'pie-de-cancha', 'icono' => '🏋️‍♂️', 'label' => 'Pie de Cancha'];
+}
+if ($verHerramientas) {
+    $tabsDisponibles[] = ['id' => 'herramientas', 'icono' => '🛠️', 'label' => 'Herramientas & API'];
+}
+$tabActivaPorDefecto = $tabsDisponibles[0]['id'] ?? 'pie-de-cancha';
 
 $ssos_page_title = 'Dashboard';
 $ssos_active_nav = 'dashboard';
@@ -186,9 +224,26 @@ require __DIR__ . '/../partials/header.php';
 <span class="ssos-role-badge"><?= e($etiquetasRol[$rol] ?? $rol) ?></span>
 <h2 class="mt-3">Bienvenido, <?= e($_SESSION['nombre_completo']) ?></h2>
 
+<ul class="nav nav-tabs ssos-tabs" id="ssosTabList" role="tablist">
+    <?php foreach ($tabsDisponibles as $tab): ?>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link <?= $tab['id'] === $tabActivaPorDefecto ? 'active' : '' ?>"
+                    id="tab-btn-<?= e($tab['id']) ?>" data-bs-toggle="tab"
+                    data-bs-target="#pane-<?= e($tab['id']) ?>" type="button" role="tab"
+                    aria-controls="pane-<?= e($tab['id']) ?>"
+                    aria-selected="<?= $tab['id'] === $tabActivaPorDefecto ? 'true' : 'false' ?>">
+                <?= $tab['icono'] ?> <?= e($tab['label']) ?>
+            </button>
+        </li>
+    <?php endforeach; ?>
+</ul>
+
+<div class="tab-content" id="ssosTabContent">
+
 <?php if ($verControl): ?>
-<section id="control" class="ssos-dashboard-section mt-4">
-    <h3>Control</h3>
+<div class="tab-pane fade ssos-tab-pane <?= 'control' === $tabActivaPorDefecto ? 'show active' : '' ?>"
+     id="pane-control" role="tabpanel" aria-labelledby="tab-btn-control">
+
     <p class="text-body-secondary">
         Control absoluto de base de datos, usuarios del sistema y auditoría de seguridad.
     </p>
@@ -204,9 +259,6 @@ require __DIR__ . '/../partials/header.php';
         <button type="button" class="btn btn-ssos-turquesa" data-bs-toggle="modal" data-bs-target="#modalNuevoUsuario">
             + Nuevo Usuario del Staff
         </button>
-        <a href="<?= e(ssos_base_url()) ?>/admin/migrar_excel.php" class="btn btn-ssos-primary">
-            📥 Ejecutar Migración Inicial de Clientes.xlsx
-        </a>
     </div>
 
     <div class="ssos-widget-grid">
@@ -321,12 +373,13 @@ require __DIR__ . '/../partials/header.php';
             </form>
         </div>
     </div>
-</section>
+</div>
 <?php endif; ?>
 
 <?php if ($verClientes): ?>
-<section id="clientes" class="ssos-dashboard-section mt-5">
-    <h3>Clientes y Membresías</h3>
+<div class="tab-pane fade ssos-tab-pane <?= 'clientes' === $tabActivaPorDefecto ? 'show active' : '' ?>"
+     id="pane-clientes" role="tabpanel" aria-labelledby="tab-btn-clientes">
+
     <p class="text-body-secondary">
         Gestión comercial de clientes, cobros y catálogo de paquetes/membresías.
     </p>
@@ -348,6 +401,12 @@ require __DIR__ . '/../partials/header.php';
             <div class="card-body">
                 <div class="ssos-widget-value"><?= (int) $membresias_por_vencer ?></div>
                 <div class="ssos-widget-label">Membresías por Vencer (7 días)</div>
+            </div>
+        </div>
+        <div class="ssos-widget card shadow-sm border-0">
+            <div class="card-body">
+                <div class="ssos-widget-value"><?= (int) $alertas_renovacion_activas ?></div>
+                <div class="ssos-widget-label">Alertas de Renovación Activas</div>
             </div>
         </div>
     </div>
@@ -393,12 +452,14 @@ require __DIR__ . '/../partials/header.php';
             </tbody>
         </table>
     </div>
-</section>
+</div>
 <?php endif; ?>
 
 <?php if ($verPieDeCancha): ?>
-<section id="pie-de-cancha" class="ssos-dashboard-section mt-5">
-    <h3>Pie de Cancha — Atletas del Día</h3>
+<div class="tab-pane fade ssos-tab-pane <?= 'pie-de-cancha' === $tabActivaPorDefecto ? 'show active' : '' ?>"
+     id="pane-pie-de-cancha" role="tabpanel" aria-labelledby="tab-btn-pie-de-cancha">
+
+    <h4>Atletas del Día</h4>
     <p class="text-body-secondary">
         Toca <strong>Iniciar Sesión</strong> sobre un atleta para capturar RPE y el checklist
         de Sentadilla Overhead en menos de 30 segundos.
@@ -430,8 +491,57 @@ require __DIR__ . '/../partials/header.php';
             </div>
         <?php endforeach; ?>
     </div>
-</section>
+</div>
 <?php endif; ?>
+
+<?php if ($verHerramientas): ?>
+<div class="tab-pane fade ssos-tab-pane <?= 'herramientas' === $tabActivaPorDefecto ? 'show active' : '' ?>"
+     id="pane-herramientas" role="tabpanel" aria-labelledby="tab-btn-herramientas">
+
+    <p class="text-body-secondary">
+        Migración de datos históricos y estado de la integración con sistemas externos (Next.js, bots).
+    </p>
+
+    <div class="ssos-table-card mb-4">
+        <h5 class="mb-2">Migración de Datos Históricos</h5>
+        <p class="text-body-secondary mb-3">
+            Vuelca <code>Clientes.xlsx</code> (catálogo de cobranza legacy) a las tablas
+            <code>atletas</code>/<code>membresias</code>/<code>pagos_asistencia</code>. Es seguro
+            ejecutarla más de una vez con el mismo archivo — los pagos ya importados se detectan
+            y se omiten automáticamente.
+        </p>
+        <a href="<?= e(ssos_base_url()) ?>/admin/migrar_excel.php" class="btn btn-ssos-primary btn-lg">
+            📥 Ejecutar Migración Inicial de Clientes.xlsx
+        </a>
+    </div>
+
+    <div class="ssos-table-card">
+        <h5 class="mb-3">Estado de Integración API</h5>
+        <table class="table table-hover align-middle mb-0">
+            <tbody>
+                <tr>
+                    <th scope="row">API_WEBHOOK_SECRET</th>
+                    <td><code><?= e(ssos_mask_secret($_ENV['API_WEBHOOK_SECRET'] ?? null)) ?></code></td>
+                </tr>
+                <tr>
+                    <th scope="row">HMAC_SECRET (reportes)</th>
+                    <td><code><?= e(ssos_mask_secret($_ENV['HMAC_SECRET'] ?? null)) ?></code></td>
+                </tr>
+                <tr>
+                    <th scope="row">Orígenes permitidos (CORS)</th>
+                    <td><code><?= e($_ENV['ALLOWED_ORIGINS'] ?? 'No configurado') ?></code></td>
+                </tr>
+                <tr>
+                    <th scope="row">Servidor de base de datos conectado</th>
+                    <td><code><?= e($db_host_actual) ?></code></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
+</div>
 
 <?php if ($verControl && !empty($erroresUsuarioNuevo)): ?>
     <script>

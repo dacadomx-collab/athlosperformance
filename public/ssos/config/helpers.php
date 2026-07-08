@@ -277,3 +277,20 @@ function ssos_verify_share_token(string $token): ?int
 
     return (int) $payload['id'];
 }
+
+/**
+ * Enmascara un secreto para mostrar su estado ("configurado") sin revelarlo
+ * completo — usado en el panel de diagnóstico de Herramientas & API.
+ */
+function ssos_mask_secret(?string $secret): string
+{
+    if ($secret === null || $secret === '') {
+        return 'No configurado';
+    }
+
+    if (strlen($secret) <= 8) {
+        return str_repeat('•', 8);
+    }
+
+    return substr($secret, 0, 4) . str_repeat('•', 8) . substr($secret, -4);
+}

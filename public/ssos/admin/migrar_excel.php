@@ -57,7 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_validate($_POST['csrf_token'] ?? null)) {
         $errores[] = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
     } elseif (empty($_FILES['archivo_excel']) || $_FILES['archivo_excel']['error'] !== UPLOAD_ERR_OK) {
-        $errores[] = 'Debes subir un archivo .xlsx válido.';
+        $codigoSubida = $_FILES['archivo_excel']['error'] ?? UPLOAD_ERR_NO_FILE;
+        $mensajesSubida = [
+            UPLOAD_ERR_INI_SIZE => 'El archivo excede el tamaño máximo permitido por el servidor (upload_max_filesize en php.ini).',
+            UPLOAD_ERR_FORM_SIZE => 'El archivo excede el tamaño máximo definido en el formulario.',
+            UPLOAD_ERR_PARTIAL => 'El archivo se subió sólo parcialmente. Intenta de nuevo.',
+            UPLOAD_ERR_NO_FILE => 'No se seleccionó ningún archivo.',
+            UPLOAD_ERR_NO_TMP_DIR => 'Falta la carpeta temporal del servidor para guardar la carga.',
+            UPLOAD_ERR_CANT_WRITE => 'No se pudo escribir el archivo temporal en disco.',
+            UPLOAD_ERR_EXTENSION => 'Una extensión de PHP detuvo la carga del archivo.',
+        ];
+        $errores[] = $mensajesSubida[$codigoSubida] ?? "Error de carga desconocido (código {$codigoSubida}).";
     } else {
         $tmpPath = $_FILES['archivo_excel']['tmp_name'];
         $nombreArchivo = (string) $_FILES['archivo_excel']['name'];
@@ -65,12 +75,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!str_ends_with(strtolower($nombreArchivo), '.xlsx')) {
             $errores[] = 'El archivo debe tener extensión .xlsx.';
         } elseif (!is_uploaded_file($tmpPath)) {
-            $errores[] = 'Carga de archivo inválida.';
+            $errores[] = 'Carga de archivo inválida: "' . $tmpPath . '" no es un archivo subido legítimo.';
         } else {
+            // ── Lectura del archivo (try/catch explícito y separado de la BD,
+            // por REGLA 3: distinguir un error de lectura de uno de base de datos) ──
+            $filas = null;
             try {
                 $sharedStrings = XlsxReader::readSharedStrings($tmpPath);
                 $filas = XlsxReader::readSheetRows($tmpPath, 'xl/worksheets/sheet1.xml', $sharedStrings);
+            } catch (\Throwable $e) {
+                $errores[] = 'Error al leer el archivo Excel: ' . $e->getMessage()
+                    . ' (archivo temporal: ' . $tmpPath . ', nombre original: ' . $nombreArchivo . ')';
+                error_log('[SSOS migrar_excel] Error de lectura: ' . $e->getMessage());
+            }
 
+            if ($filas !== null) {
+            try {
                 $conteo = [
                     'atletas_creados' => 0,
                     'atletas_reutilizados' => 0,
@@ -223,8 +243,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($db->inTransaction()) {
                     $db->rollBack();
                 }
-                $errores[] = 'No se pudo procesar el archivo. Detalle técnico registrado en el log del servidor.';
-                error_log('[SSOS migrar_excel] ' . $e->getMessage());
+                $errores[] = 'Error de base de datos durante la migración: ' . $e->getMessage()
+                    . ' (' . $e->getFile() . ':' . $e->getLine() . ')';
+                error_log('[SSOS migrar_excel] Error de BD: ' . $e->getMessage());
+            }
             }
         }
     }

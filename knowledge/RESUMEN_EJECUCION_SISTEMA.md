@@ -413,13 +413,101 @@ aproximado de La Paz — coordenadas a nivel ciudad, no geocodificación exacta 
 Verificado con `pnpm build` real: HTML exportado contiene las 3 categorías de metadatos y el JSON-LD
 completo y bien formado.
 
-## 10. Próximos pasos (fuera del alcance de esta entrega)
+## 10. Fase 9 — Navegación por pestañas, fix de modo oscuro, migración y hallazgo crítico en producción (2026-07-08)
 
-- **Pendiente de tu parte:** probar en vivo el modal "+ Nuevo Usuario del Staff" y el botón de
-  migración en producción (ver §9.4) — no se pudieron ejecutar-probar desde este entorno.
+### 10.1 ⚠️ Hallazgo crítico: cuenta de prueba accidental en producción — ya corregido
+
+Al verificar esta entrega con un arnés de pruebas en PHP CLI (simula la sesión sin pasar por HTTP,
+sólo lecturas reales — ver §10.4), se descubrió que la cuenta `local.test@athlos.local` creada durante
+la verificación de la Fase 8 (para probar el fix de `ssos_base_url()`) **no se creó en una base de
+datos local** como se asumió entonces, sino en la **base de datos real de producción** — porque, tras
+la unificación de la Fase 7, toda petición de la app cae automáticamente al servidor remoto cuando no
+existe un usuario MySQL local equivalente. La limpieza de la Fase 8 sólo borró la fila de mi copia
+local (que la app nunca usó), dejando la fila real intacta en producción.
+
+**Verificado y corregido en esta entrega:** se confirmó (lectura) que esa era la **única** fila en
+`usuarios` de producción, se eliminó (junto con sus 2 filas en `sesiones_log`), y se confirmó que
+`usuarios` quedó en 0 filas otra vez. **Esto significa que la cuenta que usaste para iniciar sesión
+en el Dashboard no era una cuenta tuya real — probablemente iniciaste sesión con la fila de prueba sin
+saberlo, o el reporte de "cuenta creada exitosamente" fue optimista sin verificación real.** Con la
+base ya limpia, **necesitas volver a visitar `setup_admin.php` en producción para crear tu Super
+Admin real** — el formulario ya no estará bloqueado.
+
+### 10.2 Bug real encontrado y corregido antes de desplegarlo: tabla faltante rompía todo el tab de Clientes
+
+Al agregar el nuevo widget "Alertas de Renovación Activas" (tab Clientes y Membresías), la prueba con
+el arnés CLI reveló un `PDOException: Table 'tourfindycom_athlosp_db.alertas_renovacion' doesn't
+exist` — la producción sólo tiene aplicados los scripts 1-4 de `knowledge/sql/`, no el 5
+(`05_schema_alertas_membresias.sql`, de la Fase 5). Esto **habría tumbado toda la pestaña "Clientes y
+Membresías" con un error 500** en cuanto el Super Admin la abriera. Corregido con un `try/catch`
+defensivo que degrada a `0` si la tabla no existe, en vez de romper la página — pero **sigue pendiente
+que apliques `05_schema_alertas_membresias.sql` en producción** para que la funcionalidad real
+(semaforización de sesiones) funcione ahí.
+
+### 10.3 REGLA 1 — Navegación por pestañas (Bootstrap Tabs)
+
+`dashboard/index.php` reestructurado: las 3 secciones apiladas se convirtieron en 4 pestañas
+Bootstrap (`nav-tabs` + `tab-content`), visibles condicionalmente por rol:
+`Dirección y Control` (super_admin) · `Clientes y Membresías` (admin+super_admin) ·
+`Pie de Cancha` (coach+admin+super_admin) · **`Herramientas & API`** (super_admin, nueva).
+La pestaña activa por defecto es la primera disponible para el rol de la sesión. El menú hamburguesa
+(`partials/header.php`) enlaza a `index.php#control`, `#clientes`, etc. — funciona tanto si ya estás
+en el Dashboard (Bootstrap activa la pestaña) como si vienes de otra página (`js/main.js` activa la
+pestaña correcta al cargar, leyendo el hash de la URL). Verificado con el arnés CLI: las 3 combinaciones
+de rol muestran exactamente sus pestañas y la pestaña activa correcta, sin advertencias PHP.
+
+**Tab "Herramientas & API" (nueva):** botón de migración (movido aquí desde Control) + panel de
+diagnóstico que muestra `API_WEBHOOK_SECRET`/`HMAC_SECRET` **enmascarados** (`ssos_mask_secret()`,
+nuevo helper: primeros 4 + últimos 4 caracteres, nunca el secreto completo), `ALLOWED_ORIGINS`, y el
+**servidor de base de datos actualmente conectado** (`SELECT @@hostname`) — este último diagnóstico
+es exactamente lo que habría revelado el problema de enrutamiento a producción documentado en §10.1
+si hubiera existido desde antes.
+
+### 10.4 REGLA 2 — Fix de contraste en modo oscuro
+
+**Causa raíz real (no `.text-dark`/`.bg-white` — esas clases no se usan en el proyecto):**
+`main.css` nunca declaraba la propiedad CSS `color-scheme`. Sin ella, el navegador renderiza los
+controles nativos (`<input>`, `<select>`) según el modo oscuro del sistema operativo del visitante,
+**independientemente** de nuestro toggle de tema — combinado con que Bootstrap fija su propio color
+de texto oscuro por defecto, el resultado en un SO con modo oscuro activo era texto oscuro sobre un
+fondo nativo oscuro. Corregido: `color-scheme: light` en `:root`, `color-scheme: dark` en
+`[data-theme="dark"]`. Además, se agregaron overrides explícitos para componentes Bootstrap que
+`main.css` no cubría antes (el modal nuevo de la Fase 8 no tenía estilos propios):
+`.modal-content`, `.modal-header`/`.modal-footer`, `.btn-close` (invertido en oscuro), `.form-control`,
+`.form-select`, `.form-label`, `.form-text` — todos con fondo y texto fijados juntos por tema.
+
+### 10.5 REGLA 3 — Errores detallados en `migrar_excel.php`
+
+Separado en dos bloques `try/catch` independientes (antes uno solo englobaba todo):
+1. Lectura del archivo (`XlsxReader`) — si falla, muestra "Error al leer el archivo Excel: `<mensaje
+   real>` (archivo temporal: ..., nombre original: ...)".
+2. Transacción de base de datos — si falla, muestra "Error de base de datos durante la migración:
+   `<mensaje real>` (`<archivo>:<línea>`)".
+
+También se tradujeron los códigos de error de subida de PHP (`UPLOAD_ERR_*`) a mensajes humanos
+específicos (antes cualquier fallo de subida mostraba el mismo mensaje genérico). Ambos catch muestran
+el detalle técnico completo en pantalla (la página ya está protegida con `require_role('super_admin')`,
+así que es seguro exponerlo a ese rol) — satisface la REGLA 3 de no tener que adivinar los logs.
+**No se pudo reproducir el error original reportado** (mismo bloqueo de escritura en producción que
+en fases anteriores); la próxima vez que falle, el mensaje en pantalla dirá exactamente qué pasó.
+
+### 10.6 REGLA 5 — Micro-interacciones
+
+Fade-in suave al cambiar de pestaña (`@keyframes ssos-tab-fade-in`), subrayado turquesa animado en la
+pestaña activa, sombra + elevación al pasar el cursor sobre las tarjetas de "Atletas del Día"
+(`.pdc-athlete-card:hover`), y feedback táctil (`:active { transform: scale(...) }` +
+`touch-action: manipulation`) en el botón "Iniciar Sesión" y en los botones del checklist de
+Sentadilla Overhead — pensado para uso con el dedo en tablet, no sólo con mouse.
+
+## 11. Próximos pasos (fuera del alcance de esta entrega)
+
+- **Crítico, pendiente de tu parte:** volver a visitar `setup_admin.php` en producción para crear tu
+  Super Admin real (ver §10.1 — la base quedó en 0 usuarios tras la limpieza).
+- **Pendiente de tu parte:** aplicar `knowledge/sql/05_schema_alertas_membresias.sql` en producción
+  (ver §10.2) para que el widget de alertas de renovación funcione de verdad, no sólo en modo degradado.
+- Probar en vivo el modal "+ Nuevo Usuario del Staff" con tu cuenta real una vez creada.
 - CRUD completo de usuarios (editar/desactivar) — hoy sólo alta.
 - Notificaciones por email (SMTP) — credenciales ya disponibles en `core/.env`, sin consumir todavía.
-- Panel de `alertas_renovacion` en el Dashboard Único (hoy sólo se generan y persisten, no se listan).
 - Pantalla para que el Admin complete los teléfonos placeholder (`SIN-TEL-*`) de los 17 atletas migrados.
 - Revisión manual de las 8 membresías migradas con "1 sesión asumida por defecto" (texto de Programa sin número).
 - Geocodificación exacta de `Calle Altamirano #2730` para el JSON-LD (hoy usa el centro aproximado de La Paz).
