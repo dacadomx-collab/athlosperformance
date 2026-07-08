@@ -1,0 +1,204 @@
+/* =============================================================================
+   ATHLOS SSOS v1.0 — REPORTE PÚBLICO ATHLOS SCORE™
+   Vista imprimible/premium para compartir con el atleta. Cero !important.
+   ============================================================================= */
+
+:root {
+    --athlos-azul-profundo: #0E3A5D;
+    --athlos-azul-acero: #3F6E8A;
+    --athlos-turquesa: #00B8C9;
+    --athlos-gris-claro: #F7FAFC;
+
+    --rpt-bg: var(--athlos-gris-claro);
+    --rpt-surface: #FFFFFF;
+    --rpt-text: #16232E;
+    --rpt-text-muted: #4A5C6A;
+    --rpt-border: #DCE6EC;
+}
+
+[data-theme="dark"] {
+    --rpt-bg: #0A1D2E;
+    --rpt-surface: #12293D;
+    --rpt-text: #F0F5F8;
+    --rpt-text-muted: #A9BDCB;
+    --rpt-border: #1E3E56;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body.rpt-body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--rpt-bg);
+    color: var(--rpt-text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.rpt-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: var(--athlos-azul-profundo);
+    color: #F7FAFC;
+}
+
+.rpt-header .rpt-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 700;
+}
+
+.rpt-header img {
+    height: 2.1rem;
+    width: 2.1rem;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.rpt-actions {
+    display: flex;
+    gap: 0.6rem;
+}
+
+.rpt-main {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 4rem;
+
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+}
+
+.rpt-card {
+    width: 100%;
+    background: var(--rpt-surface);
+    border: 1px solid var(--rpt-border);
+    border-radius: 16px;
+    padding: 1.75rem;
+}
+
+.rpt-athlete-name {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0 0 0.25rem;
+}
+
+.rpt-athlete-meta {
+    color: var(--rpt-text-muted);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.rpt-score-hero {
+    text-align: center;
+}
+
+.rpt-score-value {
+    font-size: 4rem;
+    font-weight: 900;
+    color: var(--athlos-turquesa);
+    line-height: 1;
+}
+
+.rpt-score-label {
+    color: var(--rpt-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.85rem;
+}
+
+.rpt-radar-wrap {
+    max-width: 28rem;
+    margin: 1rem auto 0;
+}
+
+.rpt-dimensions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.rpt-dimension {
+    flex: 1 1 14rem;
+    max-width: 16rem;
+    text-align: center;
+    padding: 1rem;
+    border: 1px solid var(--rpt-border);
+    border-radius: 12px;
+}
+
+.rpt-dimension .rpt-dimension-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--athlos-azul-profundo);
+}
+
+[data-theme="dark"] .rpt-dimension .rpt-dimension-value {
+    color: var(--athlos-turquesa);
+}
+
+.rpt-dimension .rpt-dimension-label {
+    color: var(--rpt-text-muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.rpt-dimension .rpt-dimension-empty {
+    color: var(--rpt-text-muted);
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+.rpt-disclaimer {
+    color: var(--rpt-text-muted);
+    font-size: 0.78rem;
+    text-align: center;
+}
+
+.btn-rpt {
+    background: var(--athlos-turquesa);
+    border: none;
+    color: #06262B;
+    font-weight: 700;
+    padding: 0.55rem 1rem;
+    border-radius: 8px;
+}
+
+.btn-rpt:hover {
+    background: #05A2B1;
+    color: #06262B;
+}
+
+/* ─── Exportación a PDF vía impresión del navegador ─────────────────────── */
+@media print {
+    .rpt-header .rpt-actions,
+    .no-print {
+        display: none;
+    }
+
+    body.rpt-body {
+        background: #FFFFFF;
+        color: #16232E;
+    }
+
+    .rpt-header {
+        background: #FFFFFF;
+        color: #16232E;
+        border-bottom: 2px solid var(--athlos-azul-profundo);
+    }
+
+    .rpt-card {
+        border: 1px solid #DCE6EC;
+        break-inside: avoid;
+    }
+}

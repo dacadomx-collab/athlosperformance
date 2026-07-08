@@ -71,12 +71,13 @@ require __DIR__ . '/../partials/header.php';
                 <th>Membresía</th>
                 <th>Estatus</th>
                 <th>Ingreso</th>
+                <th>Reporte</th>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($ultimos_clientes)): ?>
                 <tr>
-                    <td colspan="5" class="text-center text-body-secondary py-4">
+                    <td colspan="6" class="text-center text-body-secondary py-4">
                         Aún no hay clientes registrados.
                     </td>
                 </tr>
@@ -92,6 +93,11 @@ require __DIR__ . '/../partials/header.php';
                         </span>
                     </td>
                     <td><?= e($cliente['fecha_ingreso']) ?></td>
+                    <td>
+                        <a class="btn btn-sm btn-outline-secondary"
+                           href="<?= e(ssos_base_url()) ?>/atleta/reporte.php?token=<?= e(ssos_generate_share_token((int) $cliente['id_atleta'])) ?>"
+                           target="_blank" rel="noopener noreferrer">Ver Reporte</a>
+                    </td>
                 </tr>
             <?php endforeach; ?>
         </tbody>

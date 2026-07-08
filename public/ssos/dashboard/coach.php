@@ -57,6 +57,9 @@ require __DIR__ . '/../partials/header.php';
                href="coach_evaluacion.php?id_atleta=<?= (int) $cita['id_atleta'] ?>&id_cita=<?= (int) $cita['id_cita'] ?>">
                 Iniciar Sesión
             </a>
+            <a class="btn btn-sm btn-outline-secondary text-center"
+               href="<?= e(ssos_base_url()) ?>/atleta/reporte.php?token=<?= e(ssos_generate_share_token((int) $cita['id_atleta'])) ?>"
+               target="_blank" rel="noopener noreferrer">Ver Reporte Athlos Score™</a>
         </div>
     <?php endforeach; ?>
 </div>

@@ -171,6 +171,31 @@ function api_require_key(): void
     }
 }
 
+/**
+ * Autoriza la petición por API key (servidor-a-servidor) O por Origin
+ * permitido (navegador). El sitio Next.js se exporta 100% estático
+ * (`output: "export"`, sin runtime de servidor) — cualquier secreto
+ * embebido en su bundle es público por definición (visible en el código
+ * fuente descargado por cualquier visitante), así que NO puede exigirle
+ * X-Athlos-Api-Key a ese cliente. Para peticiones de navegador, el propio
+ * navegador ya garantiza el header Origin real (no falsificable vía JS);
+ * confiamos en ALLOWED_ORIGINS como frontera de confianza para ese canal.
+ * Un cliente no-navegador que falsifique el header Origin queda en el
+ * mismo nivel de exposición que cualquier formulario público de contacto
+ * — mitigado por el Consent Gate + validación de campos, no por secreto.
+ */
+function api_require_key_or_allowed_origin(): void
+{
+    $allowed = array_map('trim', explode(',', $_ENV['ALLOWED_ORIGINS'] ?? ''));
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+    if ($origin !== '' && in_array($origin, $allowed, true)) {
+        return;
+    }
+
+    api_require_key();
+}
+
 /** Decodifica el body JSON de la petición actual; responde 400 si es inválido. */
 function api_json_input(): array
 {
@@ -182,4 +207,52 @@ function api_json_input(): array
     }
 
     return $data;
+}
+
+// =============================================================================
+// TOKENS DE COMPARTICIÓN (Fase 6 — Reporte público del Athlos Score™)
+// =============================================================================
+
+/**
+ * Genera un token firmado (HMAC-SHA256, sin estado en DB) para compartir el
+ * reporte público de un atleta sin requerir login. El reporte contiene datos
+ * clínicos/composición corporal — REGLA-01 exige que nunca sea adivinable
+ * (por eso no es simplemente el id_atleta en la URL) ni de vigencia indefinida.
+ */
+function ssos_generate_share_token(int $id_atleta, int $ttlHoras = 72): string
+{
+    $payload = json_encode(['id' => $id_atleta, 'exp' => time() + $ttlHoras * 3600]);
+    $payloadB64 = rtrim(strtr(base64_encode($payload), '+/', '-_'), '=');
+    $secreto = $_ENV['API_WEBHOOK_SECRET'] ?? '';
+    $firma = hash_hmac('sha256', $payloadB64, $secreto);
+
+    return $payloadB64 . '.' . $firma;
+}
+
+/** Verifica un token de reporte; devuelve el id_atleta si es válido y no expiró, o null. */
+function ssos_verify_share_token(string $token): ?int
+{
+    $partes = explode('.', $token, 2);
+    if (count($partes) !== 2) {
+        return null;
+    }
+
+    [$payloadB64, $firmaRecibida] = $partes;
+    $secreto = $_ENV['API_WEBHOOK_SECRET'] ?? '';
+    $firmaEsperada = hash_hmac('sha256', $payloadB64, $secreto);
+
+    if ($secreto === '' || !hash_equals($firmaEsperada, $firmaRecibida)) {
+        return null;
+    }
+
+    $payload = json_decode(base64_decode(strtr($payloadB64, '-_', '+/')) ?: '', true);
+    if (!is_array($payload) || !isset($payload['id'], $payload['exp'])) {
+        return null;
+    }
+
+    if ((int) $payload['exp'] < time()) {
+        return null;
+    }
+
+    return (int) $payload['id'];
 }

@@ -8,8 +8,13 @@ declare(strict_types=1);
  * REGLA DE PIEDRA (Consent Gate): ningún dato de salud/objetivo se persiste sin
  * `consentimiento_legal === true` explícito en el payload.
  *
+ * Auth: cabecera X-Athlos-Api-Key (llamadas servidor-a-servidor) O Origin
+ * dentro de ALLOWED_ORIGINS (formulario público de la landing Next.js, que
+ * al ser un export estático no puede guardar secretos — ver
+ * api_require_key_or_allowed_origin() en config/helpers.php).
+ *
  * POST /ssos/api/leads_webhook.php
- * Headers: Content-Type: application/json, X-Athlos-Api-Key: <secreto>
+ * Headers: Content-Type: application/json[, X-Athlos-Api-Key: <secreto>]
  * Body: {
  *   "nombre_completo": "Juan Pérez",
  *   "telefono": "6121234567",
@@ -28,7 +33,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     api_respond(405, 'error', ['code' => 'METHOD_NOT_ALLOWED', 'message' => 'Usa POST.']);
 }
 
-api_require_key();
+api_require_key_or_allowed_origin();
 
 $data = api_json_input();
 

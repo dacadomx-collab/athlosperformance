@@ -1312,6 +1312,20 @@ h3 {
   font-size: 0.82rem;
 }
 
+.consent-gate__error {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(214, 69, 69, 0.12);
+  border: 1px solid rgba(214, 69, 69, 0.35);
+  color: #f2a8a8;
+  font-size: 0.85rem;
+}
+
+:root[data-theme="light"] .consent-gate__error {
+  color: #b23a3a;
+}
+
 .cta-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

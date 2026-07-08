@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from "react"
 import { ATHLOS_CONTACT } from "@/lib/athlosContent"
 import { useConsentGate } from "@/lib/consentGateContext"
+import { submitLead } from "@/lib/ssos-client"
 
 type DialogStep = "consent" | "form" | "success"
 
@@ -21,6 +22,8 @@ export function ConsentLeadDialog() {
   const [step, setStep] = useState<DialogStep>("consent")
   const [consentChecked, setConsentChecked] = useState(false)
   const [formState, setFormState] = useState<LeadFormState>(EMPTY_FORM)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
@@ -38,6 +41,8 @@ export function ConsentLeadDialog() {
       setStep("consent")
       setConsentChecked(false)
       setFormState(EMPTY_FORM)
+      setSubmitError(null)
+      setIsSubmitting(false)
       return
     }
 
@@ -91,18 +96,26 @@ export function ConsentLeadDialog() {
     setStep("form")
   }
 
-  function handleLeadSubmit(event: FormEvent) {
+  async function handleLeadSubmit(event: FormEvent) {
     event.preventDefault()
-    // Contrato listo para api/webhook_mensajeria.php (ver REPORTE_TECNICO_FINAL.md);
-    // el envío real se conecta cuando el backend expone el endpoint correspondiente.
-    const payload = {
+    setSubmitError(null)
+    setIsSubmitting(true)
+
+    const result = await submitLead({
       nombreCompleto: formState.nombreCompleto.trim(),
       telefono: formState.telefono.trim(),
-      objetivoDeclarado: formState.objetivoDeclarado.trim(),
-      consentGateStatus: "aceptado"
+      objetivoSalud: formState.objetivoDeclarado.trim(),
+      consentimientoLegal: true
+    })
+
+    setIsSubmitting(false)
+
+    if (result.ok) {
+      setStep("success")
+      return
     }
-    void payload
-    setStep("success")
+
+    setSubmitError(result.errors?.length ? result.errors.join(" ") : result.message)
   }
 
   return (
@@ -189,8 +202,13 @@ export function ConsentLeadDialog() {
             <p className="consent-gate__disclaimer">
               Esta evaluación es profesional, no un diagnóstico en línea.
             </p>
-            <button type="submit" className="cta-button cta-button--primary">
-              <span>Enviar solicitud</span>
+            {submitError && (
+              <p className="consent-gate__error" role="alert">
+                {submitError}
+              </p>
+            )}
+            <button type="submit" className="cta-button cta-button--primary" disabled={isSubmitting}>
+              <span>{isSubmitting ? "Enviando…" : "Enviar solicitud"}</span>
             </button>
           </form>
         )}
