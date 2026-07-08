@@ -1,0 +1,372 @@
+/* =============================================================================
+   ATHLOS SSOS v1.0 — BACKOFFICE — HOJA DE ESTILOS PRINCIPAL (APP AUTENTICADA)
+   Colores institucionales, ARF-Grid, modo día/noche. Cero !important.
+   ============================================================================= */
+
+:root {
+    --athlos-azul-profundo: #0E3A5D;
+    --athlos-azul-acero: #3F6E8A;
+    --athlos-turquesa: #00B8C9;
+    --athlos-gris-claro: #F7FAFC;
+
+    --ssos-bg: var(--athlos-gris-claro);
+    --ssos-surface: #FFFFFF;
+    --ssos-text: #16232E;
+    --ssos-text-muted: #4A5C6A;
+    --ssos-border: #DCE6EC;
+    --ssos-navbar-bg: var(--athlos-azul-profundo);
+    --ssos-navbar-text: #F7FAFC;
+}
+
+[data-theme="dark"] {
+    --ssos-bg: #0A1D2E;
+    --ssos-surface: #12293D;
+    --ssos-text: #F0F5F8;
+    --ssos-text-muted: #A9BDCB;
+    --ssos-border: #1E3E56;
+    --ssos-navbar-bg: #081726;
+    --ssos-navbar-text: #F0F5F8;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body.ssos-app-body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--ssos-bg);
+    color: var(--ssos-text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* ─── Navbar + hamburguesa (offcanvas) ──────────────────────────────────── */
+
+.ssos-navbar {
+    background: var(--ssos-navbar-bg);
+    padding: 0.65rem 1rem;
+}
+
+.ssos-navbar .navbar-brand {
+    color: var(--ssos-navbar-text);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.ssos-navbar .navbar-brand img {
+    height: 2.1rem;
+    width: 2.1rem;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.ssos-navbar .navbar-toggler {
+    border-color: rgba(247, 250, 252, 0.35);
+}
+
+.ssos-offcanvas {
+    background: var(--ssos-surface);
+    color: var(--ssos-text);
+    max-width: 18rem;
+}
+
+.ssos-offcanvas .nav-link {
+    color: var(--ssos-text);
+    font-weight: 600;
+    padding: 0.65rem 0.5rem;
+    border-radius: 8px;
+}
+
+.ssos-offcanvas .nav-link:hover,
+.ssos-offcanvas .nav-link.active {
+    background: rgba(0, 184, 201, 0.12);
+    color: var(--athlos-turquesa);
+}
+
+.ssos-offcanvas .ssos-role-badge {
+    margin-bottom: 1rem;
+}
+
+/* ─── Toggle día/noche + botón volver arriba ────────────────────────────── */
+
+.ssos-theme-toggle,
+.ssos-back-to-top {
+    position: fixed;
+    right: 1rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    border: 1px solid var(--ssos-border);
+    background: var(--ssos-surface);
+    color: var(--ssos-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    box-shadow: 0 6px 16px rgba(14, 58, 93, 0.18);
+    z-index: 1050;
+}
+
+.ssos-theme-toggle {
+    top: 1rem;
+}
+
+.ssos-back-to-top {
+    bottom: 1.25rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.ssos-back-to-top.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ─── Contenedor principal + widgets ────────────────────────────────────── */
+
+.ssos-main {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+}
+
+.ssos-role-badge {
+    display: inline-block;
+    background: var(--athlos-turquesa);
+    color: #06262B;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+}
+
+.ssos-widget-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.ssos-widget {
+    flex: 1 1 14rem;
+    max-width: 18rem;
+    background: var(--ssos-surface);
+    border: 1px solid var(--ssos-border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    text-align: center;
+}
+
+.ssos-widget .ssos-widget-value {
+    font-size: 2.1rem;
+    font-weight: 800;
+    color: var(--athlos-azul-profundo);
+}
+
+[data-theme="dark"] .ssos-widget .ssos-widget-value {
+    color: var(--athlos-turquesa);
+}
+
+.ssos-widget .ssos-widget-label {
+    color: var(--ssos-text-muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ssos-table-card {
+    background: var(--ssos-surface);
+    border: 1px solid var(--ssos-border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    overflow-x: auto;
+}
+
+.ssos-table-card table {
+    color: var(--ssos-text);
+    margin-bottom: 0;
+}
+
+.ssos-table-card th {
+    color: var(--ssos-text-muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom-color: var(--ssos-border);
+}
+
+.ssos-table-card td {
+    border-color: var(--ssos-border);
+    vertical-align: middle;
+}
+
+/* ─── Botones institucionales ───────────────────────────────────────────── */
+
+.btn-ssos-primary {
+    background: var(--athlos-azul-profundo);
+    border: none;
+    color: #FFFFFF;
+    font-weight: 600;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+}
+
+.btn-ssos-primary:hover,
+.btn-ssos-primary:focus {
+    background: var(--athlos-azul-acero);
+    color: #FFFFFF;
+}
+
+.btn-ssos-turquesa {
+    background: var(--athlos-turquesa);
+    border: none;
+    color: #06262B;
+    font-weight: 700;
+    padding: 0.65rem 1.1rem;
+    border-radius: 8px;
+}
+
+.btn-ssos-turquesa:hover,
+.btn-ssos-turquesa:focus {
+    background: #05A2B1;
+    color: #06262B;
+}
+
+/* ─── Semáforo de estatus del atleta ────────────────────────────────────── */
+
+.ssos-semaforo {
+    display: inline-block;
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 50%;
+    margin-right: 0.4rem;
+    vertical-align: middle;
+}
+
+.ssos-semaforo--verde { background: #1E9E5A; }
+.ssos-semaforo--amarillo { background: #E6B800; }
+.ssos-semaforo--rojo { background: #D64545; }
+.ssos-semaforo--sin_dato { background: #9AA9B4; }
+
+/* ─── PIE DE CANCHA: tarjetas grandes táctiles ──────────────────────────── */
+
+.pdc-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.pdc-athlete-card {
+    flex: 1 1 20rem;
+    max-width: 24rem;
+    background: var(--ssos-surface);
+    border: 1px solid var(--ssos-border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.pdc-athlete-card .pdc-athlete-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.pdc-athlete-card .pdc-athlete-meta {
+    color: var(--ssos-text-muted);
+    font-size: 0.85rem;
+}
+
+.pdc-start-btn {
+    width: 100%;
+    background: var(--athlos-turquesa);
+    color: #06262B;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem;
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    min-height: 3.5rem;
+}
+
+.pdc-start-btn:hover,
+.pdc-start-btn:focus {
+    background: #05A2B1;
+    color: #06262B;
+}
+
+/* Slider RPE grande, pensado para una sola mano */
+.pdc-rpe-slider {
+    width: 100%;
+    height: 3rem;
+    accent-color: var(--athlos-turquesa);
+}
+
+.pdc-rpe-value {
+    font-size: 3rem;
+    font-weight: 800;
+    text-align: center;
+    color: var(--athlos-azul-profundo);
+}
+
+[data-theme="dark"] .pdc-rpe-value {
+    color: var(--athlos-turquesa);
+}
+
+/* Checklist Sentadilla Overhead: botones grandes tipo toggle, sin texto pequeño */
+.pdc-checklist {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.pdc-check-btn {
+    flex: 1 1 12rem;
+    max-width: 15rem;
+    min-height: 4.5rem;
+    border-radius: 14px;
+    border: 2px solid var(--ssos-border);
+    background: var(--ssos-surface);
+    color: var(--ssos-text);
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.pdc-check-btn input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pdc-check-btn.is-checked {
+    background: var(--athlos-turquesa);
+    border-color: var(--athlos-turquesa);
+    color: #06262B;
+}
+
+/* ARF-Grid genérico reutilizable */
+.arf-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+}

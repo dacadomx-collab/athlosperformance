@@ -257,6 +257,72 @@
 
 ---
 
+## 🗄️ EXTENSIÓN DE SCHEMA — MÓDULO BACKOFFICE SSOS v1.0 (RBAC + CLÍNICO + AGENDA)
+
+> **Origen:** Directriz "Athlos SSOS v1.0" (Arquitecto Gemini). **Reconciliación:** el Super Admin (AXON_DCD)
+> confirmó extender el schema existente en vez de crear un sistema paralelo. `atletas` sigue siendo la
+> ÚNICA entidad de cliente/atleta — no existe tabla `clientes`. Scripts DDL versionados en `knowledge/sql/`,
+> validados por ejecución real contra MariaDB 10.4.32 (XAMPP local) el 2026-07-07.
+
+| Script | Tablas que crea | Reproduce (sin cambios) | Nuevo |
+| :--- | :--- | :--- | :--- |
+| `01_schema_usuarios_rbac.sql` | `roles`, `permisos`, `rol_permisos`, `usuarios`, `sesiones_log` | — | Motor RBAC completo. 3 roles seed: `super_admin` (AXON_DCD), `admin` (FrontDesk), `coach` (Pie de Cancha, aislado de datos financieros). |
+| `02_schema_clientes_membresias.sql` | `leads_prospectos`, `atletas`, `catalogo_servicios`, `membresias`, `pagos_asistencia`, `asistencias` | `leads_prospectos`, `atletas`, `catalogo_servicios` | `membresias` (saldo de sesiones por paquete), `pagos_asistencia` (espejo de `Clientes.xlsx`), `asistencias` (check-in). |
+| `03_schema_evaluaciones_clinicas.sql` | `historial_clinico`, `evaluaciones_antropometria`, `percentiles_sft_referencia`, `evaluaciones_sft`, `evaluaciones_biomecanica` | — | Ficha clínica unificada (mayor_65/menor_65), antropometría completa (pliegues/perímetros/diámetros/somatotipo), normativas SFT semaforizadas en DB (sin tablas externas), checklist Sentadilla Overhead. |
+| `04_schema_agenda_sesiones.sql` | `staff`, `disponibilidad_agenda`, `audit_log_medico`, `planes_macrociclo`, `sesiones_entrenamiento`, `detalles_ejercicio` | `staff`, `disponibilidad_agenda`, `audit_log_medico` | `planes_macrociclo` (periodización anual), `sesiones_entrenamiento` + `detalles_ejercicio` (Ficha plan de sesión: calentamiento → parte medular → vuelta a la calma). Cierra FKs diferidos: `usuarios.id_staff → staff`, `asistencias.id_cita → disponibilidad_agenda`. |
+
+**Reglas de diseño aplicadas:**
+- `catalogo_servicios.tipo_servicio = 'paquete'` cubre los "paquetes/promos" del directriz original (ej. "Performance 12 sesiones") — no se creó tabla `paquetes` separada para evitar duplicar el catálogo existente.
+- `historial_clinico` es una tabla única para mayores y menores de 65 (`tipo_historial` ENUM) porque los formularios comparten ~80% de las preguntas; las columnas exclusivas de cada ficha quedan NULL-ables.
+- `percentiles_sft_referencia` persiste las tablas normativas Rikli & Jones completas (hombres/mujeres, 60-94 años) para que el Wizard SFT semaforice sin consultar fuentes externas (Checklist Fase 4).
+- Todas las tablas nuevas referencian `usuarios.id_usuario` (no `staff.id_staff`) en columnas `*_por`/`created_by`, porque el registro de auditoría de "quién capturó el dato" es responsabilidad del motor RBAC, no del directorio operativo de staff.
+
+---
+
+## 🖥️ BACKOFFICE SSOS v1.0 — APP STANDALONE PHP/BOOTSTRAP (`public/ssos/`)
+
+> Se coloca dentro de `public/` deliberadamente: el pipeline `deploy.yml` existente
+> (`next build` → `/out` → FTP) copia `public/*` verbatim al export estático, así que
+> `/ssos` se despliega automáticamente en cada push a `main` **sin ningún paso manual
+> de FTP nuevo**. No usa Bootstrap/ARF-Grid en el sitio público (Next.js) — es una app
+> aislada, cero acoplamiento con los componentes React.
+
+| Archivo | Ruta | Estado | Descripción |
+| :--- | :--- | :--- | :--- |
+| `.env.example` | `public/ssos/.env.example` | Producción | Plantilla INI versionable. `.env` real (local o producción) NUNCA se commitea — se coloca manualmente en el servidor, igual que la raíz. |
+| `conexion.php` | `public/ssos/config/conexion.php` | Producción | Singleton PDO independiente de `api/conexion.php` (ese archivo vive fuera de `public/` y no se despliega hoy vía CI). Mismo patrón: cero credenciales hardcodeadas, prepared statements. |
+| `helpers.php` | `public/ssos/config/helpers.php` | Producción | Sesión seguras (`httponly`, `samesite=Lax`, `secure` fuera de local), CSRF (`csrf_token()`/`csrf_validate()`), `e()` escape XSS, `require_login()`/`require_role()`, `redirect_to_dashboard()`, `log_sesion_evento()`. |
+| `setup_admin.php` | `public/ssos/setup_admin.php` | Producción | Instalador one-click del primer Super Admin. Se autobloquea permanentemente en cuanto existe un usuario con rol `super_admin` (verificado en navegador real: 2do acceso muestra "Instalación completada..."). |
+| `login.php` | `public/ssos/login.php` | Producción | Login con `password_verify`, bloqueo temporal tras 5 intentos fallidos (15 min), bitácora en `sesiones_log`, redirección por rol. |
+| `logout.php` | `public/ssos/logout.php` | Producción | Destruye sesión + registra evento `logout`. |
+| `dashboard/super_admin.php` / `admin.php` / `coach.php` | `public/ssos/dashboard/` | Stub | Landing por rol protegida con `require_role()`. Contenido operativo (gestión de usuarios, CRM, captura Pie de Cancha) pendiente — fuera del alcance de esta entrega. |
+| `dashboard/_shell.php` | `public/ssos/dashboard/_shell.php` | Producción | Header/footer HTML compartido por los 3 dashboards (evita duplicar boilerplate Bootstrap). |
+| `ssos-auth.css` | `public/ssos/css/ssos-auth.css` | Producción | Colores institucionales, ARF-Grid, modo día/noche vía `[data-theme]`. Cero estilos en línea, cero `!important`. |
+| `ssos-theme.js` | `public/ssos/js/ssos-theme.js` | Producción | Toggle día/noche persistido en `localStorage` (`athlos_ssos_theme`), respeta `prefers-color-scheme` como default. |
+
+**Verificado en navegador real (vía curl + cookie jar, flujo completo):** instalación del primer Super Admin → auto-bloqueo del instalador → login fallido rechazado → login correcto con `session_regenerate_id()` → acceso al dashboard por rol → logout → acceso denegado y redirigido a `login.php` tras cerrar sesión. Bug encontrado y corregido en esta misma pasada: `require_login()`/`redirect_to_dashboard()` usaban rutas relativas que se rompían al llamarse desde `dashboard/` (resolvían a `dashboard/login.php`, inexistente) — ahora usan `ssos_base_url()` (ruta absoluta desde `APP_URL`).
+
+**⚠️ No confundir con `localhost:3000`:** `/ssos` es PHP puro, ejecutado por Apache (XAMPP). El servidor de desarrollo de Next.js (`pnpm dev`, puerto 3000) no tiene runtime PHP — sólo sirve estáticos. En local, `/ssos` se visita en `http://localhost/Athlos_Performance/public/ssos/` (vía XAMPP Apache); en producción, en `https://athlosperformance.tourfindy.com/ssos/`.
+
+### Fase 4 — Layout base y Dashboards (2026-07-07)
+
+| Archivo | Ruta | Estado | Descripción |
+| :--- | :--- | :--- | :--- |
+| `header.php` / `footer.php` | `public/ssos/partials/` | Producción | Layout compartido de la app autenticada: navbar + menú hamburguesa (Offcanvas de Bootstrap), toggle día/noche, botón flotante "Volver arriba". Reemplaza el antiguo `dashboard/_shell.php` (eliminado). |
+| `main.css` | `public/ssos/css/main.css` | Producción | Colores institucionales, ARF-Grid, widgets, tabla responsive, semáforo verde/amarillo/rojo/sin_dato, componentes Pie de Cancha (`pdc-*`: tarjetas grandes, botón táctil, slider RPE, checklist tipo toggle). Cero `!important`, cero estilos en línea. |
+| `main.js` | `public/ssos/js/main.js` | Producción | Consolida el toggle día/noche (reemplaza `js/ssos-theme.js`, eliminado) + botón volver arriba + sincronización visual del checklist Sentadilla Overhead + valor numérico grande del slider RPE. |
+| `dashboard/admin.php` | `public/ssos/dashboard/admin.php` | Producción | Widgets reales (Clientes Activos, Evaluaciones Pendientes ≥90 días sin antropometría, Membresías por Vencer en 7 días) + tabla de últimos 10 clientes. Verificado con datos reales de prueba. |
+| `dashboard/coach.php` | `public/ssos/dashboard/coach.php` | Producción | "Atletas del Día": citas de `disponibilidad_agenda` para `CURDATE()` filtradas por `id_staff` del coach en sesión, semáforo tomado de la última `evaluaciones_sft.semaforo_general` (`sin_dato` si no hay evaluación previa), botón táctil grande "Iniciar Sesión" por atleta. |
+| `dashboard/coach_evaluacion.php` | `public/ssos/dashboard/coach_evaluacion.php` | Producción | Wizard de captura Pie de Cancha: slider RPE 1-10 con valor grande, checklist Sentadilla Overhead (8 botones táctiles tipo toggle, sin texto pequeño). Guarda en `evaluaciones_biomecanica` siempre; en `sesiones_entrenamiento` sólo si el coach tiene `id_staff` ligado (columna `NOT NULL` por diseño). |
+| `dashboard/super_admin.php` | `public/ssos/dashboard/super_admin.php` | Producción | Migrado al layout compartido. Widgets (usuarios del BackOffice, atletas registrados) + últimos 10 eventos de `sesiones_log`. |
+| `login.php` (actualizado) | `public/ssos/login.php` | Producción | Logo institucional, botón primario turquesa (`btn-ssos-turquesa`), sesión ahora también persiste `id_staff` para el filtro de "Atletas del Día". |
+
+**Bug encontrado y corregido durante la verificación de Fase 4:** la consulta de `dashboard/coach.php` reutilizaba el mismo placeholder nombrado (`:id_staff`) dos veces en la misma sentencia (`WHERE (:id_staff IS NULL OR da.id_staff = :id_staff)`). Con `PDO::ATTR_EMULATE_PREPARES => false` (prepared statements reales, ya configurado en `conexion.php` desde la Fase 3) MySQL/MariaDB no permite repetir un placeholder nombrado — lanzaba `PDOException: SQLSTATE[HY093] Invalid parameter number`. Solución: la condición de filtro se arma condicionalmente en PHP antes de preparar la sentencia, con un solo placeholder.
+
+**Verificado en navegador real con datos de prueba (staff + coach + admin + atleta + cita del día, creados y eliminados en esta misma sesión):** dashboard admin con conteos correctos, dashboard coach mostrando la tarjeta del atleta del día con semáforo `sin_dato`, envío del wizard con RPE=7 y 2 compensaciones marcadas → filas confirmadas en `evaluaciones_biomecanica` y `sesiones_entrenamiento`, aislamiento de rol confirmado (admin recibe 403 al intentar `dashboard/coach.php`).
+
+---
+
 ## 🧩 REGISTRO DE COMPONENTES FRONTEND
 
 | Componente | Ruta | Tipo | Estado | Props Principales |

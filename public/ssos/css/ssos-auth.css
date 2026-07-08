@@ -1,0 +1,212 @@
+/* =============================================================================
+   ATHLOS SSOS v1.0 — BACKOFFICE — HOJA DE ESTILOS DE AUTENTICACIÓN
+   Colores institucionales, ARF-Grid, modo día/noche. Cero !important.
+   ============================================================================= */
+
+:root {
+    --athlos-azul-profundo: #0E3A5D;
+    --athlos-azul-acero: #3F6E8A;
+    --athlos-turquesa: #00B8C9;
+    --athlos-gris-claro: #F7FAFC;
+
+    --ssos-bg: var(--athlos-gris-claro);
+    --ssos-card-bg: #FFFFFF;
+    --ssos-text: #16232E;
+    --ssos-text-muted: #4A5C6A;
+    --ssos-border: #DCE6EC;
+}
+
+[data-theme="dark"] {
+    --ssos-bg: #0A1D2E;
+    --ssos-card-bg: #12293D;
+    --ssos-text: #F0F5F8;
+    --ssos-text-muted: #A9BDCB;
+    --ssos-border: #1E3E56;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body.ssos-auth-body {
+    min-height: 100vh;
+    margin: 0;
+    background: linear-gradient(160deg, var(--ssos-bg), var(--athlos-azul-profundo) 140%);
+    color: var(--ssos-text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+
+    /* ARF-Grid: contenedor padre centra el/los cards hijos */
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem;
+}
+
+.ssos-auth-card {
+    width: 100%;
+    max-width: 26rem;
+    background: var(--ssos-card-bg);
+    border: 1px solid var(--ssos-border);
+    border-radius: 14px;
+    padding: 2rem 1.75rem;
+    box-shadow: 0 18px 40px rgba(14, 58, 93, 0.18);
+}
+
+.ssos-auth-brand {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+    text-align: center;
+}
+
+.ssos-auth-logo {
+    width: 3.5rem;
+    height: 3.5rem;
+    object-fit: cover;
+    border-radius: 10px;
+    flex-basis: 100%;
+    margin: 0 auto;
+}
+
+.ssos-auth-brand h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--athlos-azul-profundo);
+    margin: 0;
+}
+
+[data-theme="dark"] .ssos-auth-brand h1 {
+    color: var(--athlos-turquesa);
+}
+
+.ssos-auth-brand small {
+    display: block;
+    color: var(--ssos-text-muted);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.ssos-auth-card .form-label {
+    color: var(--ssos-text);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.ssos-auth-card .form-control {
+    background: var(--ssos-bg);
+    border: 1px solid var(--ssos-border);
+    color: var(--ssos-text);
+}
+
+.ssos-auth-card .form-control:focus {
+    border-color: var(--athlos-turquesa);
+    box-shadow: 0 0 0 0.2rem rgba(0, 184, 201, 0.25);
+    background: var(--ssos-bg);
+    color: var(--ssos-text);
+}
+
+.btn-ssos-primary {
+    width: 100%;
+    background: var(--athlos-azul-profundo);
+    border: none;
+    color: #FFFFFF;
+    font-weight: 600;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    transition: background-color 0.15s ease;
+}
+
+.btn-ssos-primary:hover,
+.btn-ssos-primary:focus {
+    background: var(--athlos-azul-acero);
+    color: #FFFFFF;
+}
+
+.btn-ssos-turquesa {
+    background: var(--athlos-turquesa);
+    border: none;
+    color: #06262B;
+    font-weight: 700;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    transition: background-color 0.15s ease;
+}
+
+.btn-ssos-turquesa:hover,
+.btn-ssos-turquesa:focus {
+    background: #05A2B1;
+    color: #06262B;
+}
+
+.ssos-theme-toggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    border: 1px solid var(--ssos-border);
+    background: var(--ssos-card-bg);
+    color: var(--ssos-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+}
+
+.ssos-alert {
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.ssos-role-badge {
+    display: inline-block;
+    background: var(--athlos-turquesa);
+    color: #06262B;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+}
+
+.ssos-dashboard-shell {
+    min-height: 100vh;
+    background: var(--ssos-bg);
+    color: var(--ssos-text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    padding: 2rem 1rem;
+
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.ssos-dashboard-card {
+    width: 100%;
+    max-width: 40rem;
+    background: var(--ssos-card-bg);
+    border: 1px solid var(--ssos-border);
+    border-radius: 14px;
+    padding: 2rem;
+}
+
+/* ARF-Grid genérico reutilizable para futuros módulos de íconos/tarjetas */
+.arf-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.arf-grid > * {
+    aspect-ratio: 1 / 1;
+    max-width: 9rem;
+}
