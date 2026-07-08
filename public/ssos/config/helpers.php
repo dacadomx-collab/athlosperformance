@@ -223,7 +223,7 @@ function ssos_generate_share_token(int $id_atleta, int $ttlHoras = 72): string
 {
     $payload = json_encode(['id' => $id_atleta, 'exp' => time() + $ttlHoras * 3600]);
     $payloadB64 = rtrim(strtr(base64_encode($payload), '+/', '-_'), '=');
-    $secreto = $_ENV['API_WEBHOOK_SECRET'] ?? '';
+    $secreto = $_ENV['HMAC_SECRET'] ?? '';
     $firma = hash_hmac('sha256', $payloadB64, $secreto);
 
     return $payloadB64 . '.' . $firma;
@@ -238,7 +238,7 @@ function ssos_verify_share_token(string $token): ?int
     }
 
     [$payloadB64, $firmaRecibida] = $partes;
-    $secreto = $_ENV['API_WEBHOOK_SECRET'] ?? '';
+    $secreto = $_ENV['HMAC_SECRET'] ?? '';
     $firmaEsperada = hash_hmac('sha256', $payloadB64, $secreto);
 
     if ($secreto === '' || !hash_equals($firmaEsperada, $firmaRecibida)) {

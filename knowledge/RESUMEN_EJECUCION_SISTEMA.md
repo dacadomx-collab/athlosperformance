@@ -251,6 +251,19 @@ token válido → reporte con nombre y score correctos; token con firma alterada
 expirado"; sin token → mismo mensaje; cálculo de score con datos parciales (sólo 2 de 3 dimensiones)
 → `94.3`, confirmado a mano (`(100×0.30 + 90×0.40) / 0.70 = 94.28…`, redondeado a 1 decimal).
 
+## 7.4 Rotación de secretos y separación HMAC_SECRET / API_WEBHOOK_SECRET (2026-07-08)
+
+El Super Admin proveyó los secretos reales de producción (recibidos y aplicados directamente al
+`.env` local — **nunca impresos en este documento ni en el chat**, por disciplina de manejo de
+credenciales). Se aprovechó la rotación para separar responsabilidades: `ssos_generate_share_token()`
+/ `ssos_verify_share_token()` (reporte público del Athlos Score™) ahora firman con `HMAC_SECRET`,
+una variable **distinta** de `API_WEBHOOK_SECRET` (auth del webhook). Antes de este cambio ambos
+mecanismos reutilizaban el mismo secreto — mala práctica: son superficies de riesgo distintas
+(un token de reporte filtrado no debería servir para forjar autenticación de API, y viceversa).
+`.env.example` documenta ambas variables con su propósito. Verificado en navegador real: rotación
+del `API_WEBHOOK_SECRET` confirmada (la clave anterior ahora es rechazada con 401, la nueva funciona),
+y generación/verificación de un token de reporte con el nuevo `HMAC_SECRET` exitosa de punta a punta.
+
 ## 8. Próximos pasos (fuera del alcance de esta entrega)
 
 - CRUD de usuarios para que el Super Admin cree cuentas Admin/Coach sin tocar la DB manualmente.
