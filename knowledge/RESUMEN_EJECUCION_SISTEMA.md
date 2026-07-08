@@ -627,14 +627,96 @@ escribiendo en la base de datos real de producción que ya ocurrió dos veces an
 §10.1). El patrón de lectura de `id_atleta` es idéntico al de `coach_evaluacion.php`, ya verificado
 funcionando en fases anteriores.
 
-## 15. Próximos pasos (fuera del alcance de esta entrega)
+## 16. Fase 12 — Uploader condicional de Excel histórico y Módulo de Agenda (2026-07-08)
 
-- **Pendiente de tu parte:** aplicar `knowledge/sql/05_schema_alertas_membresias.sql` en producción
-  para que el widget de "Alertas de Renovación" muestre datos reales en vez de "No disponible aún".
-- **Pendiente de tu parte:** probar en vivo el CRUD de atletas y los 3 formularios del Expediente
-  Clínico con tu cuenta real — no se pudieron probar por clic desde este entorno (ver §14.5).
-- Importador de Excel histórico para Mayores_65/Menores_65 (con vista previa antes de confirmar).
+Confirmado por el Super Admin: `05_schema_alertas_membresias.sql` ya se aplicó en producción (el
+widget "Alertas de Renovación" del tab Clientes debería mostrar datos reales ahora, no "No disponible aún").
+
+### 16.1 REGLA 1 — Uploader condicional de Excel histórico
+
+`expediente.php` calcula `$expedienteVacio = !$historial && empty($antropometrias) && empty($sfts) &&
+empty($biomecanicas)`; el contenedor "📥 Subir Archivo Excel de Evaluación Histórica" (`.ssos-dropzone`,
+borde punteado turquesa) sólo se renderiza cuando esto es cierto. En cuanto exista un solo dato — por
+Excel o por cualquiera de los 3 formularios manuales — el bloque desaparece por completo en la
+siguiente carga de la página, sin necesidad de un flag adicional en la base de datos.
+
+**Cambio de postura respecto a la fase anterior (con evidencia, no sólo por instrucción repetida):**
+en la Fase 11 decidí NO construir el importador automático, preocupado por insertar números clínicos
+incorrectos desde un layout de Excel complejo. Antes de repetir esa decisión, esta vez **inspeccioné
+el archivo real** (`knowledge/Menores_65/Menor_65_02 DATOS ANTROPOMETRÍA ATHLOS.xlsx`) celda por celda
+y **verifiqué el mapeo cruzando el IMC de la celda contra peso/estatura**: `72kg / 1.83m² = 21.4996`,
+exactamente igual al valor ya calculado en la celda D27 del archivo. Esa confirmación cambió el
+cálculo de riesgo — ya no es "adivinar dónde está cada dato", es una coordenada de celda verificada.
+
+- **`config/AntropometriaXlsxMapper.php`** (nuevo): mapeo de celdas para las hojas "ANTRO MASCU" y
+  "ANTRO FEME" de la plantilla. Prueba primero MASCU y cae a FEME si la primera no tiene peso/estatura
+  capturados (detección automática de cuál hoja usar). Verificado extrayendo el archivo real: los 33
+  campos coinciden exactamente con la inspección manual celda por celda.
+- **`atleta/importar_excel_historico.php`** (nuevo): procesa la carga, inserta en
+  `evaluaciones_antropometria`. **Las mediciones directas** (peso, estatura, pliegues, perímetros,
+  diámetros — literalmente lo que alguien midió) se importan con confianza total. **El IMC y su
+  clasificación se recalculan con la misma fórmula de `antropometria_form.php`** en vez de confiar en
+  la celda del Excel — esto evita un problema real que encontré al verificar la hoja FEME: su celda de
+  estatura en metros (1.68) no coincide con su celda de estatura en cm (165 → debería ser 1.65),
+  inconsistencia propia del archivo de origen. Los **valores de composición corporal ya calculados en
+  el Excel** (densidad, % grasa Siri, masa ósea Rocha, masa muscular Matiegka, masa residual Wurch,
+  somatotipo) se importan tal cual, pero se muestran en pantalla bajo el rótulo explícito "extraído tal
+  cual, verificar antes de confiar clínicamente" — no se presentan como si el sistema los hubiera
+  validado. También descubrí que la "suma de pliegues" del Excel usa el método Durnin-Womersley de 4
+  puntos (8mm en el ejemplo real) mientras mi propio cálculo suma los 8 pliegues (19.5mm para los
+  mismos datos) — por eso `sumatoria_pliegues` se recalcula con mi fórmula, no se importa.
+
+### 16.2 REGLA 2 — Módulo de Agenda (`public/ssos/agenda/index.php`)
+
+**Cambio de regla de negocio, documentado explícitamente:** el Documento Maestro y el schema
+(`disponibilidad_agenda.cupo_maximo_hora` DEFAULT 4) documentaban cupo máximo de **4** personas/hora
+desde las primeras fases del proyecto. Esta directriz lo revisa a **3** explícitamente
+("Máximo 3 ATLETAS/PACIENTES POR HORA"). Se aplicó 3 (`AGENDA_CUPO_MAXIMO_HORA` en el código, la
+instrucción más reciente) — si el cupo real sigue siendo 4, es una sola constante a corregir.
+
+- **Disponibilidad por hora**: bloques de `07:00` a `19:00`, semáforo automático 🟢 0 ocupadas / 🟡
+  1-2 ocupadas / 🔴 3 ocupadas (bloqueado), contando sólo citas `reservada`/`confirmada` (las
+  `cancelada`/`no_show` liberan el cupo).
+- **Filtro por especialista o vista general** del laboratorio (`?id_staff=`).
+- **Alta de cita**: modal con atleta existente (de `atletas` activos) **o** nombre de prospecto libre
+  (sin ficha, guardado en `notas_previas` — no crea una fila en `leads_prospectos`, que es el flujo del
+  webhook conversacional, un pipeline distinto). Verifica el cupo en el servidor antes de insertar
+  (no sólo visualmente) — re-cuenta citas activas en ese bloque exacto y rechaza si ya hay 3.
+- **Estatus de cita**: Confirmar, Completar, No-Show, Cancelar.
+  - **Completar** invoca `AthlosBusinessRules::deducirSesionAtleta()` (ya existente desde la Fase 5) —
+    la misma función que usa `coach_evaluacion.php`, sin duplicar lógica de negocio.
+  - **Cancelar** valida "al menos 3 horas de anticipación" comparando `fecha_cita`+`hora_inicio` contra
+    la hora actual del servidor; si faltan menos de 3 horas, la cancelación se rechaza con un mensaje
+    explícito en vez de fallar silenciosamente.
+
+### 16.3 REGLA 3 — Favicon y modo oscuro (sin cambios nuevos, verificado)
+
+Las 3 vistas nuevas (`agenda/index.php`, `atleta/expediente.php` ampliado,
+`atleta/importar_excel_historico.php`) usan `partials/header.php`, que ya incluye el `<link rel="icon">`
+dinámico desde la Fase 8 — no fue necesario tocar nada. La directriz sugería una función
+`ssos_asset()`; el mecanismo ya existente (`ssos_base_url() . '/img/favicon.ico'`, calculado por
+petición) logra el mismo resultado dinámico/robusto, así que no se introdujo una función nueva para
+lo mismo. Los bloques de hora de la agenda (`.ssos-hora-bloque--verde/amarillo/rojo`) y sus badges
+reutilizan las variables de tema (`--ssos-surface`, `--ssos-border`, `--ssos-text-muted`) ya corregidas
+en la Fase 9 (`color-scheme` + overrides de Bootstrap) — mismo sistema de contraste, sin CSS nuevo de
+alto riesgo.
+
+### 16.4 Verificación — alcance y limitación honesta
+
+Los 6 archivos nuevos/modificados pasan `php -l` sin errores. La extracción del Excel se probó de
+punta a punta contra el archivo real (lectura pura, sin escritura a BD) confirmando los 33 campos
+extraídos. **No se probó por clic el flujo de escritura completo** (subir archivo → INSERT en
+`evaluaciones_antropometria`; crear/completar/cancelar una cita) por la misma restricción de las fases
+anteriores: cualquier POST autenticado en este entorno cae a la base de datos real de producción.
+
+## 17. Próximos pasos (fuera del alcance de esta entrega)
+
+- **Pendiente de tu parte:** probar en vivo el uploader de Excel y el módulo de Agenda completo
+  (alta de cita, cupo lleno, completar con deducción, cancelar con y sin 3h de anticipación).
+- **Confirmar el cupo real:** ¿3 o 4 personas/hora? Ver §16.2 — se aplicó 3 por ser la instrucción
+  más reciente, mismo criterio usado siempre en este proyecto (última directriz gana).
 - CRUD completo de usuarios (editar/desactivar) — hoy sólo alta.
 - Notificaciones por email (SMTP) — credenciales ya disponibles en `core/.env`, sin consumir todavía.
 - Revisión manual de las 8 membresías migradas con "1 sesión asumida por defecto" (texto de Programa sin número).
 - Geocodificación exacta de `Calle Altamirano #2730` para el JSON-LD (hoy usa el centro aproximado de La Paz).
+- Importador de Excel histórico para SFT (Mayor_65_02, formato .docx, no .xlsx) y para el plan de sesión (Mayor/Menor_65_03) — fuera de alcance de esta entrega, sólo se cubrió antropometría.

@@ -539,3 +539,35 @@ body.ssos-app-body {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* ─── Dropzone de importación de Excel histórico (expediente vacío) ────── */
+.ssos-dropzone {
+    border: 2px dashed var(--athlos-turquesa);
+    background: rgba(0, 184, 201, 0.06);
+}
+
+/* ─── Módulo de Agenda: ocupación por hora ───────────────────────────────── */
+
+.ssos-hora-bloque {
+    flex: 1 1 8rem;
+    max-width: 10rem;
+    border-radius: 12px;
+    border: 2px solid var(--ssos-border);
+    padding: 0.85rem;
+    text-align: center;
+    background: var(--ssos-surface);
+}
+
+.ssos-hora-bloque--verde { border-color: #1E9E5A; }
+.ssos-hora-bloque--amarillo { border-color: #E6B800; }
+.ssos-hora-bloque--rojo { border-color: #D64545; background: rgba(214, 69, 69, 0.08); }
+
+.ssos-hora-bloque .ssos-hora-label {
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+.ssos-hora-bloque .ssos-hora-ocupacion {
+    font-size: 0.85rem;
+    color: var(--ssos-text-muted);
+}

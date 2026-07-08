@@ -68,6 +68,7 @@ $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
             <?php endif; ?>
             <?php if (in_array($ssos_rol, ['coach', 'admin', 'super_admin'], true)): ?>
                 <a class="nav-link <?= $ssos_active_nav === 'pie_de_cancha' ? 'active' : '' ?>" href="<?= e($ssos_dashboard_href) ?>#pie-de-cancha" data-bs-dismiss="offcanvas">🏋️‍♂️ Sesiones del Día</a>
+                <a class="nav-link <?= $ssos_active_nav === 'agenda' ? 'active' : '' ?>" href="<?= e(ssos_base_url()) ?>/agenda/index.php" data-bs-dismiss="offcanvas">📅 Agenda</a>
             <?php endif; ?>
             <?php if ($ssos_rol === 'super_admin'): ?>
                 <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#herramientas" data-bs-dismiss="offcanvas">🛠️ Herramientas & API</a>

@@ -77,6 +77,12 @@ if (!empty($atleta['fecha_nacimiento'])) {
     $esMayor65 = $edad >= 65;
 }
 
+// ── Expediente vacío: sin historial clínico NI ninguna evaluación previa.
+// Sólo en ese caso se ofrece el cargador de Excel histórico (REGLA 1) — en
+// cuanto exista al menos un dato (por Excel o formulario manual), el botón
+// desaparece por completo para no arriesgar sobreescribir una captura real. ──
+$expedienteVacio = !$historial && empty($antropometrias) && empty($sfts) && empty($biomecanicas);
+
 $ssos_page_title = 'Expediente · ' . $atleta['nombre_completo'];
 $ssos_active_nav = 'clientes';
 require __DIR__ . '/../partials/header.php';
@@ -90,6 +96,21 @@ require __DIR__ . '/../partials/header.php';
         · <?= (int) $edad ?> años<?= $esMayor65 ? ' (Senior — SFT aplicable)' : '' ?>
     <?php endif; ?>
 </p>
+
+<?php if ($expedienteVacio): ?>
+    <div class="ssos-table-card ssos-dropzone mb-4">
+        <h5 class="mb-2">📥 Subir Archivo Excel de Evaluación Histórica (.xlsx)</h5>
+        <p class="text-body-secondary mb-3">
+            Este atleta todavía no tiene historial clínico ni evaluaciones. Si ya existe una plantilla
+            histórica de antropometría (<code>Menor_65_02 DATOS ANTROPOMETRÍA ATHLOS.xlsx</code>) para
+            este atleta, súbela aquí en vez de capturar todo a mano. En cuanto se registre el primer
+            dato (por Excel o formulario), esta opción desaparece.
+        </p>
+        <a href="importar_excel_historico.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-turquesa btn-lg">
+            📥 Subir Archivo Excel de Evaluación Histórica
+        </a>
+    </div>
+<?php endif; ?>
 
 <div class="d-flex flex-wrap gap-2 mb-4">
     <a href="historial_form.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-primary">📋 Historial Clínico</a>

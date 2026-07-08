@@ -605,6 +605,7 @@ require __DIR__ . '/../partials/header.php';
         Toca <strong>Iniciar Sesión</strong> sobre un atleta para capturar RPE y el checklist
         de Sentadilla Overhead en menos de 30 segundos.
     </p>
+    <a href="<?= e(ssos_base_url()) ?>/agenda/index.php" class="btn btn-ssos-primary mb-3">📅 Ver Agenda Completa</a>
 
     <div class="pdc-grid mt-4">
         <?php if (empty($atletas_del_dia)): ?>
