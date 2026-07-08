@@ -204,6 +204,12 @@ body.ssos-app-body {
     color: var(--athlos-turquesa);
 }
 
+/* Variante para valores de texto (en vez de número) en un widget, ej. cuando
+   una migración de schema aún no se ha aplicado en este servidor. */
+.ssos-widget-value--text {
+    font-size: 1.1rem;
+}
+
 .ssos-widget .ssos-widget-label {
     color: var(--ssos-text-muted);
     font-size: 0.85rem;

@@ -7,7 +7,7 @@ declare(strict_types=1);
  * que exista $ssos_page_title (string) y opcionalmente $ssos_active_nav (string).
  */
 
-$ssos_page_title = $ssos_page_title ?? 'Athlos SSOS';
+$ssos_page_title = $ssos_page_title ?? 'Athlos Performance';
 $ssos_active_nav = $ssos_active_nav ?? '';
 $ssos_rol = $_SESSION['clave_rol'] ?? '';
 $ssos_nombre = $_SESSION['nombre_completo'] ?? '';
@@ -26,7 +26,7 @@ $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Athlos SSOS — <?= e($ssos_page_title) ?></title>
+    <title>Athlos Performance — Sistema de Control Deportivo | <?= e($ssos_page_title) ?></title>
     <link rel="icon" type="image/x-icon" href="<?= e(ssos_base_url()) ?>/img/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="<?= e(ssos_base_url()) ?>/css/main.css" rel="stylesheet">
@@ -37,7 +37,7 @@ $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
     <div class="container-fluid ssos-navbar-row">
         <a class="navbar-brand" href="<?= e($ssos_dashboard_href) ?>">
             <img src="<?= e(ssos_base_url()) ?>/img/logo.jpg" alt="Athlos Performance">
-            <span>Athlos SSOS</span>
+            <span>Athlos Performance</span>
         </a>
         <div class="ssos-navbar-actions">
             <button type="button" class="ssos-theme-toggle ssos-theme-toggle--inline" data-ssos-theme-toggle aria-label="Cambiar modo día/noche">🌙</button>
@@ -67,7 +67,7 @@ $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
                 <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#clientes" data-bs-dismiss="offcanvas">👥 Clientes y Membresías</a>
             <?php endif; ?>
             <?php if (in_array($ssos_rol, ['coach', 'admin', 'super_admin'], true)): ?>
-                <a class="nav-link <?= $ssos_active_nav === 'pie_de_cancha' ? 'active' : '' ?>" href="<?= e($ssos_dashboard_href) ?>#pie-de-cancha" data-bs-dismiss="offcanvas">🏋️‍♂️ Pie de Cancha</a>
+                <a class="nav-link <?= $ssos_active_nav === 'pie_de_cancha' ? 'active' : '' ?>" href="<?= e($ssos_dashboard_href) ?>#pie-de-cancha" data-bs-dismiss="offcanvas">🏋️‍♂️ Sesiones del Día</a>
             <?php endif; ?>
             <?php if ($ssos_rol === 'super_admin'): ?>
                 <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#herramientas" data-bs-dismiss="offcanvas">🛠️ Herramientas & API</a>

@@ -89,7 +89,7 @@ if (!$ya_instalado && $_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Athlos SSOS — Instalación Super Admin</title>
+    <title>Athlos Performance — Sistema de Control Deportivo | Instalación</title>
     <link rel="icon" type="image/x-icon" href="img/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="css/ssos-auth.css" rel="stylesheet">
@@ -100,7 +100,7 @@ if (!$ya_instalado && $_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="ssos-auth-card">
         <div class="ssos-auth-brand">
             <img src="img/logo.jpg" alt="Athlos Performance" class="ssos-auth-logo">
-            <h1>Athlos SSOS v1.0</h1>
+            <h1>Athlos Performance</h1>
             <small>Instalación inicial · Dirección de Laboratorio</small>
         </div>
 

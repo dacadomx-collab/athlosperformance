@@ -499,13 +499,66 @@ pestaña activa, sombra + elevación al pasar el cursor sobre las tarjetas de "A
 `touch-action: manipulation`) en el botón "Iniciar Sesión" y en los botones del checklist de
 Sentadilla Overhead — pensado para uso con el dedo en tablet, no sólo con mouse.
 
-## 11. Próximos pasos (fuera del alcance de esta entrega)
+## 12. Fase 10 — Auditoría de terminología y fix de FK en migración (2026-07-08)
 
-- **Crítico, pendiente de tu parte:** volver a visitar `setup_admin.php` en producción para crear tu
-  Super Admin real (ver §10.1 — la base quedó en 0 usuarios tras la limpieza).
+### 12.1 REGLA 1 — Terminología oficial (sin "SSOS", sin "Pie de Cancha")
+
+Alcance de la auditoría: **texto visible al usuario** (`<title>`, encabezados, navbar, badges, menús)
+— se dejaron intactos los comentarios internos de código y las etiquetas de `error_log()` (ej.
+`[SSOS migrar_excel]`), que son documentación para desarrolladores, no interfaz, consistente con el
+criterio ya aplicado en la Fase 7 para las menciones históricas de "AXON_DCD".
+
+| Antes | Ahora | Dónde |
+| :--- | :--- | :--- |
+| `<title>Athlos SSOS — X</title>` | `<title>Athlos Performance — Sistema de Control Deportivo \| X</title>` | `partials/header.php`, `login.php`, `setup_admin.php` |
+| `<h1>Athlos SSOS v1.0</h1>` + `<small>Sport Science Operating System</small>` | `<h1>Athlos Performance</h1>` + `<small>Sistema de Control Deportivo</small>` | `login.php` |
+| `<span>Athlos SSOS</span>` (navbar) | `<span>Athlos Performance</span>` | `partials/header.php` |
+| "Pie de Cancha" (pestaña, badge, encabezado, enlaces) | **"Sesiones del Día"** | `dashboard/index.php`, `partials/header.php`, `dashboard/coach_evaluacion.php` |
+| `<h4>Atletas del Día</h4>` | `<h4>Sesiones del Día — Atletas y Pacientes</h4>` | `dashboard/index.php` (inclusivo de deportistas, rehabilitación y adultos mayores, no sólo "atletas de cancha") |
+
+El `id` interno de la pestaña/ancla (`pie-de-cancha`) se dejó sin cambiar deliberadamente — es un
+identificador técnico (usado por `data-bs-target`, `aria-controls` y el hash de la URL en
+`js/main.js`), invisible al usuario; renombrarlo no aportaba nada y arriesgaba romper la
+sincronización entre 3 archivos distintos sin beneficio real.
+
+Verificado con el arnés de pruebas CLI (§10.4, reutilizado) + peticiones HTTP reales a `login.php` y
+`setup_admin.php`: cero apariciones de "Athlos SSOS" o "Pie de Cancha" en el HTML renderizado para
+los 3 roles, "Sesiones del Día" presente donde corresponde, favicon intacto.
+
+### 12.2 REGLA 2 — Fix de la Foreign Key `fk_pagos_usuario` en la migración
+
+**Causa real (no simplemente "faltaba `?? NULL`"):** el código ya usaba
+`$_SESSION['id_usuario']` directamente, que sí estaba definido (la sesión del Super Admin es real y
+activa) — el problema es que **ese ID puede apuntar a una fila que ya no existe** en `usuarios` (por
+ejemplo, tras una limpieza de datos de prueba como la de la Fase 9, si el navegador conserva una
+sesión vieja). PDO no valida la FK hasta el `INSERT`, y ahí truena. Un simple `?? NULL` no habría
+resuelto nada porque `$_SESSION['id_usuario']` **sí tenía un valor** — sólo que apuntaba a una fila
+inexistente.
+
+**Corrección real:** antes de usarlo, se revalida `$_SESSION['id_usuario']` contra la tabla
+`usuarios` con una consulta `SELECT`; si la fila ya no existe, `registrado_por` se envía como `NULL`
+(permitido por `ON DELETE SET NULL` de la FK) en vez de un ID huérfano. Esto también protege contra
+el mismo problema en el futuro si vuelve a ocurrir una limpieza de datos con sesiones activas.
+
+### 12.3 REGLA 3 — Mensaje amigable cuando falta la migración 05
+
+El `try/catch` alrededor de `alertas_renovacion` (ya agregado en la Fase 9) ahora distingue **"0
+alertas activas"** de **"la tabla no existe todavía"**: el widget muestra "No disponible aún —
+Alertas de Renovación (falta aplicar migración 05)" en vez de mostrar silenciosamente `0`, que sería
+engañoso (parecería que no hay alertas, cuando en realidad la función ni siquiera está desplegada).
+
+### 12.4 REGLA 4 — Verificación de modo oscuro y favicon (sin cambios nuevos)
+
+Ambos ya se habían corregido en fases anteriores (`color-scheme` + overrides de Bootstrap en la Fase
+9; favicon en la Fase 8). Se re-verificaron en esta entrega sin encontrar regresiones: favicon
+presente en las 4 vistas PHP (confirmado por HTTP real), sin nuevas reglas CSS que reintroduzcan el
+patrón fondo-oscuro-sin-`color-scheme`.
+
+## 13. Próximos pasos (fuera del alcance de esta entrega)
+
 - **Pendiente de tu parte:** aplicar `knowledge/sql/05_schema_alertas_membresias.sql` en producción
-  (ver §10.2) para que el widget de alertas de renovación funcione de verdad, no sólo en modo degradado.
-- Probar en vivo el modal "+ Nuevo Usuario del Staff" con tu cuenta real una vez creada.
+  para que el widget de "Alertas de Renovación" muestre datos reales en vez de "No disponible aún".
+- Probar en vivo el modal "+ Nuevo Usuario del Staff" y la migración de Excel con tu cuenta real.
 - CRUD completo de usuarios (editar/desactivar) — hoy sólo alta.
 - Notificaciones por email (SMTP) — credenciales ya disponibles en `core/.env`, sin consumir todavía.
 - Pantalla para que el Admin complete los teléfonos placeholder (`SIN-TEL-*`) de los 17 atletas migrados.

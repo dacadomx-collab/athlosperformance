@@ -91,6 +91,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($filas !== null) {
             try {
+                // ── FK fk_pagos_usuario: registrado_por debe referenciar un
+                // id_usuario que exista de verdad. $_SESSION['id_usuario'] puede
+                // apuntar a una fila ya borrada (sesión vieja tras una limpieza
+                // de datos) — revalidamos contra la BD en vez de confiar
+                // ciegamente en el valor de sesión, y caemos a NULL (permitido
+                // por el ON DELETE SET NULL de la FK) si no existe. ──
+                $registrado_por = null;
+                if (!empty($_SESSION['id_usuario'])) {
+                    $stmtSesion = $db->prepare('SELECT id_usuario FROM usuarios WHERE id_usuario = :id');
+                    $stmtSesion->execute(['id' => $_SESSION['id_usuario']]);
+                    if ($stmtSesion->fetchColumn()) {
+                        $registrado_por = (int) $_SESSION['id_usuario'];
+                    }
+                }
+
                 $conteo = [
                     'atletas_creados' => 0,
                     'atletas_reutilizados' => 0,
@@ -230,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'concepto' => $programa,
                         'monto' => $monto,
                         'fecha' => $fechaPago,
-                        'usuario' => $_SESSION['id_usuario'],
+                        'usuario' => $registrado_por,
                     ]);
 
                     $conteo['pagos_importados']++;

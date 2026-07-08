@@ -146,13 +146,15 @@ if ($verClientes) {
     )->fetchColumn();
 
     // Defensivo: 05_schema_alertas_membresias.sql pudo no haberse aplicado aún
-    // en este servidor. Ante tabla faltante, degradamos a 0 en vez de tumbar
-    // todo el tab — mejor UX que un error 500 por una migración pendiente.
+    // en este servidor. Ante tabla faltante, mostramos un mensaje amigable en
+    // vez de tumbar todo el tab con un error 500 por una migración pendiente.
+    $alertas_disponibles = true;
     try {
         $alertas_renovacion_activas = (int) $db->query(
             "SELECT COUNT(*) FROM alertas_renovacion WHERE atendida = 0"
         )->fetchColumn();
     } catch (\Throwable) {
+        $alertas_disponibles = false;
         $alertas_renovacion_activas = 0;
     }
 
@@ -209,7 +211,7 @@ if ($verClientes) {
     $tabsDisponibles[] = ['id' => 'clientes', 'icono' => '👥', 'label' => 'Clientes y Membresías'];
 }
 if ($verPieDeCancha) {
-    $tabsDisponibles[] = ['id' => 'pie-de-cancha', 'icono' => '🏋️‍♂️', 'label' => 'Pie de Cancha'];
+    $tabsDisponibles[] = ['id' => 'pie-de-cancha', 'icono' => '🏋️‍♂️', 'label' => 'Sesiones del Día'];
 }
 if ($verHerramientas) {
     $tabsDisponibles[] = ['id' => 'herramientas', 'icono' => '🛠️', 'label' => 'Herramientas & API'];
@@ -405,8 +407,13 @@ require __DIR__ . '/../partials/header.php';
         </div>
         <div class="ssos-widget card shadow-sm border-0">
             <div class="card-body">
-                <div class="ssos-widget-value"><?= (int) $alertas_renovacion_activas ?></div>
-                <div class="ssos-widget-label">Alertas de Renovación Activas</div>
+                <?php if ($alertas_disponibles): ?>
+                    <div class="ssos-widget-value"><?= (int) $alertas_renovacion_activas ?></div>
+                    <div class="ssos-widget-label">Alertas de Renovación Activas</div>
+                <?php else: ?>
+                    <div class="ssos-widget-value ssos-widget-value--text">No disponible aún</div>
+                    <div class="ssos-widget-label">Alertas de Renovación (falta aplicar migración 05)</div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -459,7 +466,7 @@ require __DIR__ . '/../partials/header.php';
 <div class="tab-pane fade ssos-tab-pane <?= 'pie-de-cancha' === $tabActivaPorDefecto ? 'show active' : '' ?>"
      id="pane-pie-de-cancha" role="tabpanel" aria-labelledby="tab-btn-pie-de-cancha">
 
-    <h4>Atletas del Día</h4>
+    <h4>Sesiones del Día — Atletas y Pacientes</h4>
     <p class="text-body-secondary">
         Toca <strong>Iniciar Sesión</strong> sobre un atleta para capturar RPE y el checklist
         de Sentadilla Overhead en menos de 30 segundos.

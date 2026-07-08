@@ -108,7 +108,7 @@ $ssos_active_nav = 'pie_de_cancha';
 require __DIR__ . '/../partials/header.php';
 ?>
 
-<span class="ssos-role-badge">Coach · Pie de Cancha</span>
+<span class="ssos-role-badge">Coach · Sesiones del Día</span>
 <h2 class="mt-3"><?= e($atleta['nombre_completo']) ?></h2>
 
 <?php foreach ($errores as $error): ?>
@@ -136,7 +136,7 @@ require __DIR__ . '/../partials/header.php';
         </div>
     <?php endif; ?>
 
-    <a href="index.php#pie-de-cancha" class="btn btn-ssos-turquesa">Volver a Atletas del Día</a>
+    <a href="index.php#pie-de-cancha" class="btn btn-ssos-turquesa">Volver a Sesiones del Día</a>
 <?php else: ?>
     <form method="post" novalidate>
         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
