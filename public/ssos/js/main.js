@@ -80,4 +80,21 @@
     }
     document.addEventListener("DOMContentLoaded", activarTabDesdeHash);
     window.addEventListener("hashchange", activarTabDesdeHash);
+
+    // ─── Modal compartido "Editar Atleta": rellena los campos desde los
+    // data-* del botón que lo abrió, en vez de un modal por fila. ────────────
+    var modalEditarAtleta = document.getElementById("modalEditarAtleta");
+    if (modalEditarAtleta) {
+        modalEditarAtleta.addEventListener("show.bs.modal", function (event) {
+            var boton = event.relatedTarget;
+            if (!boton) {
+                return;
+            }
+            modalEditarAtleta.querySelector("#editar_id_atleta").value = boton.dataset.id || "";
+            modalEditarAtleta.querySelector("#editar_nombre").value = boton.dataset.nombre || "";
+            modalEditarAtleta.querySelector("#editar_telefono").value = boton.dataset.telefono || "";
+            modalEditarAtleta.querySelector("#editar_email").value = boton.dataset.email || "";
+            modalEditarAtleta.querySelector("#editar_fecha_nacimiento").value = boton.dataset.fechaNacimiento || "";
+        });
+    }
 })();

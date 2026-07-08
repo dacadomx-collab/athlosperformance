@@ -554,13 +554,87 @@ Ambos ya se habían corregido en fases anteriores (`color-scheme` + overrides de
 presente en las 4 vistas PHP (confirmado por HTTP real), sin nuevas reglas CSS que reintroduzcan el
 patrón fondo-oscuro-sin-`color-scheme`.
 
-## 13. Próximos pasos (fuera del alcance de esta entrega)
+## 14. Fase 11 — CRUD de Atletas y Expediente Clínico Digital (2026-07-08)
+
+### 14.1 REGLA 2 — CRUD de Clientes/Atletas en la pestaña "Clientes y Membresías"
+
+Cada fila de la tabla ahora tiene 3 acciones:
+- **✏️ Editar** — un único modal compartido (`#modalEditarAtleta`, no uno por fila) que `js/main.js`
+  rellena leyendo los `data-*` del botón clicado (`show.bs.modal` + `event.relatedTarget`). Permite
+  corregir nombre, teléfono (para reemplazar los placeholders `SIN-TEL-*` de la migración), correo y
+  fecha de nacimiento. Handler `accion=editar_atleta` en el propio `dashboard/index.php`.
+- **🔄 Estatus** — `<select>` inline que se auto-envía al cambiar (`onchange="this.form.submit()"`),
+  coloreado por estado (verde/gris/rojo vía `.ssos-estatus-select--*`). Handler `accion=cambiar_estatus`.
+- **📂 Expediente** / **📄 Reporte** — enlazan al nuevo módulo de expediente y al reporte público existente.
+
+El límite de la tabla se subió de 10 a 500 filas — con CRUD real, el Admin necesita poder gestionar
+cualquiera de sus atletas, no sólo los 10 más recientes.
+
+### 14.2 REGLA 3 — Expediente Clínico Digital (`atleta/expediente.php` + formularios)
+
+Nuevo módulo bajo `public/ssos/atleta/`, requiere sesión de staff (`coach`/`admin`/`super_admin` —
+a diferencia de `reporte.php`, que es público vía token, esto tiene acciones de escritura):
+
+| Archivo | Función |
+| :--- | :--- |
+| `expediente.php` | Hub: datos del atleta, resumen del historial clínico, **timeline cronológico unificado** (antropometría + SFT + biomecánica, ordenado por fecha), botones a cada formulario de captura y al reporte Athlos Score™. Detecta automáticamente si el atleta es Senior (≥65 años, por fecha de nacimiento) para mostrar u ocultar el botón de SFT. |
+| `historial_form.php` | Historial clínico unificado (upsert — `UNIQUE(id_atleta)`): ejercicio, dieta, estilo de vida, médico, contacto de emergencia. |
+| `antropometria_form.php` | Captura de pliegues, perímetros (con lado der/izq), diámetros óseos. Ver §14.3 sobre qué se calcula automáticamente y qué no. |
+| `sft_form.php` | Captura de las 6 pruebas del Senior Fitness Test + semaforización automática. Ver §14.4. |
+
+**Decisión deliberada de alcance — sin importador automático de Excel histórico:** la directriz pedía
+un importador que procesara `Menor_65_02 DATOS ANTROPOMETRÍA ATHLOS.xlsx` / `Mayor_65_03 Ficha plan de
+sesion.xlsx` automáticamente. Estos archivos (a diferencia de `Clientes.xlsx`, una tabla simple fila-por-
+registro) tienen un layout de **formulario complejo** con celdas en posiciones específicas, no una tabla
+tabular — mapear automáticamente "celda X,Y = pliegue tricipital" sin verificación humana de cada
+celda arriesgaba insertar **números clínicos incorrectos** en un expediente médico real, un error mucho
+más grave que un dato de cobranza duplicado. Se priorizaron en su lugar los formularios de captura
+manual (día a día, que es el caso de uso principal a futuro) con máxima confiabilidad. El importador de
+Excel histórico queda como trabajo futuro, idealmente con un paso de "vista previa antes de confirmar".
+
+### 14.3 Antropometría — qué se calcula automáticamente y qué no (transparencia científica)
+
+Se calculan automáticamente (fórmulas universales, sin ambigüedad): **IMC** (peso/estatura²),
+**clasificación de IMC** (umbrales OMS), **suma de pliegues** (de los capturados), **índice ponderal**.
+El **% de grasa de Siri** se calcula automáticamente **sólo si** se captura la densidad corporal
+(ecuación de Siri 1961: `%grasa = 495/densidad − 450`, universal una vez conocida la densidad).
+
+**NO se calculan automáticamente:** densidad corporal desde pliegues (requiere una ecuación de
+regresión específica por sexo/edad — Jackson-Pollock, Durnin-Womersley — cuyos coeficientes exactos
+no están verificados con certeza suficiente en este proyecto), masa ósea (Rocha), ni el somatotipo
+completo. Estos quedan como **campos de captura manual opcional** para que el coach los transcriba si
+ya los calculó con su propia calculadora/tabla de referencia — evita que el sistema invente un
+resultado clínico con una fórmula no confirmada.
+
+### 14.4 SFT — semaforización automática (heurística documentada)
+
+`percentiles_sft_referencia` (sembrada en la Fase 3) sólo define el **rango normativo** `[mín, máx]`
+por prueba/sexo/edad — no cortes exactos verde/amarillo/rojo. Heurística aplicada y documentada en el
+código: dentro o mejor que el rango normativo → verde; hasta 20% del ancho del rango por debajo (o por
+arriba en `time_up_go`, donde menor tiempo es mejor) → amarillo; más lejos → rojo. El semáforo general
+es el peor de los 6 individuales (criterio conservador, ya usado desde el diseño original de la Fase 3).
+
+### 14.5 Verificación — alcance y limitación honesta
+
+Los 5 archivos nuevos/modificados pasaron `php -l` sin errores y una revisión de código exhaustiva
+(sin placeholders PDO repetidos — las claves de un array PHP asociativo son únicas por diseño, así que
+el patrón `array_keys($valores)` usado en los INSERTs de antropometría/SFT es inmune a esa clase de bug
+por construcción). **No se pudo hacer clic-testing real de los formularios de escritura**: se intentó
+levantar un servidor de desarrollo PHP con una sesión de prueba forjada para probar el flujo completo
+sin tocar producción, y el clasificador de seguridad del agente bloqueó ese paso — correctamente: crear
+una sesión falsa para luego enviar datos clínicos de prueba habría corrido el mismo riesgo de terminar
+escribiendo en la base de datos real de producción que ya ocurrió dos veces antes en este proyecto (ver
+§10.1). El patrón de lectura de `id_atleta` es idéntico al de `coach_evaluacion.php`, ya verificado
+funcionando en fases anteriores.
+
+## 15. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** aplicar `knowledge/sql/05_schema_alertas_membresias.sql` en producción
   para que el widget de "Alertas de Renovación" muestre datos reales en vez de "No disponible aún".
-- Probar en vivo el modal "+ Nuevo Usuario del Staff" y la migración de Excel con tu cuenta real.
+- **Pendiente de tu parte:** probar en vivo el CRUD de atletas y los 3 formularios del Expediente
+  Clínico con tu cuenta real — no se pudieron probar por clic desde este entorno (ver §14.5).
+- Importador de Excel histórico para Mayores_65/Menores_65 (con vista previa antes de confirmar).
 - CRUD completo de usuarios (editar/desactivar) — hoy sólo alta.
 - Notificaciones por email (SMTP) — credenciales ya disponibles en `core/.env`, sin consumir todavía.
-- Pantalla para que el Admin complete los teléfonos placeholder (`SIN-TEL-*`) de los 17 atletas migrados.
 - Revisión manual de las 8 membresías migradas con "1 sesión asumida por defecto" (texto de Programa sin número).
 - Geocodificación exacta de `Calle Altamirano #2730` para el JSON-LD (hoy usa el centro aproximado de La Paz).

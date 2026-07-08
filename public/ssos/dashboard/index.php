@@ -107,6 +107,76 @@ if ($verControl && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ??
     }
 }
 
+// ── Edición de ficha de atleta (Admin + Dirección) ──────────────────────────
+$erroresEditarAtleta = [];
+$atletaEditadoOk = false;
+
+if ($verClientes && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'editar_atleta') {
+    if (!csrf_validate($_POST['csrf_token'] ?? null)) {
+        $erroresEditarAtleta[] = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
+    } else {
+        $idAtletaEditar = filter_input(INPUT_POST, 'id_atleta', FILTER_VALIDATE_INT);
+        $nombreEditar = trim((string) ($_POST['nombre_completo'] ?? ''));
+        $telefonoEditar = trim((string) ($_POST['telefono'] ?? ''));
+        $emailEditar = trim((string) ($_POST['email'] ?? ''));
+        $fechaNacimientoEditar = trim((string) ($_POST['fecha_nacimiento'] ?? ''));
+
+        if (!$idAtletaEditar) {
+            $erroresEditarAtleta[] = 'Atleta inválido.';
+        }
+        if ($nombreEditar === '' || mb_strlen($nombreEditar) > 150) {
+            $erroresEditarAtleta[] = 'El nombre es obligatorio (máximo 150 caracteres).';
+        }
+        if ($telefonoEditar === '' || mb_strlen($telefonoEditar) > 20) {
+            $erroresEditarAtleta[] = 'El teléfono es obligatorio (máximo 20 caracteres).';
+        }
+        if ($emailEditar !== '' && !filter_var($emailEditar, FILTER_VALIDATE_EMAIL)) {
+            $erroresEditarAtleta[] = 'El correo no es válido.';
+        }
+        if ($fechaNacimientoEditar !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaNacimientoEditar)) {
+            $erroresEditarAtleta[] = 'La fecha de nacimiento no es válida.';
+        }
+
+        if (empty($erroresEditarAtleta)) {
+            try {
+                $stmt = $db->prepare(
+                    'UPDATE atletas SET nombre_completo = :nombre, telefono = :telefono, email = :email,
+                        fecha_nacimiento = :fecha_nacimiento
+                     WHERE id_atleta = :id'
+                );
+                $stmt->execute([
+                    'nombre' => $nombreEditar,
+                    'telefono' => $telefonoEditar,
+                    'email' => $emailEditar !== '' ? $emailEditar : null,
+                    'fecha_nacimiento' => $fechaNacimientoEditar !== '' ? $fechaNacimientoEditar : null,
+                    'id' => $idAtletaEditar,
+                ]);
+                $atletaEditadoOk = true;
+            } catch (\Throwable $e) {
+                $erroresEditarAtleta[] = 'No se pudo actualizar el atleta. Detalle técnico registrado en el log del servidor.';
+                error_log('[SSOS dashboard editar_atleta] ' . $e->getMessage());
+            }
+        }
+    }
+}
+
+// ── Cambio de estatus de atleta (Admin + Dirección) ─────────────────────────
+if ($verClientes && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'cambiar_estatus') {
+    if (csrf_validate($_POST['csrf_token'] ?? null)) {
+        $idAtletaEstatus = filter_input(INPUT_POST, 'id_atleta', FILTER_VALIDATE_INT);
+        $nuevoEstatus = (string) ($_POST['nuevo_estatus'] ?? '');
+
+        if ($idAtletaEstatus && in_array($nuevoEstatus, ['activo', 'inactivo', 'suspendido'], true)) {
+            try {
+                $stmt = $db->prepare('UPDATE atletas SET estatus = :estatus WHERE id_atleta = :id');
+                $stmt->execute(['estatus' => $nuevoEstatus, 'id' => $idAtletaEstatus]);
+            } catch (\Throwable $e) {
+                error_log('[SSOS dashboard cambiar_estatus] ' . $e->getMessage());
+            }
+        }
+    }
+}
+
 // ── Tab: Dirección y Control (sólo Dirección de Laboratorio) ────────────────
 if ($verControl) {
     $total_usuarios = (int) $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
@@ -159,10 +229,10 @@ if ($verClientes) {
     }
 
     $ultimos_clientes = $db->query(
-        "SELECT id_atleta, nombre_completo, telefono, estatus, tipo_membresia, fecha_ingreso
+        "SELECT id_atleta, nombre_completo, telefono, email, fecha_nacimiento, estatus, tipo_membresia, fecha_ingreso
          FROM atletas
          ORDER BY created_at DESC
-         LIMIT 10"
+         LIMIT 500"
     )->fetchAll();
 }
 
@@ -418,6 +488,13 @@ require __DIR__ . '/../partials/header.php';
         </div>
     </div>
 
+    <?php if ($atletaEditadoOk): ?>
+        <div class="alert alert-success ssos-alert" role="alert">Atleta actualizado exitosamente.</div>
+    <?php endif; ?>
+    <?php foreach ($erroresEditarAtleta as $errorEditar): ?>
+        <div class="alert alert-danger ssos-alert" role="alert"><?= e($errorEditar) ?></div>
+    <?php endforeach; ?>
+
     <div class="ssos-table-card">
         <table class="table table-hover align-middle mb-0">
             <thead>
@@ -427,7 +504,7 @@ require __DIR__ . '/../partials/header.php';
                     <th>Membresía</th>
                     <th>Estatus</th>
                     <th>Ingreso</th>
-                    <th>Reporte</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -444,20 +521,77 @@ require __DIR__ . '/../partials/header.php';
                         <td><?= e($cliente['telefono']) ?></td>
                         <td><?= e($cliente['tipo_membresia']) ?></td>
                         <td>
-                            <span class="badge text-bg-<?= $cliente['estatus'] === 'activo' ? 'success' : ($cliente['estatus'] === 'suspendido' ? 'warning' : 'secondary') ?>">
-                                <?= e($cliente['estatus']) ?>
-                            </span>
+                            <form method="post" class="ssos-estatus-form">
+                                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                                <input type="hidden" name="accion" value="cambiar_estatus">
+                                <input type="hidden" name="id_atleta" value="<?= (int) $cliente['id_atleta'] ?>">
+                                <select name="nuevo_estatus" class="form-select form-select-sm ssos-estatus-select ssos-estatus-select--<?= e($cliente['estatus']) ?>" onchange="this.form.submit()" aria-label="Cambiar estatus">
+                                    <option value="activo" <?= $cliente['estatus'] === 'activo' ? 'selected' : '' ?>>🟢 Activo</option>
+                                    <option value="inactivo" <?= $cliente['estatus'] === 'inactivo' ? 'selected' : '' ?>>⚪ Inactivo</option>
+                                    <option value="suspendido" <?= $cliente['estatus'] === 'suspendido' ? 'selected' : '' ?>>🔴 Suspendido</option>
+                                </select>
+                            </form>
                         </td>
                         <td><?= e($cliente['fecha_ingreso']) ?></td>
                         <td>
-                            <a class="btn btn-sm btn-outline-secondary"
-                               href="<?= e(ssos_base_url()) ?>/atleta/reporte.php?token=<?= e(ssos_generate_share_token((int) $cliente['id_atleta'])) ?>"
-                               target="_blank" rel="noopener noreferrer">Ver Reporte</a>
+                            <div class="d-flex flex-wrap gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        data-bs-toggle="modal" data-bs-target="#modalEditarAtleta"
+                                        data-id="<?= (int) $cliente['id_atleta'] ?>"
+                                        data-nombre="<?= e($cliente['nombre_completo']) ?>"
+                                        data-telefono="<?= e($cliente['telefono']) ?>"
+                                        data-email="<?= e($cliente['email'] ?? '') ?>"
+                                        data-fecha-nacimiento="<?= e($cliente['fecha_nacimiento'] ?? '') ?>"
+                                        title="Editar">✏️ Editar</button>
+                                <a class="btn btn-sm btn-ssos-turquesa"
+                                   href="<?= e(ssos_base_url()) ?>/atleta/expediente.php?id_atleta=<?= (int) $cliente['id_atleta'] ?>"
+                                   title="Expediente Clínico">📂 Expediente</a>
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   href="<?= e(ssos_base_url()) ?>/atleta/reporte.php?token=<?= e(ssos_generate_share_token((int) $cliente['id_atleta'])) ?>"
+                                   target="_blank" rel="noopener noreferrer" title="Ver Reporte">📄 Reporte</a>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
+    </div>
+
+    <div class="modal fade" id="modalEditarAtleta" tabindex="-1" aria-labelledby="modalEditarAtletaLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" class="modal-content">
+                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="accion" value="editar_atleta">
+                <input type="hidden" name="id_atleta" id="editar_id_atleta" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEditarAtletaLabel">Editar Atleta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editar_nombre" class="form-label">Nombre completo</label>
+                        <input type="text" class="form-control" id="editar_nombre" name="nombre_completo" maxlength="150" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editar_telefono" class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" id="editar_telefono" name="telefono" maxlength="20" required>
+                        <div class="form-text">Reemplaza los placeholders <code>SIN-TEL-*</code> con el número real.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editar_email" class="form-label">Correo</label>
+                        <input type="email" class="form-control" id="editar_email" name="email" maxlength="150">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editar_fecha_nacimiento" class="form-label">Fecha de nacimiento</label>
+                        <input type="date" class="form-control" id="editar_fecha_nacimiento" name="fecha_nacimiento">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-ssos-turquesa">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 <?php endif; ?>

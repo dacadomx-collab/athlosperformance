@@ -291,6 +291,33 @@ body.ssos-app-body {
 .ssos-semaforo--rojo { background: #D64545; }
 .ssos-semaforo--sin_dato { background: #9AA9B4; }
 
+/* ─── Selector de estatus del atleta (activo/inactivo/suspendido) ───────── */
+
+.ssos-estatus-form {
+    display: inline-block;
+    min-width: 9rem;
+}
+
+.ssos-estatus-select {
+    font-weight: 700;
+    border-width: 2px;
+}
+
+.ssos-estatus-select--activo {
+    color: #1E9E5A;
+    border-color: #1E9E5A;
+}
+
+.ssos-estatus-select--inactivo {
+    color: var(--ssos-text-muted);
+    border-color: var(--ssos-border);
+}
+
+.ssos-estatus-select--suspendido {
+    color: #D64545;
+    border-color: #D64545;
+}
+
 /* ─── PIE DE CANCHA: tarjetas grandes táctiles ──────────────────────────── */
 
 .pdc-grid {
