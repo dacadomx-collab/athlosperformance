@@ -34,7 +34,7 @@
     var backToTop = document.querySelector("[data-ssos-back-to-top]");
     if (backToTop) {
         window.addEventListener("scroll", function () {
-            backToTop.classList.toggle("is-visible", window.scrollY > 400);
+            backToTop.classList.toggle("is-visible", window.scrollY > 300);
         });
         backToTop.addEventListener("click", function () {
             window.scrollTo({ top: 0, behavior: "smooth" });
@@ -80,6 +80,49 @@
     }
     document.addEventListener("DOMContentLoaded", activarTabDesdeHash);
     window.addEventListener("hashchange", activarTabDesdeHash);
+
+    // ─── Copiar Link de Progreso (WhatsApp 1-click) ─────────────────────────
+    function mostrarToast(mensaje) {
+        var toastEl = document.getElementById("ssosToast");
+        if (!toastEl || typeof bootstrap === "undefined") {
+            return;
+        }
+        document.getElementById("ssosToastBody").textContent = mensaje;
+        new bootstrap.Toast(toastEl).show();
+    }
+
+    document.addEventListener("click", function (event) {
+        var boton = event.target.closest("[data-ssos-copy-link]");
+        if (!boton) {
+            return;
+        }
+        var url = boton.getAttribute("data-ssos-copy-link");
+
+        var copiar = function () {
+            return navigator.clipboard.writeText(url);
+        };
+
+        (navigator.clipboard ? copiar() : Promise.reject())
+            .then(function () {
+                mostrarToast("¡Enlace de progreso copiado! Listo para enviar por WhatsApp al atleta.");
+            })
+            .catch(function () {
+                // Fallback para navegadores/contextos sin Clipboard API (ej. http:// no seguro).
+                var temporal = document.createElement("textarea");
+                temporal.value = url;
+                temporal.style.position = "fixed";
+                temporal.style.opacity = "0";
+                document.body.appendChild(temporal);
+                temporal.select();
+                try {
+                    document.execCommand("copy");
+                    mostrarToast("¡Enlace de progreso copiado! Listo para enviar por WhatsApp al atleta.");
+                } catch (e) {
+                    mostrarToast("No se pudo copiar automáticamente. Copia el enlace manualmente: " + url);
+                }
+                document.body.removeChild(temporal);
+            });
+    });
 
     // ─── Modal compartido "Editar Atleta": rellena los campos desde los
     // data-* del botón que lo abrió, en vez de un modal por fila. ────────────

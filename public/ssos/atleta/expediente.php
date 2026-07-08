@@ -83,6 +83,8 @@ if (!empty($atleta['fecha_nacimiento'])) {
 // desaparece por completo para no arriesgar sobreescribir una captura real. ──
 $expedienteVacio = !$historial && empty($antropometrias) && empty($sfts) && empty($biomecanicas);
 
+$urlReporte = ssos_asset('atleta/reporte.php') . '?token=' . ssos_generate_share_token($id_atleta);
+
 $ssos_page_title = 'Expediente · ' . $atleta['nombre_completo'];
 $ssos_active_nav = 'clientes';
 require __DIR__ . '/../partials/header.php';
@@ -118,10 +120,12 @@ require __DIR__ . '/../partials/header.php';
     <?php if ($esMayor65): ?>
         <a href="sft_form.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-primary">🏃 Nuevo Senior Fitness Test</a>
     <?php endif; ?>
-    <a href="<?= e(ssos_base_url()) ?>/atleta/reporte.php?token=<?= e(ssos_generate_share_token($id_atleta)) ?>"
-       class="btn btn-ssos-turquesa" target="_blank" rel="noopener noreferrer">
+    <a href="<?= e($urlReporte) ?>" class="btn btn-ssos-turquesa" target="_blank" rel="noopener noreferrer">
         📄 Generar Reporte Athlos Score™ (PDF / Impresión)
     </a>
+    <button type="button" class="btn btn-ssos-primary" data-ssos-copy-link="<?= e($urlReporte) ?>">
+        📲 Copiar Link de Progreso para Atleta
+    </button>
 </div>
 
 <div class="ssos-table-card mb-4">

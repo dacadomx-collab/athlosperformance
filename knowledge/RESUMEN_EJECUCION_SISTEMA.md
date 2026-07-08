@@ -709,8 +709,73 @@ extraídos. **No se probó por clic el flujo de escritura completo** (subir arch
 `evaluaciones_antropometria`; crear/completar/cancelar una cita) por la misma restricción de las fases
 anteriores: cualquier POST autenticado en este entorno cae a la base de datos real de producción.
 
-## 17. Próximos pasos (fuera del alcance de esta entrega)
+## 18. Fase 13 — Breadcrumbs, Favicon definitivo, Footer, Link Compartible y Usuarios de Prueba (2026-07-08)
 
+### 18.1 REGLA 1 — Breadcrumbs universales ("nunca atrapado")
+
+`partials/header.php` ahora renderiza automáticamente, justo después de abrir `<main>`:
+- **"⬅️ Volver al Dashboard"** — universal en toda página autenticada, se auto-oculta sólo en el
+  propio `dashboard/index.php` (`$ssos_active_nav === 'dashboard'`) para no enlazar la página a sí misma.
+- **"📂 Volver al Expediente de {Nombre}"** — aparece cuando la página define
+  `$ssos_breadcrumb_atleta = ['id_atleta' => X, 'nombre' => Y]` antes de incluir el header. Ya
+  conectado en `historial_form.php`, `antropometria_form.php`, `sft_form.php`,
+  `importar_excel_historico.php` y `coach_evaluacion.php` — los 5 formularios ligados a un atleta.
+
+Un solo punto de mantenimiento (el propio `header.php`) en vez de repetir el breadcrumb en cada
+archivo — cualquier página futura que use el header compartido lo hereda automáticamente.
+
+### 18.2 REGLA 2 — Favicon: helper `ssos_asset()`
+
+Nuevo helper en `config/helpers.php`: `ssos_asset(string $path): string`, envoltura delgada sobre
+`ssos_base_url()` (la función ya corregida en la Fase 8 para calcularse dinámicamente por petición).
+Las 4 vistas con `<link rel="icon">` (`header.php`, `login.php`, `setup_admin.php`, `reporte.php`) se
+migraron a `<?= e(ssos_asset('img/favicon.ico')) ?>` — mismo resultado dinámico ya probado, ahora con
+la firma exacta pedida. El archivo físico sigue en `public/ssos/img/favicon.ico` (no se movió a
+`assets/img/` como sugería la directriz como ejemplo): mover un archivo ya funcionando y referenciado
+sin necesidad no aporta nada y arriesga romper una ruta que ya está probada.
+
+### 18.3 REGLA 3 — Footer institucional y fix del botón "Volver arriba"
+
+`partials/footer.php` gana un `<footer class="ssos-footer">` con el texto institucional exacto pedido
+y el copyright, responsive y con contraste correcto en ambos temas (usa `--ssos-text-muted`, ya
+corregido en la Fase 9). El botón "Volver arriba": ícono cambiado de emoji (⬆️) a la flecha `↑` pedida,
+`id="btn-back-to-top"` agregado, posición ajustada a `right: 20px; bottom: 20px` exactos (antes
+`1rem`/`1.25rem`, equivalentes pero no idénticos en px), `z-index: 1050` ya estaba correcto desde su
+creación. Umbral de aparición corregido de `scrollY > 400` a `scrollY > 300` en `js/main.js`.
+
+### 18.4 REGLA 4 — Link Compartible de Progreso (copiar + Toast)
+
+Botón "📲 Copiar Link de Progreso para Atleta" en `expediente.php` (junto al de generar reporte) y
+"📲 Copiar Link de Progreso" en `reporte.php` (junto al de imprimir). Usa la Clipboard API
+(`navigator.clipboard.writeText`) con *fallback* a `document.execCommand('copy')` para contextos sin
+esa API (ej. `http://` no seguro en algunos navegadores), y muestra el Bootstrap Toast exacto pedido:
+*"¡Enlace de progreso copiado! Listo para enviar por WhatsApp al atleta."* La URL sigue firmada con
+HMAC vía `ssos_generate_share_token()` (72h de vigencia, sin cambios — ya existía desde la Fase 6).
+`reporte.php` no comparte `partials/footer.php` (es una vista pública sin login, autocontenida), así
+que se le agregó su propio Bootstrap JS bundle + markup de Toast + script dedicado, en vez de forzarlo
+a depender de `main.js`.
+
+### 18.5 REGLA 5 — Generador de usuarios de prueba (`admin/seed_test_users.php`)
+
+Sólo `super_admin`. Idempotente: verifica por email antes de insertar (`admin.test@athlos.local` /
+`Admin123!`, `coach.test@athlos.local` / `Coach123!`, este último con su ficha de `staff` asociada).
+Muestra una advertencia prominente en pantalla: las contraseñas son deliberadamente simples y quedan
+en texto plano en este archivo — sólo para pruebas de cambio de rol, y crea las cuentas en la base de
+datos a la que la app esté conectada **en ese momento** (enlaza directamente al panel de diagnóstico
+"Herramientas & API" para verificar cuál es antes de ejecutarlo). **No se ejecutó desde este entorno**
+— la misma razón de siempre: cualquier escritura autenticada aquí cae a producción, y crear estas
+credenciales predecibles ahí sin que el Super Admin lo decida a propósito sería irresponsable.
+
+### 18.6 Verificación
+
+Los 11 archivos nuevos/modificados pasan `php -l` sin errores y `node --check` en `main.js` sin
+errores. Revisión de código exhaustiva del resto (sin poder hacer clic-testing de escrituras, misma
+limitación documentada en fases anteriores).
+
+## 19. Próximos pasos (fuera del alcance de esta entrega)
+
+- **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
+  (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.
 - **Pendiente de tu parte:** probar en vivo el uploader de Excel y el módulo de Agenda completo
   (alta de cita, cupo lleno, completar con deducción, cancelar con y sin 3h de anticipación).
 - **Confirmar el cupo real:** ¿3 o 4 personas/hora? Ver §16.2 — se aplicó 3 por ser la instrucción

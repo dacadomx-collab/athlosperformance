@@ -67,6 +67,16 @@ function ssos_base_url(): string
 }
 
 /**
+ * URL absoluta y dinámica hacia un asset dentro de /ssos (ej. `img/favicon.ico`,
+ * `css/main.css`) — construida sobre `ssos_base_url()`, así que hereda la
+ * misma corrección de la Fase 8 (nunca se rompe según la subcarpeta/dominio).
+ */
+function ssos_asset(string $path): string
+{
+    return ssos_base_url() . '/' . ltrim($path, '/');
+}
+
+/**
  * Redirige al Dashboard Único (todos los roles entran al mismo archivo;
  * el contenido se renderiza condicionalmente por rol dentro de él) y
  * termina la ejecución.

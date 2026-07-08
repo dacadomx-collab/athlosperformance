@@ -157,6 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $ssos_page_title = 'Importar Excel Histórico · ' . $atleta['nombre_completo'];
+$ssos_breadcrumb_atleta = ['id_atleta' => $id_atleta, 'nombre' => $atleta['nombre_completo']];
 require __DIR__ . '/../partials/header.php';
 ?>
 

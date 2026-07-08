@@ -202,3 +202,7 @@ body.rpt-body {
         break-inside: avoid;
     }
 }
+
+.rpt-toast-container {
+    z-index: 1080;
+}

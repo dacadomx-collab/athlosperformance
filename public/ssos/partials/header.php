@@ -20,6 +20,13 @@ $ssos_rol_label = match ($ssos_rol) {
 };
 
 $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
+
+// Breadcrumb "Volver al Expediente de {Nombre}": cada formulario/vista ligada
+// a un atleta define $ssos_breadcrumb_atleta = ['id_atleta' => X, 'nombre' => Y]
+// antes de incluir este header. El link "Volver al Dashboard" es universal —
+// se oculta sólo en el propio dashboard, para no linkear una página a sí misma.
+$ssos_breadcrumb_atleta = $ssos_breadcrumb_atleta ?? null;
+$ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard';
 ?>
 <!DOCTYPE html>
 <html lang="es" data-theme="light">
@@ -27,7 +34,7 @@ $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Athlos Performance — Sistema de Control Deportivo | <?= e($ssos_page_title) ?></title>
-    <link rel="icon" type="image/x-icon" href="<?= e(ssos_base_url()) ?>/img/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="<?= e(ssos_asset('img/favicon.ico')) ?>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="<?= e(ssos_base_url()) ?>/css/main.css" rel="stylesheet">
 </head>
@@ -80,3 +87,16 @@ $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
 </div>
 
 <main class="ssos-main">
+
+<?php if ($ssos_mostrar_breadcrumb_dashboard || $ssos_breadcrumb_atleta): ?>
+    <div class="ssos-breadcrumb mb-3 d-flex flex-wrap gap-2">
+        <?php if ($ssos_mostrar_breadcrumb_dashboard): ?>
+            <a href="<?= e($ssos_dashboard_href) ?>" class="btn btn-sm btn-outline-secondary">⬅️ Volver al Dashboard</a>
+        <?php endif; ?>
+        <?php if ($ssos_breadcrumb_atleta): ?>
+            <a href="<?= e(ssos_base_url()) ?>/atleta/expediente.php?id_atleta=<?= (int) $ssos_breadcrumb_atleta['id_atleta'] ?>" class="btn btn-sm btn-outline-secondary">
+                📂 Volver al Expediente de <?= e($ssos_breadcrumb_atleta['nombre']) ?>
+            </a>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>

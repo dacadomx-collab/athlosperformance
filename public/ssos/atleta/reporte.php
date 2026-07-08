@@ -45,7 +45,7 @@ $etiquetasDimension = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Athlos Score™<?= $atleta ? ' — ' . e($atleta['nombre_completo']) : '' ?></title>
-    <link rel="icon" type="image/x-icon" href="<?= e(ssos_base_url()) ?>/img/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="<?= e(ssos_asset('img/favicon.ico')) ?>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="<?= e(ssos_base_url()) ?>/css/reporte.css" rel="stylesheet">
 </head>
@@ -59,6 +59,9 @@ $etiquetasDimension = [
     <?php if ($atleta): ?>
         <div class="rpt-actions no-print">
             <button type="button" class="btn btn-rpt" onclick="window.print()">Exportar / Imprimir PDF</button>
+            <button type="button" class="btn btn-rpt" data-ssos-copy-link="<?= e(ssos_asset('atleta/reporte.php') . '?token=' . $token) ?>">
+                📲 Copiar Link de Progreso
+            </button>
         </div>
     <?php endif; ?>
 </div>
@@ -144,5 +147,40 @@ $etiquetasDimension = [
     <?php endif; ?>
 </main>
 
+<?php if ($atleta): ?>
+<div class="toast-container position-fixed bottom-0 end-0 p-3 rpt-toast-container no-print">
+    <div id="ssosToast" class="toast align-items-center text-bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="ssosToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    (function () {
+        "use strict";
+        document.addEventListener("click", function (event) {
+            var boton = event.target.closest("[data-ssos-copy-link]");
+            if (!boton) {
+                return;
+            }
+            var url = boton.getAttribute("data-ssos-copy-link");
+            var mostrarToast = function (mensaje) {
+                document.getElementById("ssosToastBody").textContent = mensaje;
+                new bootstrap.Toast(document.getElementById("ssosToast")).show();
+            };
+            (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
+                .then(function () {
+                    mostrarToast("¡Enlace de progreso copiado! Listo para enviar por WhatsApp al atleta.");
+                })
+                .catch(function () {
+                    mostrarToast("No se pudo copiar automáticamente. Copia el enlace manualmente: " + url);
+                });
+        });
+    })();
+</script>
+<?php endif; ?>
 </body>
 </html>
