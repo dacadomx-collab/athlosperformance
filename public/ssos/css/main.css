@@ -861,6 +861,12 @@ body.ssos-app-body {
     color: #D68910;
 }
 
+.ssos-agenda-cliente-mes-servicio {
+    font-size: 0.72rem;
+    color: var(--ssos-text-muted);
+    font-style: italic;
+}
+
 .ssos-agenda-progress {
     height: 0.4rem;
     margin: 0.25rem 0;

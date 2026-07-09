@@ -265,10 +265,15 @@ $citasDelDiaMovil = $citasPorCelda[$fecha] ?? [];
 ksort($citasDelDiaMovil);
 
 // Sidebar izquierdo: clientes con membresía activa este mes, priorizando los que están por agotarse.
+// Un cliente puede tener más de una membresía activa simultánea (ej. paquete de
+// entrenamiento + paquete de nutrición) — se muestra una fila POR MEMBRESÍA, no
+// por cliente, con el nombre del servicio para no repetir el nombre del cliente
+// sin contexto (verificado contra datos reales: varios atletas tienen 2 filas).
 $stmtClientesMes = $db->prepare(
-    "SELECT a.id_atleta, a.nombre_completo, m.sesiones_totales, m.sesiones_restantes
+    "SELECT a.id_atleta, a.nombre_completo, m.id_membresia, m.sesiones_totales, m.sesiones_restantes, cs.nombre_servicio
      FROM membresias m
      INNER JOIN atletas a ON a.id_atleta = m.id_atleta
+     INNER JOIN catalogo_servicios cs ON cs.id_servicio = m.id_servicio
      WHERE m.estatus = 'activa' AND m.sesiones_totales > 0
        AND m.fecha_inicio <= :fin_mes AND (m.fecha_fin IS NULL OR m.fecha_fin >= :inicio_mes)
      ORDER BY m.sesiones_restantes ASC

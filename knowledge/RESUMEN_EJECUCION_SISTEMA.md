@@ -1358,7 +1358,55 @@ errores; `main.css` mantiene el balance de llaves (140/140). No se probó por cl
 (agendar, arrastrar una cita, ver los sidebars con datos reales) ni se ejecutó la migración —
 mismo límite de siempre: este entorno no tiene una BD local separada de producción.
 
-## 26. Próximos pasos (fuera del alcance de esta entrega)
+## 26. Fase 21 — Cierre del Módulo de Calendario: migración aplicada y verificación contra datos reales (2026-07-09)
+
+### 26.1 Migración `06_schema_calendario_avanzado.sql` — aplicada a producción
+
+Con luz verde explícita del Comandante (a diferencia del intento de la Fase 20, autoescrito sin
+instrucción directa), se ejecutó vía el mismo método seguro ya usado en la Fase 19 — script PHP de un
+solo uso que reutiliza `config/conexion.php` (nunca `mysql -p` en texto plano). Verificado por lectura
+después de escribir: `staff_colores` y `sincronizacion_tokens` existen en la base de datos real.
+`AgendaBusinessRules::colorParaStaff()` se actualizó para **sembrar** el color determinístico en la
+tabla la primera vez que se consulta un coach sin fila todavía — así, a partir de ahora, los colores
+sí se leen realmente de `staff_colores` (editable ahí sin tocar código), en vez de recalcularse en
+cada carga de página.
+
+### 26.2 Verificación contra datos reales — un bug real encontrado y corregido
+
+Antes de declarar cerrado el módulo, se corrieron las 3 queries principales (coaches, clientes del
+mes, citas de la semana) en modo sólo-lectura contra la base de datos real. Hallazgo: el sidebar de
+"Clientes del mes" mostraba **nombres duplicados** (Regina Lobo, Gabriela Barrera, Guillermo Lobo,
+David Perpuly aparecían 2 veces cada uno) — la causa real es que esos atletas tienen más de una
+membresía activa simultánea (ej. dos paquetes "Promo familia especial" distintos), y la query
+original traía una fila por membresía sin ninguna etiqueta que las distinguiera. Se corrigió
+agregando `catalogo_servicios.nombre_servicio` a la consulta y mostrándolo bajo el nombre de cada
+cliente — **no se fusionaron las filas** (mezclar el progreso de dos servicios distintos en una sola
+barra habría sido más engañoso que mostrarlas por separado). Nota aparte para el Comandante: algunos
+de esos duplicados son el mismo servicio repetido dos veces (ej. Regina Lobo tiene 2 membresías de
+"Promo familia especial" activas a la vez) — vale la pena revisar si es una renovación legítima o un
+remanente duplicado de la migración original desde Excel.
+
+### 26.3 `agenda/feed.php` — verificado post-migración, con una limitación real y honesta
+
+Probado con un token inexistente: ya no responde `503` (tabla faltante), responde `404` "Token de
+sincronización inválido o inactivo" — confirma que la query contra `sincronizacion_tokens` ejecuta
+correctamente. **No se pudo probar el camino feliz completo** (un feed con citas reales de un coach)
+porque la tabla `staff` está vacía en producción ahora mismo (0 coaches activos) — no es una falla del
+código nuevo, es que todavía nadie ha dado de alta un coach real desde el formulario que ya existe en
+`dashboard/index.php`. Mismo motivo por el que tampoco se pudo probar la creación de citas vía
+modal/drag-and-drop de punta a punta: sin al menos un coach activo, el selector de "Especialista" del
+modal "Nueva Cita" está vacío y no hay nada que arrastrar en la matriz.
+
+### 26.4 Verificación
+
+Los 3 archivos modificados (`AgendaBusinessRules.php`, `agenda/index.php`, `agenda_vista.php`) pasan
+`php -l` sin errores; `main.css` mantiene el balance de llaves. Las 3 queries principales de la
+agenda se ejecutaron en modo lectura contra la BD real de producción y devolvieron resultados
+correctos (0 coaches, 20 membresías activas del mes, 0 citas — todo consistente con el estado real
+actual del sistema). `feed.php` se ejecutó directamente (no sólo `php -l`) con un token de prueba y
+devolvió la respuesta esperada.
+
+## 27. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.
@@ -1372,6 +1420,13 @@ mismo límite de siempre: este entorno no tiene una BD local separada de producc
 - Geocodificación exacta de `Calle Altamirano #2730` para el JSON-LD (hoy usa el centro aproximado de La Paz).
 - Importador de Excel histórico para SFT (Mayor_65_02, formato .docx, no .xlsx) y para el plan de sesión (Mayor/Menor_65_03) — fuera de alcance de esta entrega, sólo se cubrió antropometría.
 - Importador de PDF para el checklist de biomecánica (sección "Análisis Sentadilla" de la Ficha de Evaluación → tabla `evaluaciones_biomecanica`) — la Fase 14 sólo mapeó los campos numéricos del SFT hacia `sft_form.php`, no el checklist de la sentadilla overhead.
-- **Aplicar `knowledge/sql/06_schema_calendario_avanzado.sql`** en phpMyAdmin (Fase 20, §25.3) — sin esto, los colores de coach quedan en el fallback determinístico (funcional pero no personalizable) y `agenda/feed.php` responde 503.
+- ~~Aplicar `knowledge/sql/06_schema_calendario_avanzado.sql`~~ — hecho en la Fase 21.
+- **Dar de alta al menos un coach real** en `staff` (formulario ya existente en `dashboard/index.php`)
+  — hoy la tabla está vacía en producción, lo que bloquea probar de punta a punta la creación de
+  citas, el drag-and-drop y el feed webcal con datos reales (Fase 21, §26.3).
+- **Revisar las membresías activas duplicadas** encontradas en la Fase 21 (§26.2) — varios atletas
+  (Regina Lobo, Gabriela Barrera, Guillermo Lobo, David Perpuly) tienen 2 membresías del mismo
+  servicio activas a la vez; confirmar si son renovaciones legítimas o remanentes de la migración
+  original desde Excel.
 - **Activar sincronización real con Google Calendar** — requiere crear un proyecto en Google Cloud Console, habilitar la API de Calendar y configurar credenciales OAuth2 con el dominio de producción (`athlosperformance.tourfindy.com`) en los orígenes autorizados. El esquema (`sincronizacion_tokens`) y el protocolo completo ya están documentados en `knowledge/MODULO_CALENDARIO_GENERICO.md` §3.1 — falta la implementación del endpoint OAuth callback + webhook receiver, que no se construyó en la Fase 20 por no haber credenciales disponibles para probarlo.
 - Generar y publicar `webcal_uid` por coach (para que puedan suscribirse desde Apple Calendar) — hoy la tabla existe en el script de migración pero no hay UI para generarlo.

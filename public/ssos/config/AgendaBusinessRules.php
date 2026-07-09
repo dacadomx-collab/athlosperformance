@@ -94,8 +94,16 @@ final class AgendaBusinessRules
             if ($color) {
                 return (string) $color;
             }
+
+            // Sin fila todavía: se siembra el color determinístico UNA vez, para
+            // que a partir de ahora sí se esté leyendo realmente de la tabla
+            // (y quede editable ahí sin volver a tocar código).
+            $colorAsignado = self::PALETA_COLORES[$idStaff % count(self::PALETA_COLORES)];
+            $db->prepare('INSERT INTO staff_colores (id_staff, color_hex) VALUES (:id, :color)')
+                ->execute(['id' => $idStaff, 'color' => $colorAsignado]);
+            return $colorAsignado;
         } catch (\Throwable $e) {
-            // Tabla staff_colores todavía no existe (migración 06_ pendiente) — cae al fallback determinístico.
+            // Tabla staff_colores todavía no existe (migración 06_ pendiente) — cae al fallback determinístico sin persistir.
         }
 
         return self::PALETA_COLORES[$idStaff % count(self::PALETA_COLORES)];

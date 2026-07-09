@@ -43,6 +43,7 @@ declare(strict_types=1);
             ?>
             <div class="ssos-agenda-cliente-mes <?= $alerta ? 'ssos-agenda-cliente-mes--alerta' : '' ?>">
                 <div class="ssos-agenda-cliente-mes-nombre"><?= e($cliente['nombre_completo']) ?><?= $alerta ? ' ⚠️' : '' ?></div>
+                <div class="ssos-agenda-cliente-mes-servicio"><?= e($cliente['nombre_servicio']) ?></div>
                 <div class="progress ssos-agenda-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $pct ?>">
                     <div class="progress-bar ssos-agenda-progress-bar" style="width: <?= $pct ?>%"></div>
                 </div>
