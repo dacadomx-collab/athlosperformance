@@ -304,3 +304,16 @@ function ssos_mask_secret(?string $secret): string
 
     return substr($secret, 0, 4) . str_repeat('•', 8) . substr($secret, -4);
 }
+
+/** Clasificación OMS por IMC — misma regla usada en antropometria_form.php e importar_excel_historico.php. */
+function ssos_clasificar_imc(float $imc): string
+{
+    return match (true) {
+        $imc < 18.5 => 'bajo_peso',
+        $imc < 25.0 => 'normal',
+        $imc < 30.0 => 'sobrepeso',
+        $imc < 35.0 => 'obesidad',
+        $imc < 40.0 => 'obesidad_severa',
+        default => 'obesidad_morbida',
+    };
+}

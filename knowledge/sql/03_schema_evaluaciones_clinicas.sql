@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS percentiles_sft_referencia (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed: SFT Norms Hombres (Mayor_65_02 Ficha Evaluación adulto mayor.docx)
-INSERT INTO percentiles_sft_referencia (sexo, edad_min, edad_max, variable, valor_min, valor_max, unidad) VALUES
+INSERT IGNORE INTO percentiles_sft_referencia (sexo, edad_min, edad_max, variable, valor_min, valor_max, unidad) VALUES
 ('masculino',60,64,'chair_sit_reach',-6.35,10.16,'cm'), ('masculino',65,69,'chair_sit_reach',-7.62,7.62,'cm'), ('masculino',70,74,'chair_sit_reach',-8.89,6.35,'cm'), ('masculino',75,79,'chair_sit_reach',-10.16,5.08,'cm'), ('masculino',80,84,'chair_sit_reach',-13.97,3.81,'cm'), ('masculino',85,89,'chair_sit_reach',-13.97,1.27,'cm'), ('masculino',90,94,'chair_sit_reach',-16.51,-1.27,'cm'),
 ('masculino',60,64,'back_scratch',-16.51,0.0,'cm'), ('masculino',65,69,'back_scratch',-19.05,-2.54,'cm'), ('masculino',70,74,'back_scratch',-20.34,-2.54,'cm'), ('masculino',75,79,'back_scratch',-22.86,-5.08,'cm'), ('masculino',80,84,'back_scratch',-24.13,-5.08,'cm'), ('masculino',85,89,'back_scratch',-25.4,-7.62,'cm'), ('masculino',90,94,'back_scratch',-26.67,-10.16,'cm'),
 ('masculino',60,64,'chair_stand',14,19,'reps'), ('masculino',65,69,'chair_stand',12,18,'reps'), ('masculino',70,74,'chair_stand',12,17,'reps'), ('masculino',75,79,'chair_stand',11,17,'reps'), ('masculino',80,84,'chair_stand',10,15,'reps'), ('masculino',85,89,'chair_stand',8,14,'reps'), ('masculino',90,94,'chair_stand',7,12,'reps'),
@@ -210,7 +210,7 @@ INSERT INTO percentiles_sft_referencia (sexo, edad_min, edad_max, variable, valo
 ('masculino',60,64,'two_min_step',87,115,'pasos'), ('masculino',65,69,'two_min_step',86,116,'pasos'), ('masculino',70,74,'two_min_step',80,110,'pasos'), ('masculino',75,79,'two_min_step',73,109,'pasos'), ('masculino',80,84,'two_min_step',71,103,'pasos'), ('masculino',85,89,'two_min_step',59,91,'pasos'), ('masculino',90,94,'two_min_step',52,86,'pasos');
 
 -- Seed: SFT Norms Mujeres (Mayor_65_02 Ficha Evaluación adulto mayor.docx)
-INSERT INTO percentiles_sft_referencia (sexo, edad_min, edad_max, variable, valor_min, valor_max, unidad) VALUES
+INSERT IGNORE INTO percentiles_sft_referencia (sexo, edad_min, edad_max, variable, valor_min, valor_max, unidad) VALUES
 ('femenino',60,64,'chair_sit_reach',-1.27,12.7,'cm'), ('femenino',65,69,'chair_sit_reach',-1.27,11.43,'cm'), ('femenino',70,74,'chair_sit_reach',-2.54,10.16,'cm'), ('femenino',75,79,'chair_sit_reach',-3.81,8.89,'cm'), ('femenino',80,84,'chair_sit_reach',-5.08,7.62,'cm'), ('femenino',85,89,'chair_sit_reach',-6.35,6.35,'cm'), ('femenino',90,94,'chair_sit_reach',-11.43,2.54,'cm'),
 ('femenino',60,64,'back_scratch',-7.62,3.81,'cm'), ('femenino',65,69,'back_scratch',-8.89,3.81,'cm'), ('femenino',70,74,'back_scratch',-10.16,2.54,'cm'), ('femenino',75,79,'back_scratch',-12.7,1.27,'cm'), ('femenino',80,84,'back_scratch',-13.97,0.0,'cm'), ('femenino',85,89,'back_scratch',-17.78,-1.27,'cm'), ('femenino',90,94,'back_scratch',-20.32,-2.54,'cm'),
 ('femenino',60,64,'chair_stand',12,17,'reps'), ('femenino',65,69,'chair_stand',11,16,'reps'), ('femenino',70,74,'chair_stand',10,15,'reps'), ('femenino',75,79,'chair_stand',10,15,'reps'), ('femenino',80,84,'chair_stand',9,14,'reps'), ('femenino',85,89,'chair_stand',8,13,'reps'), ('femenino',90,94,'chair_stand',4,11,'reps'),

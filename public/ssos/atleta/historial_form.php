@@ -59,12 +59,36 @@ $exito = false;
 $stmt = $db->prepare('SELECT * FROM historial_clinico WHERE id_atleta = :id');
 $stmt->execute(['id' => $id_atleta]);
 $actual = $stmt->fetch() ?: [];
+$habiaHistorialEnBD = !empty($actual);
 
 // Prefill de un solo uso desde importar_pdf_historial.php — sólo aplica si
 // todavía no existe un registro real en BD (nunca pisa una captura guardada).
 if (empty($actual) && !empty($_SESSION['ssos_prefill_historial'][$id_atleta])) {
     $actual = $_SESSION['ssos_prefill_historial'][$id_atleta];
     unset($_SESSION['ssos_prefill_historial'][$id_atleta]);
+}
+
+// Prefill demográfico (edad/género/altura/peso) — normalizado desde las claves
+// crudas de HistorialPdfMapper (genero: "M"/"F" libre, altura en metros) a lo
+// que esperan los inputs "atleta_*" de abajo. Sólo informativo/editable aquí;
+// el guardado real hacia `atletas`/`evaluaciones_antropometria` respeta su
+// propio criterio de "sólo si está vacío" (ver bloque POST más abajo).
+$prefillDemografico = [];
+if (!empty($_SESSION['ssos_prefill_historial_demografico'][$id_atleta])) {
+    $demo = $_SESSION['ssos_prefill_historial_demografico'][$id_atleta];
+    unset($_SESSION['ssos_prefill_historial_demografico'][$id_atleta]);
+
+    $prefillDemografico['edad'] = is_numeric($demo['edad'] ?? null) ? (string) (int) $demo['edad'] : '';
+    $generoCrudo = mb_strtolower(trim((string) ($demo['genero'] ?? '')));
+    $prefillDemografico['sexo'] = match (true) {
+        str_starts_with($generoCrudo, 'm') => 'masculino',
+        str_starts_with($generoCrudo, 'f') => 'femenino',
+        default => '',
+    };
+    $prefillDemografico['altura_cm'] = is_numeric($demo['altura'] ?? null)
+        ? (string) round(((float) $demo['altura']) * ((float) $demo['altura'] < 3 ? 100 : 1), 1)
+        : '';
+    $prefillDemografico['peso_kg'] = is_numeric($demo['peso'] ?? null) ? (string) $demo['peso'] : '';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -103,12 +127,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute($valores);
                 $exito = true;
                 $actual = $valores;
+
+                // Sincronización a atletas/evaluaciones_antropometria — "sólo si
+                // está vacío", nunca sobreescribe un dato real ya capturado por
+                // otro flujo (antropometria_form.php es el dueño natural de
+                // peso/estatura; aquí sólo se completa el hueco si nunca se
+                // llenó). Falla aislada de la del historial: si esto truena, el
+                // historial ya se guardó y no se pierde ese trabajo.
+                try {
+                    ssos_sincronizar_datos_atleta_desde_historial($db, $id_atleta, $atleta, $habiaHistorialEnBD);
+                } catch (\Throwable $eSync) {
+                    $errores[] = 'El historial se guardó, pero no se pudo sincronizar edad/sexo/antropometría: ' . $eSync->getMessage();
+                    error_log('[SSOS historial_form sync] ' . $eSync->getMessage());
+                }
             } catch (\Throwable $e) {
                 $errores[] = 'No se pudo guardar el historial clínico: ' . $e->getMessage();
                 error_log('[SSOS historial_form] ' . $e->getMessage());
             }
         }
     }
+}
+
+/**
+ * Completa atletas.fecha_nacimiento/sexo (si están vacíos) y crea la primera
+ * evaluaciones_antropometria (sólo si el historial se está creando por primera
+ * vez) a partir de los 4 campos "atleta_*" del wizard. Nunca sobreescribe un
+ * valor ya presente — REGLA explícita: peso/estatura/edad reales capturados en
+ * otro momento (antropometria_form.php, alta manual del atleta) tienen
+ * prioridad sobre lo que traiga este formulario.
+ */
+function ssos_sincronizar_datos_atleta_desde_historial(PDO $db, int $id_atleta, array $atleta, bool $habiaHistorialEnBD): void
+{
+    $edad = filter_input(INPUT_POST, 'atleta_edad', FILTER_VALIDATE_INT) ?: null;
+    $sexo = (string) ($_POST['atleta_sexo'] ?? '');
+    $alturaCm = filter_input(INPUT_POST, 'atleta_altura_cm', FILTER_VALIDATE_FLOAT) ?: null;
+    $pesoKg = filter_input(INPUT_POST, 'atleta_peso_kg', FILTER_VALIDATE_FLOAT) ?: null;
+
+    $sets = [];
+    $valores = ['id' => $id_atleta];
+
+    if (empty($atleta['fecha_nacimiento']) && $edad !== null && $edad > 0) {
+        // Aproximación deliberada: el PDF sólo trae "Edad", no una fecha de
+        // nacimiento real. 1 de enero del año correspondiente — no es la
+        // fecha real, es un relleno para no dejar el campo NULL. Corregible
+        // a mano en el perfil del atleta si se necesita precisión.
+        $sets[] = 'fecha_nacimiento = :fecha_nacimiento';
+        $valores['fecha_nacimiento'] = ((int) date('Y') - $edad) . '-01-01';
+    }
+
+    if (in_array($sexo, ['masculino', 'femenino'], true) && (empty($atleta['sexo']) || $atleta['sexo'] === 'no_especificado')) {
+        $sets[] = 'sexo = :sexo';
+        $valores['sexo'] = $sexo;
+    }
+
+    if ($sets !== []) {
+        $stmt = $db->prepare('UPDATE atletas SET ' . implode(', ', $sets) . ' WHERE id_atleta = :id');
+        $stmt->execute($valores);
+    }
+
+    // La antropometría es histórico acumulativo (una fila por evaluación) —
+    // sólo se siembra la primera vez que este atleta recibe un historial
+    // clínico, para no generar una fila nueva cada vez que se edita/resave
+    // el historial.
+    if ($habiaHistorialEnBD || $alturaCm === null || $pesoKg === null || $alturaCm <= 0 || $pesoKg <= 0) {
+        return;
+    }
+
+    $stmtExiste = $db->prepare('SELECT COUNT(*) FROM evaluaciones_antropometria WHERE id_atleta = :id');
+    $stmtExiste->execute(['id' => $id_atleta]);
+    if ((int) $stmtExiste->fetchColumn() > 0) {
+        return; // ya existe al menos una evaluación real — no se siembra una sintética encima.
+    }
+
+    $alturaM = $alturaCm / 100;
+    $imc = round($pesoKg / ($alturaM ** 2), 2);
+
+    $stmt = $db->prepare(
+        'INSERT INTO evaluaciones_antropometria
+            (id_atleta, fecha_antropometria, asesor, peso_kg, estatura_cm, imc, clasificacion_imc, indice_ponderal, capturado_por)
+         VALUES (:id_atleta, :fecha, :asesor, :peso_kg, :estatura_cm, :imc, :clasificacion_imc, :indice_ponderal, :capturado_por)'
+    );
+    $stmt->execute([
+        'id_atleta' => $id_atleta,
+        'fecha' => date('Y-m-d'),
+        'asesor' => 'Wizard de Historial Clínico',
+        'peso_kg' => $pesoKg,
+        'estatura_cm' => $alturaCm,
+        'imc' => $imc,
+        'clasificacion_imc' => ssos_clasificar_imc($imc),
+        'indice_ponderal' => round($pesoKg / ($alturaM ** 3), 3),
+        'capturado_por' => $_SESSION['id_usuario'],
+    ]);
 }
 
 /** @return string Atributo value="" ya escapado, para inputs de texto/número. */
@@ -162,6 +271,40 @@ require __DIR__ . '/../partials/header.php';
                     <option value="menor_65" <?= ($actual['tipo_historial'] ?? '') === 'menor_65' ? 'selected' : '' ?>>Menor de 65 años</option>
                     <option value="mayor_65" <?= ($actual['tipo_historial'] ?? '') === 'mayor_65' ? 'selected' : '' ?>>Adulto Mayor (65+)</option>
                 </select>
+            </div>
+            <div class="ssos-table-card mb-3">
+                <h5>Datos del atleta</h5>
+                <p class="text-body-secondary small mb-2">
+                    Estos 4 campos no viven en el historial clínico — al guardar, se usan para
+                    completar el perfil del atleta (<code>atletas</code>) y para registrar una primera
+                    evaluación de antropometría (<code>evaluaciones_antropometria</code>), pero
+                    <strong>sólo si esos datos todavía no existen</strong> (nunca se sobreescribe una
+                    fecha de nacimiento, sexo o evaluación ya capturados). La fecha de nacimiento se
+                    estima a partir de la edad (1 de enero del año correspondiente) — es aproximada,
+                    corrígela en el perfil del atleta si necesitas precisión exacta.
+                </p>
+                <div class="row">
+                    <div class="col-sm-3 mb-2">
+                        <label class="form-label">Edad</label>
+                        <input type="number" name="atleta_edad" class="form-control" min="0" max="120" value="<?= historial_valor($prefillDemografico, 'edad') ?>">
+                    </div>
+                    <div class="col-sm-3 mb-2">
+                        <label class="form-label">Género</label>
+                        <select name="atleta_sexo" class="form-select">
+                            <option value="">—</option>
+                            <option value="masculino" <?= ($prefillDemografico['sexo'] ?? '') === 'masculino' ? 'selected' : '' ?>>Masculino</option>
+                            <option value="femenino" <?= ($prefillDemografico['sexo'] ?? '') === 'femenino' ? 'selected' : '' ?>>Femenino</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-3 mb-2">
+                        <label class="form-label">Altura (cm)</label>
+                        <input type="number" step="0.1" name="atleta_altura_cm" class="form-control" value="<?= historial_valor($prefillDemografico, 'altura_cm') ?>">
+                    </div>
+                    <div class="col-sm-3 mb-2">
+                        <label class="form-label">Peso (kg)</label>
+                        <input type="number" step="0.1" name="atleta_peso_kg" class="form-control" value="<?= historial_valor($prefillDemografico, 'peso_kg') ?>">
+                    </div>
+                </div>
             </div>
             <div class="ssos-table-card mb-3">
                 <h5>Contacto directo (Menor de 65)</h5>

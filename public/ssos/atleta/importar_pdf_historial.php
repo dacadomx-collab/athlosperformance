@@ -76,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $resultado = HistorialPdfMapper::mapear($texto);
                     $_SESSION['ssos_prefill_historial'][$id_atleta] = $resultado['campos'];
+                    $_SESSION['ssos_prefill_historial_demografico'][$id_atleta] = $resultado['demograficos'];
                 }
             } catch (\Throwable $e) {
                 $errores[] = 'No se pudo procesar el archivo: ' . $e->getMessage();

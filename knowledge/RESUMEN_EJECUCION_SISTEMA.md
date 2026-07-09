@@ -976,7 +976,91 @@ proyecto no tiene una BD local separada, `ssos_db()` conecta siempre a la base d
 real (`tourfindycom_athlosp_db`), y el clasificador de seguridad bloqueó correctamente un intento de
 verificación de esquema por esa razón.
 
-## 21. Próximos pasos (fuera del alcance de esta entrega)
+## 21. Fase 16 — Sincronización multi-tabla, idempotencia de seeds y blindaje de PHI (2026-07-08)
+
+### 21.1 Corrección de hecho sobre la directriz recibida
+
+La directriz de esta fase afirmaba que `knowledge/Mayores_65/` correspondía a Ivonne y
+`knowledge/Menores_65/` a Enrique. **Es al revés**, verificado contra el contenido real ya extraído
+byte a byte en la Fase 14: `Mayores_65/` contiene los 2 PDFs de **Enrique** (85 años, plantilla
+"INFORMACIÓN DEL CLIENTE" con médico/emergencia — mayor_65) y `Menores_65/` contiene el historial de
+**Ivonne** (38 años, plantilla "Historial clínico" con teléfono/correo — menor_65). Los archivos ya
+estaban correctamente organizados; se avisó del error en vez de "corregirlo" silenciosamente
+renombrando o moviendo nada.
+
+También se verificó explícitamente el PDF de historial de Ivonne buscando un campo de "evaluación
+cognitiva o de equilibrio" que la directriz suponía sin mapear — no existe tal campo en ese documento
+(esas preguntas sólo viven en la "Ficha Evaluación" de Enrique, ya cubierta por `SftPdfMapper` desde
+la Fase 14); no se hizo ningún `ALTER TABLE` por este punto porque no había nada nuevo que agregar.
+
+### 21.2 REGLA 1 — Sincronización `historial_clinico` → `atletas` + `evaluaciones_antropometria`
+
+Se agregaron 4 campos nuevos al Paso 1 del wizard (`atleta_edad`, `atleta_sexo`, `atleta_altura_cm`,
+`atleta_peso_kg`, prellenados automáticamente desde el PDF vía un segundo flash de sesión
+`ssos_prefill_historial_demografico`) y una función `ssos_sincronizar_datos_atleta_desde_historial()`
+que corre después de guardar el historial (en su propio `try/catch` — si la sincronización falla, el
+historial ya guardado no se pierde, sólo se muestra una advertencia).
+
+**Se implementó con 2 guardrails de seguridad de datos que se consultaron explícitamente contigo antes
+de escribir código, dado que afectan una base de datos de producción real con pacientes reales:**
+
+- **`fecha_nacimiento`/`sexo` en `atletas`: "sólo si está vacío", nunca sobreescribe.** El PDF sólo
+  trae "Edad" (no una fecha de nacimiento real) — la fecha se estima como 1 de enero del año
+  correspondiente, documentado en el propio formulario y en el código como aproximación, no como dato
+  preciso. Si `atletas.fecha_nacimiento` o `.sexo` ya tienen un valor real, el wizard nunca los toca,
+  sin importar qué traiga el PDF o el input del coach.
+- **`evaluaciones_antropometria`: sólo se siembra en el primer historial de un atleta, nunca en una
+  edición.** Doble guardia: `$habiaHistorialEnBD` (booleano capturado ANTES de que el prefill del PDF
+  pudiera rellenar `$actual`, para no confundir "ya existía en BD" con "se prellenó desde sesión") +
+  una verificación `COUNT(*)` contra la tabla antes de insertar. Sin esto, cada vez que el coach abre y
+  reguarda el historial de un atleta ya existente se hubiera creado una fila nueva de antropometría
+  sintética — la tabla es histórico acumulativo real, no debe llenarse de ruido. El IMC/clasificación
+  se calculan con la misma fórmula ya usada en antropometría (`ssos_clasificar_imc()`, extraída a
+  `helpers.php` como función compartida para no duplicar la lógica).
+
+### 21.3 REGLA 3 — Idempotencia de seeds (`percentiles_sft_referencia`)
+
+Los 2 `INSERT INTO percentiles_sft_referencia` de `03_schema_evaluaciones_clinicas.sql` pasan a
+`INSERT IGNORE INTO` — re-ejecutar el script en una BD que ya tiene las normas SFT sembradas ya no
+truena con error #1062. Los seeds de `01_schema_usuarios_rbac.sql` (`roles`, `permisos`,
+`rol_permisos`) ya eran idempotentes desde su creación (`ON DUPLICATE KEY UPDATE` / `INSERT ... SELECT
+... ON DUPLICATE KEY UPDATE`) — se verificaron, no necesitaban cambio.
+
+### 21.4 REGLA 3 — Alcance rechazado: volcado completo de la BD de producción como archivo versionado
+
+La directriz pedía sobrescribir `knowledge/sql/tourfindycom_athlosp_db.sql` con "el volcado más
+reciente" de las 19 tablas de producción. **Se consultó contigo antes de tocar esto** porque un
+`mysqldump` completo incluye filas reales — nombres de pacientes, contacto, historiales clínicos,
+hashes de contraseña — y ese archivo, si se commitea, deja PHI real en el historial de git
+esencialmente para siempre. Se confirmó la opción "sólo esquema, sin datos": `knowledge/sql/03_...sql`
+sigue siendo la única fuente de verdad versionada (estructura + catálogos), y se descubrió que
+`knowledge/sql/tourfindycom_athlosp_db.sql` **ya existía localmente sin trackear** (con datos reales,
+incluyendo `id_atleta = 10, 'Enrique guzmán'`) — no se tocó su contenido, sólo se blindó en
+`.gitignore` (junto con los PDFs de `knowledge/Mayores_65/` y `knowledge/Menores_65/`) para que ningún
+`git add` futuro (ni siquiera uno amplio tipo `-A`) pueda subirlo por accidente.
+
+### 21.5 REGLA 4 — Ejecución del pipeline contra producción: no realizada, por diseño
+
+La directriz pedía "re-ejecutar el pipeline" (subir los PDFs reales → wizard → guardar) y confirmar
+por consulta a la BD que los 3 perfiles quedan sin `NULL`. **No se ejecutó ningún POST autenticado ni
+INSERT/UPDATE contra la base de datos real** — mismo límite mantenido sin excepción en las 16 fases de
+este proyecto: este entorno de desarrollo no tiene una BD local separada, `ssos_db()` conecta siempre
+a `tourfindycom_athlosp_db` real. El intento de una simple lectura (`SHOW COLUMNS`, Fase 15) ya fue
+bloqueado por el clasificador de seguridad del entorno por la misma razón. El código está listo y
+validado unitariamente (extracción + normalización verificadas contra los datos reales de Enrique,
+ver §21.6) — la ejecución real del wizard completo (los 8 pasos → guardar) queda pendiente de que tú
+la corras en `expediente.php?id_atleta=10`.
+
+### 21.6 Verificación
+
+La normalización de campos demográficos (`"M"` → `masculino`, `"1.70"` metros → `170` cm) se probó en
+aislamiento contra la salida real de `HistorialPdfMapper` para el PDF de Enrique — coincide
+exactamente (edad 85, sexo masculino, altura 170cm, peso 85kg). Chequeo cruzado repetido: las 33
+claves del mapper siguen coincidiendo 1:1 con la whitelist del wizard tras los cambios. Los 6 archivos
+nuevos/modificados pasan `php -l` sin errores. No se tocó ninguna fila real de `atletas`,
+`historial_clinico` ni `evaluaciones_antropometria` en esta fase.
+
+## 22. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.

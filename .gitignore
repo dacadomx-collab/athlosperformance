@@ -110,3 +110,12 @@ $RECYCLE.BIN/
 # --- PRUEBAS / COVERAGE ---
 /coverage
 /.nyc_output
+
+# --- DATOS CLÍNICOS REALES DE PACIENTES (NUNCA al repositorio) ---
+# PDFs fuente de historial/evaluación (PHI real) y cualquier volcado completo
+# de la BD de producción (contendría esas mismas filas + hashes de password).
+# knowledge/sql/03_schema_*.sql SÍ se versiona — es sólo estructura + catálogos.
+knowledge/Mayores_65/*.pdf
+knowledge/Menores_65/*.pdf
+knowledge/sql/tourfindycom_athlosp_db.sql
+knowledge/sql/*_dump*.sql
