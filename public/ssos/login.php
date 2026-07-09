@@ -61,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             $_SESSION['id_usuario'] = (int) $usuario['id_usuario'];
             $_SESSION['nombre_completo'] = $usuario['nombre_completo'];
+            $_SESSION['email'] = $usuario['email'];
             $_SESSION['clave_rol'] = $usuario['clave_rol'];
             $_SESSION['id_staff'] = $usuario['id_staff'] !== null ? (int) $usuario['id_staff'] : null;
 
@@ -105,7 +106,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="mb-4">
                 <label for="password" class="form-label">Contraseña</label>
-                <input type="password" class="form-control" id="password" name="password" required>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="password" name="password" required>
+                    <button type="button" class="btn btn-outline-secondary" data-ssos-toggle-password="password" aria-label="Mostrar contraseña">👁️</button>
+                </div>
             </div>
 
             <button type="submit" class="btn btn-ssos-turquesa w-100">Iniciar sesión</button>

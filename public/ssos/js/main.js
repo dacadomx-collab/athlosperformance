@@ -124,6 +124,22 @@
             });
     });
 
+    // ─── Ojo para mostrar/ocultar contraseña en Login ───────────────────────
+    document.addEventListener("click", function (event) {
+        var boton = event.target.closest("[data-ssos-toggle-password]");
+        if (!boton) {
+            return;
+        }
+        var input = document.getElementById(boton.getAttribute("data-ssos-toggle-password"));
+        if (!input) {
+            return;
+        }
+        var mostrando = input.type === "text";
+        input.type = mostrando ? "password" : "text";
+        boton.textContent = mostrando ? "👁️" : "🙈";
+        boton.setAttribute("aria-label", mostrando ? "Mostrar contraseña" : "Ocultar contraseña");
+    });
+
     // ─── Modal compartido "Editar Atleta": rellena los campos desde los
     // data-* del botón que lo abrió, en vez de un modal por fila. ────────────
     var modalEditarAtleta = document.getElementById("modalEditarAtleta");

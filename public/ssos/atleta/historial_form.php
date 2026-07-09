@@ -48,6 +48,13 @@ $stmt = $db->prepare('SELECT * FROM historial_clinico WHERE id_atleta = :id');
 $stmt->execute(['id' => $id_atleta]);
 $actual = $stmt->fetch() ?: [];
 
+// Prefill de un solo uso desde importar_pdf_historial.php — sólo aplica si
+// todavía no existe un registro real en BD (nunca pisa una captura guardada).
+if (empty($actual) && !empty($_SESSION['ssos_prefill_historial'][$id_atleta])) {
+    $actual = $_SESSION['ssos_prefill_historial'][$id_atleta];
+    unset($_SESSION['ssos_prefill_historial'][$id_atleta]);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_validate($_POST['csrf_token'] ?? null)) {
         $errores[] = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';

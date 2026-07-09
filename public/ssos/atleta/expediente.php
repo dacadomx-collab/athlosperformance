@@ -119,6 +119,7 @@ require __DIR__ . '/../partials/header.php';
     <a href="antropometria_form.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-primary">📏 Nueva Antropometría</a>
     <?php if ($esMayor65): ?>
         <a href="sft_form.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-primary">🏃 Nuevo Senior Fitness Test</a>
+        <a href="importar_pdf_sft.php?id_atleta=<?= $id_atleta ?>" class="btn btn-outline-primary">📄 Importar Ficha SFT desde PDF</a>
     <?php endif; ?>
     <a href="<?= e($urlReporte) ?>" class="btn btn-ssos-turquesa" target="_blank" rel="noopener noreferrer">
         📄 Generar Reporte Athlos Score™ (PDF / Impresión)
@@ -131,7 +132,10 @@ require __DIR__ . '/../partials/header.php';
 <div class="ssos-table-card mb-4">
     <h5 class="mb-3">Historial Clínico</h5>
     <?php if (!$historial): ?>
-        <p class="text-body-secondary mb-0">Sin historial clínico capturado todavía. Usa el botón "Historial Clínico" arriba.</p>
+        <p class="text-body-secondary mb-2">Sin historial clínico capturado todavía. Usa el botón "Historial Clínico" arriba.</p>
+        <a href="importar_pdf_historial.php?id_atleta=<?= $id_atleta ?>" class="btn btn-outline-primary btn-sm">
+            📄 Importar desde PDF de Historial
+        </a>
     <?php else: ?>
         <div class="row">
             <div class="col-sm-6"><strong>Tipo:</strong> <?= $historial['tipo_historial'] === 'mayor_65' ? 'Adulto Mayor (65+)' : 'Menor de 65 años' ?></div>

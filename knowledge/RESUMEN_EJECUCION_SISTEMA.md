@@ -772,7 +772,107 @@ Los 11 archivos nuevos/modificados pasan `php -l` sin errores y `node --check` e
 errores. Revisión de código exhaustiva del resto (sin poder hacer clic-testing de escrituras, misma
 limitación documentada en fases anteriores).
 
-## 19. Próximos pasos (fuera del alcance de esta entrega)
+## 19. Fase 14 — PDF Importers (Historial + SFT), Login (ojo de contraseña, logo, favicon) (2026-07-08)
+
+### 19.1 Extractor nativo de PDF (`config/PdfTextExtractor.php`)
+
+Mismo espíritu que `XlsxReader.php` (Fase 12): sin Composer, sin `ext-zip`, sólo `zlib` + regex. Los
+3 PDFs reales de prueba (historial de Enrique, historial de Ivonne, ficha de evaluación SFT de
+Enrique) usan fuentes `Type0`/`CIDFontType2` con encoding `Identity-H` (típico de un PDF "impreso"
+desde Chrome/Android, `Producer: Skia`) — cada carácter mostrado es un código de 2 bytes que sólo
+cobra sentido a través del CMap `/ToUnicode` embebido en la fuente. El extractor decodifica cada
+`Tj`/`TJ` con el CMap de la fuente activa (rastreada vía `Tf`) y usa los saltos de la matriz `Tm` (eje
+Y) para reconstruir saltos de línea reales, en vez de insertar un salto en cada bloque `BT`/`ET` (la
+plantilla emite un `BT`/`ET` por *palabra*, no por línea — insertar salto ahí habría puesto cada
+palabra en su propia línea).
+
+**Validado contra los 3 PDFs reales, comparando el texto extraído contra la lectura de referencia del
+propio PDF (ground truth)**: coincidencia exacta, incluyendo una errata real de la plantilla
+("Fehca:" en vez de "Fecha:") que se preservó tal cual (no se "corrige" texto de un documento clínico
+real). Un bug de la primera versión (espacio insertado después de cada `Tj`, partiendo palabras como
+"Edad" → "E dad") se detectó y corrigió durante la propia validación.
+
+### 19.2 Importador de PDF de Historial Clínico
+
+`config/HistorialPdfMapper.php` mapea el texto extraído a los 18 campos de `historial_clinico` que
+renderiza `historial_form.php`, con regex sobre las preguntas fijas de la plantilla "Historial
+clínico" / "Información del Cliente". `atleta/importar_pdf_historial.php` sube el PDF, extrae y
+mapea, pero **nunca escribe directo a BD**: el resultado se guarda en
+`$_SESSION['ssos_prefill_historial'][$id_atleta]` (un solo uso) y redirige a `historial_form.php`,
+que lo consume sólo si no existe ya un registro real (nunca pisa una captura guardada) y lo borra de
+sesión tras usarlo. El coach revisa/corrige cada campo y confirma con el botón "Guardar" de siempre —
+exactamente como cualquier alta manual. Gateado en `expediente.php` con el mismo criterio que el
+importador de Excel (Fase 12): sólo se ofrece si el atleta no tiene historial_clinico aún.
+
+Un bug real encontrado y corregido durante la validación contra los 2 PDFs reales: `\b` (límite de
+palabra) no separaba `medio` de los guiones bajos de la línea en blanco (`____medio______`) porque
+`_` cuenta como carácter de palabra (`\w`) en regex — `consumo_sal`/`consumo_azucar`/`consumo_grasas`
+salían `NULL` en vez del valor real. Se corrigió reemplazando los guiones bajos por espacios antes de
+aplicar el límite de palabra.
+
+Los datos demográficos del PDF (nombre, edad, género, altura, peso, fecha) se muestran en pantalla
+sólo como referencia — no se escriben en ninguna tabla desde este flujo, porque viven en `atletas` o
+en una evaluación de antropometría, fuera del alcance de `historial_form.php`.
+
+### 19.3 Importador de PDF de Ficha de Evaluación SFT
+
+`config/SftPdfMapper.php` + `atleta/importar_pdf_sft.php`, mismo patrón de prefill-nunca-autoguardado
+que el de historial, pero sin el gateo de "sólo si no existe" — `evaluaciones_sft` admite múltiples
+filas por atleta (una evaluación es un punto en el tiempo, no un registro único), así que el
+importador siempre está disponible desde `expediente.php` (botón "📄 Importar Ficha SFT desde PDF",
+sólo visible si el atleta es mayor de 65).
+
+**Decisión deliberada de no mapear todo automáticamente:** la plantilla registra `Chair Sit-&-Reach` y
+`Back Scratch` por lado (izquierda/derecha) y `Time Up-&-Go` con dos valores, pero `sft_form.php` sólo
+tiene un campo numérico por prueba (sin columna de lado en `evaluaciones_sft`). Elegir un lado
+automáticamente sería inventar un dato clínico que alimenta el cálculo del semáforo de riesgo — en vez
+de eso, esos 3 valores se muestran en una lista informativa ("izquierda: 14 cm / derecha: 15.4 cm",
+etc.) para que el coach decida y capture el número correcto a mano; sólo se prellenan los 6 campos sin
+ambigüedad (`chair_stand_reps`, `arm_curl_reps`, `two_min_step_pasos`, `functional_reach_cm`,
+`time_up_go_cognitivo_seg`, `observaciones`).
+
+Un bug real corregido durante la validación: el regex combinado para "número lado, número lado" asumía
+un único orden (número-antes-de-etiqueta), pero la plantilla mezcla los dos órdenes en la misma frase
+("derecha arriba 21, izquierda arriba 33" vs. "14 izquierda, 15.4 derecha") — la primera versión leía
+el 21 (de "derecha") como si fuera el valor de "izquierda" por estar a 15 caracteres de distancia. Se
+corrigió recorriendo ambos patrones en el orden real de aparición en el texto en vez de buscar cada
+lado de forma independiente.
+
+### 19.4 Login: ojo de contraseña, logo, favicon, sesión
+
+- **Ojo de contraseña:** el campo de `login.php` ahora es un `input-group` de Bootstrap con un botón
+  `data-ssos-toggle-password="password"`; el handler en `js/main.js` sigue el mismo patrón
+  `data-ssos-*` que el toggle de tema y el botón de copiar link (delegación de eventos en `document`,
+  sin listeners por instancia).
+- **Favicon:** ya estaba correctamente implementado desde la Fase 13 (`ssos_asset('img/favicon.ico')`)
+  — verificado, sin cambios necesarios.
+- **Logo distorsionado:** la causa real era `.ssos-auth-logo { width/height: 3.5rem; object-fit: cover; }`
+  — una caja fija recortando un logo no cuadrado. Corregido a `max-width: 240px; height: auto;
+  object-fit: contain;` + `drop-shadow`, igual que pedía la directriz.
+- **Sesión:** `login.php` ya guardaba `id_usuario`, `nombre_completo`, `clave_rol` e `id_staff`
+  (`password_verify()` contra el hash de `setup_admin.php`, ya correcto). Se agregó `email` a la
+  sesión (única variable que faltaba). **No se renombraron** `nombre_completo`→`nombre` ni
+  `clave_rol`→`rol_nombre` como sugería la directriz al pie de la letra: esas claves las leen
+  `helpers.php` (`require_role()`), `header.php` y más de una decena de páginas — renombrarlas habría
+  sido un cambio masivo y de alto riesgo por una preferencia de nomenclatura, sin beneficio funcional.
+
+### 19.5 REGLA 3 (breadcrumb, WhatsApp, footer/back-to-top)
+
+Verificado, ya implementado en su totalidad desde la Fase 13 — sin cambios de código. Se agregó
+`$ssos_breadcrumb_atleta` a `importar_pdf_historial.php` e `importar_pdf_sft.php` (páginas nuevas de
+esta fase) para heredar el breadcrumb universal de `header.php`.
+
+### 19.6 Verificación
+
+Los 3 PDFs reales de prueba (con datos clínicos reales de pacientes) se procesaron **sólo en el
+directorio temporal de la sesión de trabajo, nunca en el repositorio ni en la base de datos** — no se
+commiteó ningún archivo con datos de pacientes. Los 10 archivos nuevos/modificados pasan `php -l` sin
+errores. `HistorialPdfMapper` y `SftPdfMapper` se validaron campo por campo contra los 3 PDFs reales
+comparando contra el texto de referencia — no contra datos sintéticos. No se probó por clic el flujo
+de escritura completo (subir PDF → revisar en el formulario → guardar) por la misma restricción de
+siempre: cualquier POST autenticado en este entorno cae a la base de datos real de producción.
+
+## 20. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.
@@ -785,3 +885,4 @@ limitación documentada en fases anteriores).
 - Revisión manual de las 8 membresías migradas con "1 sesión asumida por defecto" (texto de Programa sin número).
 - Geocodificación exacta de `Calle Altamirano #2730` para el JSON-LD (hoy usa el centro aproximado de La Paz).
 - Importador de Excel histórico para SFT (Mayor_65_02, formato .docx, no .xlsx) y para el plan de sesión (Mayor/Menor_65_03) — fuera de alcance de esta entrega, sólo se cubrió antropometría.
+- Importador de PDF para el checklist de biomecánica (sección "Análisis Sentadilla" de la Ficha de Evaluación → tabla `evaluaciones_biomecanica`) — la Fase 14 sólo mapeó los campos numéricos del SFT hacia `sft_form.php`, no el checklist de la sentadilla overhead.

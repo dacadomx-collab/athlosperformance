@@ -64,10 +64,11 @@ body.ssos-auth-body {
 }
 
 .ssos-auth-logo {
-    width: 3.5rem;
-    height: 3.5rem;
-    object-fit: cover;
-    border-radius: 10px;
+    max-width: 240px;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
     flex-basis: 100%;
     margin: 0 auto;
 }

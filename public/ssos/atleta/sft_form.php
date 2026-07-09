@@ -39,6 +39,14 @@ $edadActual = !empty($atleta['fecha_nacimiento'])
     ? (new DateTimeImmutable($atleta['fecha_nacimiento']))->diff(new DateTimeImmutable())->y
     : null;
 
+// Prefill de un solo uso desde importar_pdf_sft.php — sólo para el primer
+// GET tras la importación; se consume y se borra de sesión de inmediato.
+$prefillPdf = [];
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !empty($_SESSION['ssos_prefill_sft'][$id_atleta])) {
+    $prefillPdf = $_SESSION['ssos_prefill_sft'][$id_atleta];
+    unset($_SESSION['ssos_prefill_sft'][$id_atleta]);
+}
+
 $pruebas = [
     'chair_sit_reach' => ['label' => 'Chair Sit-&-Reach (cm)', 'campo' => 'chair_sit_reach_cm', 'mayor_es_mejor' => true],
     'back_scratch' => ['label' => 'Back Scratch (cm)', 'campo' => 'back_scratch_cm', 'mayor_es_mejor' => true],
@@ -224,23 +232,23 @@ require __DIR__ . '/../partials/header.php';
                 <?php foreach ($pruebas as $config): ?>
                     <div class="col-sm-4 mb-3">
                         <label class="form-label fw-bold"><?= e($config['label']) ?></label>
-                        <input type="number" step="0.1" name="<?= $config['campo'] ?>" class="form-control form-control-lg">
+                        <input type="number" step="0.1" name="<?= $config['campo'] ?>" class="form-control form-control-lg" value="<?= e((string) ($prefillPdf[$config['campo']] ?? '')) ?>">
                     </div>
                 <?php endforeach; ?>
                 <div class="col-sm-4 mb-3">
                     <label class="form-label">Functional Reach (cm)</label>
-                    <input type="number" step="0.1" name="functional_reach_cm" class="form-control">
+                    <input type="number" step="0.1" name="functional_reach_cm" class="form-control" value="<?= e((string) ($prefillPdf['functional_reach_cm'] ?? '')) ?>">
                 </div>
                 <div class="col-sm-4 mb-3">
                     <label class="form-label">Time Up-&-Go Cognitivo (seg)</label>
-                    <input type="number" step="0.1" name="time_up_go_cognitivo_seg" class="form-control">
+                    <input type="number" step="0.1" name="time_up_go_cognitivo_seg" class="form-control" value="<?= e((string) ($prefillPdf['time_up_go_cognitivo_seg'] ?? '')) ?>">
                 </div>
             </div>
         </div>
 
         <div class="ssos-table-card mb-3">
             <label class="form-label">Observaciones</label>
-            <textarea name="observaciones" class="form-control" rows="3"></textarea>
+            <textarea name="observaciones" class="form-control" rows="3"><?= e((string) ($prefillPdf['observaciones'] ?? '')) ?></textarea>
         </div>
 
         <button type="submit" class="btn btn-ssos-turquesa btn-lg">Guardar y Calcular Semáforo</button>
