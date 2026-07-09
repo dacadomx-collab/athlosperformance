@@ -23,13 +23,21 @@ declare(strict_types=1);
     <a href="?fecha=<?= e($lunes->modify('-7 days')->format('Y-m-d')) ?>" class="btn btn-sm btn-ssos-outline">◀ Semana anterior</a>
     <span class="ssos-agenda-titulo-semana"><?= e(ucfirst($tituloSemana)) ?></span>
     <a href="?fecha=<?= e($lunes->modify('+7 days')->format('Y-m-d')) ?>" class="btn btn-sm btn-ssos-outline">Semana siguiente ▶</a>
+    <span class="ssos-agenda-indicador-avance" title="<?= $franjasOcupadasTotales ?> de <?= $franjasOperativasTotales * AgendaBusinessRules::CUPO_MAXIMO_FRANJA ?> lugares ocupados esta semana">
+        📊 <?= $pctOcupacionSemana ?>% de ocupación esta semana
+    </span>
     <button type="button" class="btn btn-sm btn-ssos-turquesa ms-auto" data-bs-toggle="modal" data-bs-target="#modalNuevaCita">+ Nueva Cita</button>
 </div>
 
 <!-- ══════════ VISTA DESKTOP: matriz semanal 80% + sidebars ══════════ -->
 <div class="ssos-agenda-desktop d-none d-lg-flex">
     <aside class="ssos-agenda-sidebar ssos-agenda-sidebar--izq">
-        <h6 class="mb-2">Clientes del mes</h6>
+        <h6 class="mb-2 d-flex align-items-center justify-content-between">
+            Clientes del mes
+            <?php if ($alertasSesionesBajas > 0): ?>
+                <span class="badge text-bg-warning" title="Clientes con 2 sesiones o menos restantes">⚠️ <?= $alertasSesionesBajas ?></span>
+            <?php endif; ?>
+        </h6>
         <?php if (empty($clientesDelMes)): ?>
             <p class="text-body-secondary small">Sin membresías activas este mes.</p>
         <?php endif; ?>
@@ -41,14 +49,16 @@ declare(strict_types=1);
                 $pct = $totales > 0 ? (int) round(($consumidas / $totales) * 100) : 0;
                 $alerta = $restantes <= 2;
             ?>
-            <div class="ssos-agenda-cliente-mes <?= $alerta ? 'ssos-agenda-cliente-mes--alerta' : '' ?>">
+            <a href="<?= e(ssos_base_url()) ?>/atleta/expediente.php?id_atleta=<?= (int) $cliente['id_atleta'] ?>"
+               class="ssos-agenda-cliente-mes <?= $alerta ? 'ssos-agenda-cliente-mes--alerta' : '' ?>"
+               title="Ver expediente de <?= e($cliente['nombre_completo']) ?>">
                 <div class="ssos-agenda-cliente-mes-nombre"><?= e($cliente['nombre_completo']) ?><?= $alerta ? ' ⚠️' : '' ?></div>
                 <div class="ssos-agenda-cliente-mes-servicio"><?= e($cliente['nombre_servicio']) ?></div>
                 <div class="progress ssos-agenda-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $pct ?>">
                     <div class="progress-bar ssos-agenda-progress-bar" style="width: <?= $pct ?>%"></div>
                 </div>
                 <div class="ssos-agenda-cliente-mes-detalle"><?= $consumidas ?>/<?= $totales ?> sesiones — quedan <?= $restantes ?></div>
-            </div>
+            </a>
         <?php endforeach; ?>
     </aside>
 
@@ -116,7 +126,8 @@ declare(strict_types=1);
             <label class="ssos-agenda-coach-item">
                 <input type="checkbox" checked data-ssos-agenda-toggle-staff="<?= (int) $s['id_staff'] ?>">
                 <span class="ssos-agenda-coach-color" style="background-color: <?= e($coloresStaff[$s['id_staff']] ?? '#0E3A5D') ?>"></span>
-                <span><?= e($s['nombre_completo']) ?></span>
+                <span class="flex-grow-1"><?= e($s['nombre_completo']) ?></span>
+                <span class="ssos-agenda-coach-contador" title="Citas activas esta semana"><?= $citasPorStaffSemana[$s['id_staff']] ?? 0 ?></span>
             </label>
         <?php endforeach; ?>
         <?php if (empty($staffList)): ?>

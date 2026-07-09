@@ -849,7 +849,17 @@ body.ssos-app-body {
 /* ─── Sidebar izquierdo: clientes del mes ────────────────────────────────── */
 
 .ssos-agenda-cliente-mes {
+    display: block;
     margin-bottom: 0.75rem;
+    padding: 0.4rem;
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s ease;
+}
+
+.ssos-agenda-cliente-mes:hover {
+    background: var(--ssos-bg);
 }
 
 .ssos-agenda-cliente-mes-nombre {
@@ -903,6 +913,24 @@ body.ssos-app-body {
     height: 0.9rem;
     border-radius: 50%;
     flex-shrink: 0;
+}
+
+.ssos-agenda-coach-contador {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--ssos-text-muted);
+    background: var(--ssos-bg);
+    border-radius: 999px;
+    padding: 0.05rem 0.45rem;
+    flex-shrink: 0;
+}
+
+/* ─── Indicador de avance (toolbar) ──────────────────────────────────────── */
+
+.ssos-agenda-indicador-avance {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ssos-text-muted);
 }
 
 /* ─── Móvil: pantalla completa táctil, sin scroll accidental del body ───── */

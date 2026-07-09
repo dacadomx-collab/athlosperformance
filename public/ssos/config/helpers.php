@@ -90,14 +90,17 @@ function ssos_asset_repo(string $path): string
 }
 
 /**
- * Redirige al Dashboard Único (todos los roles entran al mismo archivo;
- * el contenido se renderiza condicionalmente por rol dentro de él) y
- * termina la ejecución.
+ * Landing tras login: el Calendario (agenda/index.php) es la vista inicial
+ * para los 3 roles operativos — el Dashboard tabulado (Control/Clientes/Pie
+ * de Cancha/Herramientas) sigue existiendo tal cual y sigue accesible desde
+ * el menú superior (`partials/header.php`) y desde el breadcrumb "Volver al
+ * Dashboard" que ya aparece en toda página cuyo `$ssos_active_nav` no sea
+ * 'dashboard' — sólo cambia cuál es la PRIMERA pantalla que se ve al entrar.
  */
-function redirect_to_dashboard(string $clave_rol): never
+function redirect_post_login(string $clave_rol): never
 {
     $destino = in_array($clave_rol, ['super_admin', 'admin', 'coach'], true)
-        ? '/dashboard/index.php'
+        ? '/agenda/index.php'
         : '/login.php';
     header('Location: ' . ssos_base_url() . $destino);
     exit;

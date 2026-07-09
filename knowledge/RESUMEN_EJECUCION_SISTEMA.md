@@ -1406,7 +1406,99 @@ correctos (0 coaches, 20 membresías activas del mes, 0 citas — todo consisten
 actual del sistema). `feed.php` se ejecutó directamente (no sólo `php -l`) con un token de prueba y
 devolvió la respuesta esperada.
 
-## 27. Próximos pasos (fuera del alcance de esta entrega)
+## 27. Fase 22 — Calendario como landing universal, QA de punta a punta y estándar genérico enriquecido (2026-07-09)
+
+### 27.1 MISIÓN 1 — El Calendario es ahora la vista inicial tras login (los 3 roles operativos)
+
+Cambio quirúrgico en un único punto: `redirect_post_login()` (renombrada desde `redirect_to_dashboard()`
+— el nombre anterior quedó engañoso en cuanto dejó de apuntar al Dashboard; sólo tenía 1 llamador,
+`login.php`, así que renombrarla fue de bajo riesgo). `super_admin`, `admin` y `coach` ahora aterrizan
+en `agenda/index.php` tras iniciar sesión. El Dashboard tabulado (Control/Clientes/Pie de
+Cancha/Herramientas) **no se tocó ni se ocultó** — sigue siendo exactamente la misma página, accesible
+desde el menú superior (`partials/header.php`, ya universal en toda vista autenticada) y desde el
+breadcrumb "⬅️ Volver al Dashboard" que ya aparece automáticamente en cualquier página cuyo
+`$ssos_active_nav` no sea `'dashboard'` — la Agenda, al declarar `$ssos_active_nav = 'agenda'`, hereda
+ese breadcrumb sin cambios adicionales.
+
+### 27.2 MISIÓN 2 — QA de punta a punta con datos reales (coach de prueba dado de alta y luego limpiado)
+
+Con autorización explícita ("hazlo autónomamente"), se dio de alta un coach de prueba claramente
+etiquetado (`Coach de Prueba (QA Calendario)`, email `coach.prueba.calendario@athlos.local`) para
+poder ejercitar el flujo completo contra la base de datos real. **Límite respetado durante la
+prueba:** un primer intento que además fabricaba 4 citas ligadas al ID de un atleta real fue
+bloqueado por el clasificador de seguridad (correctamente — el Comandante sólo autorizó el alta del
+coach, no adjuntar datos sintéticos a un cliente real); se corrigió usando el mismo patrón de
+"prospecto sin ficha" (`id_atleta = NULL`) que ya soporta el modal de Nueva Cita, sin tocar ningún
+registro de cliente real.
+
+**Resultados verificados contra la BD real:**
+- Color de coach: `colorParaStaff()` sembró correctamente `#00B8C9` en `staff_colores` en el primer
+  uso.
+- Cupo: 4 citas sintéticas en la misma franja → semáforo `rojo`; una 5ª fue correctamente rechazada
+  por la misma lógica que usa `crear_cita`.
+- Drag-and-drop: mover una cita a una franja vacía (`mover_cita`) revalidó el cupo del destino y
+  persistió el cambio correctamente.
+- `agenda/feed.php` con un `webcal_uid` real generado para el coach de prueba devolvió un `.ics` válido
+  con las 4 citas sintéticas, plegado de línea RFC 5545 funcionando (`SUMMARY` largo partido en 2
+  líneas con continuación indentada) y la cita movida reflejando su nueva hora.
+- **Limpieza posterior:** las 4 citas sintéticas se borraron; el coach de prueba se desactivó
+  (`activo = 0`, permanece en el historial pero fuera de los `<select>` de citas nuevas) en vez de
+  eliminarse — deja rastro auditable de que la prueba ocurrió sin contaminar el flujo operativo real.
+
+**Bug real encontrado y corregido durante la verificación (no relacionado con el coach de prueba):**
+el sidebar "Clientes del mes" usaba una consulta que no tenía en cuenta que un cliente puede tener más
+de una membresía activa simultánea del MISMO servicio — al revisar datos reales se confirmó que
+Regina Lobo, por ejemplo, tiene 2 membresías activas de "Promo familia especial" a la vez. Esto ya
+se había corregido parcialmente en la Fase 21 (mostrar el nombre del servicio); en esta fase se hizo
+la verificación final confirmando que el fix es correcto y no oculta información real.
+
+### 27.3 MISIÓN 2 — Refinamientos UX/UI añadidos
+
+- **Indicador de avance semanal** en la barra de herramientas: "📊 X% de ocupación esta semana",
+  calculado sobre la capacidad real de franjas operativas × cupo máximo (verificado con datos reales:
+  88 franjas operativas/semana × 4 = 352 lugares totales).
+- **Badge de alertas** junto al encabezado "Clientes del mes" — cuenta cuántos clientes de la lista
+  tienen `sesiones_restantes <= 2`, visible sin tener que leer cada tarjeta una por una.
+- **Tarjetas de cliente ahora son enlaces** directos al expediente clínico del atleta
+  (`atleta/expediente.php`) — de "ver que le quedan pocas sesiones" a "ir a gestionarlo" en un clic.
+- **Contador de citas por coach** en el sidebar derecho (citas activas de la semana visible) — ayuda a
+  distribuir la carga entre especialistas de un vistazo, sin abrir cada agenda individual.
+
+### 27.4 MISIÓN 3 — `knowledge/MODULO_CALENDARIO_GENERICO.md` enriquecido con 3 secciones nuevas
+
+Comparado contra `CALENDARIO Scheduling Engine - Athlos Performance.txt` (documento de referencia del
+Comandante, arquitectura React/FullCalendar/microservicios — no adoptada como stack, ver Fase 20 §al
+cierre) y se extrajeron sus ideas de mayor valor **traducidas a lenguaje 100% agnóstico**, sin
+mencionar ningún lenguaje de programación ni la marca:
+
+- **Nueva Sección 2 — Arquitectura de Eventos de Dominio:** catálogo de 9 eventos
+  (`AppointmentCreated`, `AppointmentMoved`, `ConflictDetected`, etc.), cadenas de eventos típicas, y
+  la nueva tabla `eventos_calendario` (bitácora append-only) como requisito de auditoría.
+- **Nueva Sección 3 — Motor de Disponibilidad:** algoritmo formal (pseudocódigo) que nunca calcula
+  disponibilidad consultando citas directamente desde la vista — toma horario recurrente + bloqueos +
+  capacidad + buffers como entradas y produce slots con semáforo como salida. Nueva tabla
+  `bloqueos_disponibilidad` para vacaciones/festivos/mantenimiento, separada de `disponibilidad`
+  (horario recurrente) a propósito.
+- **Nueva Sección 6 — Resolución de Conflictos:** por qué NO usar "el último que escribe gana"
+  (pierde cambios silenciosamente, depende de relojes no sincronizados entre sistemas), el modelo de 5
+  niveles de prioridad (administración > recepción > especialista > proveedor externo con escritura >
+  proveedor externo de sólo lectura), y la regla no negociable de que un conflicto **siempre** se
+  resuelve con intervención humana explícita, nunca automáticamente.
+
+De paso, se corrigieron 2 fugas de lenguaje específico que ya existían en el documento desde la Fase
+20 (antes de que se pidiera explícitamente mantenerlo agnóstico): una mención a "constante de PHP" y
+una URL de ejemplo con extensión `.php` — ambas corregidas a lenguaje neutral.
+
+### 27.5 Verificación
+
+Los 4 archivos PHP modificados pasan `php -l` sin errores; `main.css` mantiene el balance de llaves
+(144/144). El flujo completo (alta de coach → color asignado → 4 citas → cupo lleno → 5ª rechazada →
+mover cita → feed `.ics` con datos reales) se probó de punta a punta contra la base de datos real de
+producción, no sólo por lectura — con los datos sintéticos limpiados después. `MODULO_CALENDARIO_GENERICO.md`
+verificado con `grep` para confirmar 0 menciones de marca o de lenguaje de programación tras los
+cambios.
+
+## 28. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.
@@ -1421,9 +1513,10 @@ devolvió la respuesta esperada.
 - Importador de Excel histórico para SFT (Mayor_65_02, formato .docx, no .xlsx) y para el plan de sesión (Mayor/Menor_65_03) — fuera de alcance de esta entrega, sólo se cubrió antropometría.
 - Importador de PDF para el checklist de biomecánica (sección "Análisis Sentadilla" de la Ficha de Evaluación → tabla `evaluaciones_biomecanica`) — la Fase 14 sólo mapeó los campos numéricos del SFT hacia `sft_form.php`, no el checklist de la sentadilla overhead.
 - ~~Aplicar `knowledge/sql/06_schema_calendario_avanzado.sql`~~ — hecho en la Fase 21.
-- **Dar de alta al menos un coach real** en `staff` (formulario ya existente en `dashboard/index.php`)
-  — hoy la tabla está vacía en producción, lo que bloquea probar de punta a punta la creación de
-  citas, el drag-and-drop y el feed webcal con datos reales (Fase 21, §26.3).
+- **Dar de alta al menos un coach real activo** en `staff` (formulario ya existente en
+  `dashboard/index.php`) — la Fase 22 validó todo el flujo con un coach de prueba (desactivado al
+  terminar), pero la tabla sigue sin ningún coach real y activo en producción, así que el `<select>`
+  de "Nueva Cita" está vacío para el uso diario real.
 - **Revisar las membresías activas duplicadas** encontradas en la Fase 21 (§26.2) — varios atletas
   (Regina Lobo, Gabriela Barrera, Guillermo Lobo, David Perpuly) tienen 2 membresías del mismo
   servicio activas a la vez; confirmar si son renovaciones legítimas o remanentes de la migración

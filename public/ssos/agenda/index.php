@@ -264,6 +264,30 @@ foreach ($citasSemana as $c) {
 $citasDelDiaMovil = $citasPorCelda[$fecha] ?? [];
 ksort($citasDelDiaMovil);
 
+// Indicador de avance de la semana: franjas operativas totales vs. ocupadas —
+// da una lectura de "qué tan llena está la semana" de un vistazo, sin tener
+// que contar celdas rojas en la matriz una por una.
+$franjasOperativasTotales = 0;
+$franjasOcupadasTotales = 0;
+$citasPorStaffSemana = [];
+foreach ($diasSemana as $dia) {
+    foreach ($horasMatriz as $hora) {
+        if (!AgendaBusinessRules::franjaEsOperativa($dia['dia_iso'], $hora)) {
+            continue;
+        }
+        $franjasOperativasTotales++;
+        $franjasOcupadasTotales += min($ocupacionPorCelda[$dia['fecha']][$hora] ?? 0, AgendaBusinessRules::CUPO_MAXIMO_FRANJA);
+    }
+}
+foreach ($citasSemana as $c) {
+    if (in_array($c['estatus_cita'], ['reservada', 'confirmada'], true)) {
+        $citasPorStaffSemana[$c['id_staff']] = ($citasPorStaffSemana[$c['id_staff']] ?? 0) + 1;
+    }
+}
+$pctOcupacionSemana = $franjasOperativasTotales > 0
+    ? (int) round(($franjasOcupadasTotales / ($franjasOperativasTotales * AgendaBusinessRules::CUPO_MAXIMO_FRANJA)) * 100)
+    : 0;
+
 // Sidebar izquierdo: clientes con membresía activa este mes, priorizando los que están por agotarse.
 // Un cliente puede tener más de una membresía activa simultánea (ej. paquete de
 // entrenamiento + paquete de nutrición) — se muestra una fila POR MEMBRESÍA, no
@@ -284,6 +308,7 @@ $stmtClientesMes->execute([
     'fin_mes' => $lunes->format('Y-m-t'),
 ]);
 $clientesDelMes = $stmtClientesMes->fetchAll();
+$alertasSesionesBajas = count(array_filter($clientesDelMes, static fn ($c) => (int) $c['sesiones_restantes'] <= 2));
 
 $etiquetasEstatus = [
     'reservada' => ['label' => 'Reservada', 'badge' => 'secondary'],

@@ -10,7 +10,7 @@ $db = ssos_db();
 $error = null;
 
 if (!empty($_SESSION['id_usuario']) && !empty($_SESSION['clave_rol'])) {
-    redirect_to_dashboard($_SESSION['clave_rol']);
+    redirect_post_login($_SESSION['clave_rol']);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['id_staff'] = $usuario['id_staff'] !== null ? (int) $usuario['id_staff'] : null;
 
             log_sesion_evento((int) $usuario['id_usuario'], $email, 'login_exitoso');
-            redirect_to_dashboard($usuario['clave_rol']);
+            redirect_post_login($usuario['clave_rol']);
         }
     }
 }

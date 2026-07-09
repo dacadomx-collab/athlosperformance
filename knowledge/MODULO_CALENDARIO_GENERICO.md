@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS citas (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-**Por qué `cupo_maximo_franja` vive en la fila y no sólo en una constante de PHP:** permite que el
+**Por qué `cupo_maximo_franja` vive en la fila y no sólo en una constante de código:** permite que el
 límite cambie por época (ej. temporada alta vs. baja) sin tocar código, y que una franja ya creada
 conserve el cupo que tenía al momento de agendarse aunque la política cambie después.
 
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS sincronizacion_tokens (
     calendario_externo_id VARCHAR(255) NULL COMMENT 'ID del calendario en el proveedor (Google calendarId)',
     webhook_channel_id VARCHAR(255) NULL COMMENT 'Sólo Google — ID del canal de notificaciones push (expira, se renueva)',
     webhook_channel_expira DATETIME NULL,
-    webcal_uid VARCHAR(64) NULL COMMENT 'Sólo Apple/webcal — token opaco impredecible en la URL pública del feed .ics (ver §3.2)',
+    webcal_uid VARCHAR(64) NULL COMMENT 'Sólo Apple/webcal — token opaco impredecible en la URL pública del feed .ics (ver §5.2)',
     activo TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -136,11 +136,157 @@ repositorio. `webcal_uid` no es secreto per se (es una URL "difícil de adivinar
 real), pero igual debe generarse con un generador criptográficamente seguro (mínimo 32 bytes
 aleatorios en base62), nunca un incremental ni un hash predecible del id del especialista.
 
+### 1.5 Tabla: `bloqueos_disponibilidad` (opcional — vacaciones, festivos, mantenimiento)
+
+Separada de `disponibilidad` (que define el horario RECURRENTE semanal) porque un bloqueo es una
+excepción puntual — un festivo, una vacación de un especialista, una sala en mantenimiento. Mezclar
+ambos conceptos en una sola tabla obligaría a "borrar y recrear" filas recurrentes cada vez que hay
+una excepción de un solo día, en vez de simplemente agregar una fila de bloqueo que se consulta junto
+con la disponibilidad al calcular slots (ver §3, Motor de Disponibilidad).
+
+```sql
+CREATE TABLE IF NOT EXISTS bloqueos_disponibilidad (
+    id_bloqueo INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_especialista INT UNSIGNED NULL COMMENT 'NULL = bloqueo general (festivo, cierre total)',
+    fecha_inicio DATETIME NOT NULL,
+    fecha_fin DATETIME NOT NULL,
+    motivo VARCHAR(255) NULL COMMENT 'Ej. "Vacaciones", "Día festivo", "Mantenimiento de sala"',
+    creado_por INT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_bloqueo),
+    KEY idx_bloqueos_especialista_fecha (id_especialista, fecha_inicio, fecha_fin)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+### 1.6 Tabla: `eventos_calendario` (bitácora de eventos de dominio — ver §2)
+
+Registro append-only (nunca se actualiza ni se borra una fila) de cada evento de dominio disparado
+por el módulo. No es opcional si se implementa la arquitectura orientada a eventos de §2 — es lo que
+hace posible auditar "qué pasó y en qué orden" ante una disputa o un bug de sincronización.
+
+```sql
+CREATE TABLE IF NOT EXISTS eventos_calendario (
+    id_evento BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tipo_evento VARCHAR(50) NOT NULL COMMENT 'Ej. AppointmentCreated, AppointmentMoved, ConflictDetected — ver catálogo en §2.1',
+    id_cita INT UNSIGNED NULL,
+    payload JSON NOT NULL COMMENT 'Estado relevante en el momento del evento — nunca se muta después de escrito',
+    origen VARCHAR(50) NOT NULL COMMENT 'Qué disparó el evento: actor humano, proveedor externo, motor interno',
+    procesado TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Si ya fue consumido por sus suscriptores (sync, notificaciones)',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_evento),
+    KEY idx_eventos_cita (id_cita),
+    KEY idx_eventos_tipo_procesado (tipo_evento, procesado)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
 ---
 
-## 2. Arquitectura de Vistas
+## 2. Arquitectura de Eventos de Dominio (Event-Driven)
 
-### 2.1 Desktop — matriz 80% + sidebars 20%
+En vez de tratar cada alta/edición como una simple actualización de fila, cada acción relevante
+**emite un evento** que otros componentes consumen de forma desacoplada. Esto separa "qué pasó" de
+"quién reacciona a ello" — agregar un nuevo consumidor (por ejemplo, notificaciones por WhatsApp)
+nunca requiere tocar el código que crea la cita, sólo suscribirse al evento ya existente.
+
+### 2.1 Catálogo de eventos
+
+| Evento | Se dispara cuando... | Consumidores típicos |
+| :--- | :--- | :--- |
+| `AppointmentCreated` | Se confirma una nueva reserva | Motor de disponibilidad (recalcular capacidad), sincronización externa, notificaciones |
+| `AppointmentMoved` | Cambia fecha/hora/recurso de una cita existente | Mismos que arriba + detección de conflicto |
+| `AppointmentCancelled` | Se cancela una cita | Liberar cupo, notificar lista de espera, sincronización externa |
+| `AppointmentCompleted` | Se marca como atendida | Motor de facturación/consumo de sesiones (si aplica), reportes |
+| `NoShowRecorded` | El cliente no se presentó | Reportes, políticas de penalización (si aplica) |
+| `CapacityUpdated` | Cambia la ocupación de una franja | Recalcular semáforo visual, disparar alerta si se llena |
+| `ConflictDetected` | Dos fuentes modificaron la misma cita en la ventana de sincronización | Cola de revisión humana — nunca se autoresuelve (ver §5.3) |
+| `SyncRequested` / `SyncCompleted` | Se necesita/se logró propagar un cambio a un proveedor externo | Reintentos, alertas de sincronización fallida |
+| `NotificationQueued` | Se necesita avisar al cliente/especialista de algo | Motor de notificaciones (WhatsApp/email/SMS) |
+
+### 2.2 Cadena de un evento típico
+
+Crear una cita dispara una cadena, no una sola escritura:
+
+```
+AppointmentCreated
+    → CapacityUpdated (recalcula ocupación de la franja)
+    → SyncRequested (Google)
+    → SyncRequested (Apple — regenera el feed, no hay push real)
+    → NotificationQueued (confirmación al cliente)
+```
+
+Mover una cita agrega un paso de verificación antes de propagar:
+
+```
+AppointmentMoved
+    → CapacityUpdated (franja origen Y franja destino)
+    → ConflictDetection (¿alguien más tocó esta cita desde la última versión conocida?)
+    → [si no hay conflicto] SyncRequested × proveedores
+    → NotificationQueued
+```
+
+**Regla de auditoría no negociable:** cada evento se persiste en `eventos_calendario` (§1.6) ANTES de
+notificar a los consumidores, con su `payload` completo — nunca se sobreescribe una fila de evento ya
+escrita. Si algo sale mal a mitad de la cadena, el registro de eventos permite reconstruir exactamente
+qué pasó y reintentar sólo el paso que falló, en vez de repetir toda la operación desde cero.
+
+---
+
+## 3. Motor de Disponibilidad
+
+**Regla central: nunca calcular disponibilidad consultando directamente las citas ya existentes en
+tiempo real desde la vista.** Ese cálculo debe vivir en un componente dedicado (el "motor") que toma
+varias fuentes como entrada y produce una lista de slots como salida — así, agregar una nueva regla
+(por ejemplo, "bloquear 15 minutos después de cada cita para traslado") es un cambio en un solo lugar,
+no una búsqueda de todos los puntos del código que hoy calculan disponibilidad a mano.
+
+### 3.1 Entradas del algoritmo
+
+1. **Horario laboral recurrente** — tabla `disponibilidad` (§1.2).
+2. **Bloqueos puntuales** — tabla `bloqueos_disponibilidad` (§1.5): vacaciones, festivos, mantenimiento.
+3. **Capacidad máxima por franja** — `citas.cupo_maximo_franja` (§1.1).
+4. **Ocupación actual** — conteo de `citas` con estatus activo en esa franja.
+5. **Duración del servicio** — algunos servicios ocupan más de una franja de 1h; el algoritmo debe
+   verificar que TODAS las franjas que abarca el servicio tengan cupo, no sólo la primera.
+6. **Buffers** (opcional) — tiempo mínimo obligatorio entre el fin de una cita y el inicio de la
+   siguiente para el mismo recurso (limpieza, traslado, preparación).
+7. **Ventana de cancelación** — una cita cancelada fuera de la ventana mínima de anticipación no
+   libera el cupo automáticamente (queda como "penalizada", decisión de negocio configurable).
+
+### 3.2 Algoritmo (pseudocódigo)
+
+```
+función calcularSlotsDisponibles(fecha, recurso):
+    horarioBase = consultar disponibilidad para el día de la semana de `fecha`
+    si no hay horarioBase: devolver [] (día cerrado)
+
+    bloqueos = consultar bloqueos_disponibilidad que se solapen con `fecha` y `recurso`
+    slotsBase = generar franjas de 1h entre horarioBase.apertura y horarioBase.cierre
+
+    para cada slot en slotsBase:
+        si slot se solapa con algún bloqueo: marcar slot como NO_DISPONIBLE, continuar
+
+        ocupacion = contar citas activas en (fecha, slot, recurso)
+        capacidad = cupo_maximo_franja vigente para ese slot
+
+        slot.disponibles = capacidad - ocupacion
+        slot.semaforo = semaforoDesdeOcupacion(ocupacion, capacidad)
+
+    devolver slotsBase
+```
+
+### 3.3 Ejemplo de salida
+
+```
+Lunes 06:00 → capacidad 4, ocupados 3, disponibles 1 → 🟡
+Lunes 07:00 → capacidad 4, ocupados 4, disponibles 0 → 🔴 (no acepta nuevas reservas)
+Lunes 08:00 → capacidad 4, ocupados 0, disponibles 4 → 🟢
+```
+
+---
+
+## 4. Arquitectura de Vistas
+
+### 4.1 Desktop — matriz 80% + sidebars 20%
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -175,7 +321,7 @@ aleatorios en base62), nunca un incremental ni un hash predecible del id del esp
   cita individual (que es el color del especialista asignado, §1.3), para no mezclar dos sistemas de
   color en la misma superficie.
 
-### 2.2 Sidebar izquierdo — clientes del mes
+### 4.2 Sidebar izquierdo — clientes del mes
 
 Lista de clientes con actividad en el mes visible, cada uno con:
 - Nombre.
@@ -183,13 +329,13 @@ Lista de clientes con actividad en el mes visible, cada uno con:
 - Alerta visual (ámbar) cuando `sesiones_restantes <= 2` — mismo umbral que un motor de alertas de
   renovación si el proyecto ya tiene uno; si no, es un cálculo directo `totales - restantes`.
 
-### 2.3 Sidebar derecho — especialistas activos
+### 4.3 Sidebar derecho — especialistas activos
 
 Lista de especialistas activos, cada uno con su swatch de color (`especialistas_colores`, §1.3) y un
 checkbox de "mostrar/ocultar en la matriz" (filtro client-side, no recarga el servidor) — permite al
 usuario aislar visualmente la agenda de un solo especialista sin perder el resto de la semana cargada.
 
-### 2.4 Móvil — pantalla completa táctil
+### 4.4 Móvil — pantalla completa táctil
 
 - La matriz de semana NO se intenta comprimir en móvil (7 columnas serían ilegibles) — se reemplaza
   por una vista de un solo día con navegación ◀ día anterior / día siguiente ▶, franjas horarias
@@ -211,9 +357,9 @@ usuario aislar visualmente la agenda de un solo especialista sin perder el resto
 
 ---
 
-## 3. Lógica de Sincronización Externa
+## 5. Lógica de Sincronización Externa
 
-### 3.1 Google Calendar (OAuth2 + Webhooks push)
+### 5.1 Google Calendar (OAuth2 + Webhooks push)
 
 **Flujo de autorización (una vez por especialista):**
 1. El especialista hace clic en "Conectar Google Calendar" → redirect a la pantalla de consentimiento
@@ -232,7 +378,7 @@ usuario aislar visualmente la agenda de un solo especialista sin perder el resto
 **Sincronización entrante (Google → app), vía Webhook push:**
 1. Al conectar, la app registra un canal de notificaciones:
    `POST https://www.googleapis.com/calendar/v3/calendars/{calendarId}/events/watch` con una URL
-   pública `https://tu-dominio/calendario/webhook_google.php` como receptor. Google devuelve un
+   pública `https://tu-dominio/calendario/webhook-google` como receptor. Google devuelve un
    `channel.id` y una fecha de expiración (máx. 30 días) — guardados en
    `sincronizacion_tokens.webhook_channel_id`/`webhook_channel_expira`.
 2. Cada vez que algo cambia en el calendario de Google, éste hace un `POST` vacío (sólo headers) al
@@ -249,7 +395,7 @@ usuario aislar visualmente la agenda de un solo especialista sin perder el resto
 - `id_evento_externo` es la clave de correlación en ambas direcciones — sin ella, no hay forma
   confiable de saber que una fila local y un evento remoto son "la misma cita".
 
-### 3.2 Apple Calendar (Webcal — feed `.ics` dinámico, sin OAuth)
+### 5.2 Apple Calendar (Webcal — feed `.ics` dinámico, sin OAuth)
 
 Apple Calendar (y cualquier cliente que soporte el estándar `webcal://`) no requiere OAuth para
 **suscribirse en modo lectura** a un calendario — sólo una URL pública que sirva un archivo `.ics`
@@ -301,7 +447,71 @@ con autenticación propia) — fuera del alcance de un feed webcal de sólo lect
 
 ---
 
-## 4. Protocolo de Implementación Paso a Paso (para duplicar este módulo en un proyecto nuevo)
+## 6. Resolución de Conflictos
+
+Un conflicto ocurre cuando dos fuentes distintas modifican la misma cita antes de que la primera
+modificación termine de propagarse a todas las demás — típicamente, alguien mueve una cita desde la
+matriz interna al mismo tiempo que el titular la mueve desde su calendario externo.
+
+### 6.1 Por qué NO usar "el último que escribe gana"
+
+"Last write wins" (sobrescribir siempre con el cambio más reciente) es la solución más simple de
+implementar y la más peligrosa de operar: pierde silenciosamente la primera modificación sin que nadie
+se entere, y el "más reciente" depende de relojes de sistemas distintos (servidor propio vs. servidor
+del proveedor externo) que rara vez están perfectamente sincronizados — un evento que en realidad
+ocurrió primero puede parecer "más reciente" por un simple desfase de reloj.
+
+### 6.2 Modelo de prioridades
+
+En vez de "el más reciente gana", cada fuente de cambio tiene una prioridad fija y explícita, de mayor
+a menor autoridad sobre el dato:
+
+1. **Sistema administrativo** (cambios hechos por un rol de administración/dirección)
+2. **Recepción / operador** (cambios hechos por quien gestiona la agenda día a día)
+3. **Especialista** (cambios hechos por quien atiende la cita)
+4. **Proveedor de calendario externo con escritura** (ej. Google Calendar, si se implementó sync
+   bidireccional)
+5. **Proveedor de calendario externo de sólo lectura** (ej. un feed webcal — por definición nunca
+   origina un conflicto, porque nunca escribe de vuelta)
+
+Un cambio de menor prioridad NUNCA sobrescribe automáticamente uno de mayor prioridad que haya
+ocurrido en la misma ventana de sincronización — se marca como conflicto pendiente (evento
+`ConflictDetected`, §2.1) en vez de aplicarse.
+
+### 6.3 Detección
+
+Cada cita mantiene un número de versión (o un timestamp de última modificación) que se compara contra
+la versión conocida por quien intenta modificarla:
+
+```
+al recibir una notificación de cambio externo para la cita X:
+    versión_conocida = versión que teníamos la última vez que sincronizamos X
+    versión_actual_local = versión real de X en este momento
+
+    si versión_actual_local == versión_conocida:
+        no hubo cambio local desde la última sync → aplicar el cambio externo sin fricción
+    si no:
+        alguien más modificó X localmente mientras tanto → emitir ConflictDetected,
+        NO aplicar el cambio automáticamente
+```
+
+### 6.4 Resolución — siempre con intervención humana, nunca automática
+
+Ante un `ConflictDetected`, el sistema nunca decide por sí mismo cuál versión es la correcta — encola
+el conflicto para revisión y presenta ambas versiones lado a lado con una decisión explícita:
+
+- **Mantener la versión del sistema interno** (descarta el cambio externo).
+- **Mantener la versión del proveedor externo** (sobrescribe el registro interno).
+- **Fusionar manualmente** (ej. la hora la puso bien el sistema interno, pero la nota la agregó el
+  proveedor externo — combinar ambos campos a mano).
+
+Esta pantalla de resolución es, en la práctica, la funcionalidad que más confianza genera en el
+módulo: un operador que ve claramente qué pasó y decide, en vez de descubrir semanas después que una
+cita real "desapareció" por una sobrescritura silenciosa.
+
+---
+
+## 7. Protocolo de Implementación Paso a Paso (para duplicar este módulo en un proyecto nuevo)
 
 1. **Confirmar entidades base existentes.** El proyecto destino debe tener ya una tabla de "quien
    agenda" (clientes) y "quien atiende" (especialistas) con llave primaria entera. Si no existen,
@@ -323,10 +533,10 @@ con autenticación propia) — fuera del alcance de un feed webcal de sólo lect
 7. **Construir el endpoint de mover cita (drag-and-drop):** recibe `id_cita` + nueva
    fecha/hora/especialista, revalida el cupo de la franja DESTINO (nunca confiar en la validación que
    ya hizo el JS del navegador), y sólo entonces actualiza la fila.
-8. **(Opcional) Conectar Google Calendar** siguiendo el flujo OAuth de §3.1 — requiere crear un
+8. **(Opcional) Conectar Google Calendar** siguiendo el flujo OAuth de §5.1 — requiere crear un
    proyecto en Google Cloud Console, habilitar la API de Calendar, y configurar credenciales OAuth2
    con el dominio real de producción en los orígenes autorizados.
-9. **(Opcional) Publicar el feed webcal** de §3.2 — no requiere credenciales externas, funciona en
+9. **(Opcional) Publicar el feed webcal** de §5.2 — no requiere credenciales externas, funciona en
    cuanto el endpoint `.ics` esté desplegado y sea alcanzable públicamente por HTTPS.
 10. **Probar el protocolo de aceptación** antes de dar por cerrado el módulo:
     - Crear una cita en una franja vacía → aparece en la matriz con el color del especialista.
