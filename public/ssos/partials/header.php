@@ -89,12 +89,12 @@ $ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard';
 <main class="ssos-main">
 
 <?php if ($ssos_mostrar_breadcrumb_dashboard || $ssos_breadcrumb_atleta): ?>
-    <div class="ssos-breadcrumb mb-3">
+    <div class="ssos-breadcrumb arf-grid mb-3">
         <?php if ($ssos_mostrar_breadcrumb_dashboard): ?>
-            <a href="<?= e($ssos_dashboard_href) ?>" class="btn btn-sm btn-outline-secondary">⬅️ Volver al Dashboard</a>
+            <a href="<?= e($ssos_dashboard_href) ?>" class="btn btn-sm btn-ssos-outline">⬅️ Volver al Dashboard</a>
         <?php endif; ?>
         <?php if ($ssos_breadcrumb_atleta): ?>
-            <a href="<?= e(ssos_base_url()) ?>/atleta/expediente.php?id_atleta=<?= (int) $ssos_breadcrumb_atleta['id_atleta'] ?>" class="btn btn-sm btn-outline-secondary">
+            <a href="<?= e(ssos_base_url()) ?>/atleta/expediente.php?id_atleta=<?= (int) $ssos_breadcrumb_atleta['id_atleta'] ?>" class="btn btn-sm btn-ssos-outline">
                 📂 Volver al Expediente de <?= e($ssos_breadcrumb_atleta['nombre']) ?>
             </a>
         <?php endif; ?>

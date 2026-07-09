@@ -1,7 +1,7 @@
 # 🧬 SYSTEM CODEX & REGISTRY — ATHLOS COGNITIVE ENGINE v1.0
 > **Fuente de Verdad Absoluta.** Todo nombre técnico del sistema vive aquí.  
 > **Responsable de Escritura:** IA Ejecutora (Agente Autónomo) — bajo Mandamiento 18.  
-> **Última actualización:** 2026-05-27 — Fase A completada (webhook + conexión PDO + .env)
+> **Última actualización:** 2026-07-09 — Detalle columna por columna de las 18 tablas SSOS (`01_` a `05_`) verificado contra el volcado real de producción
 
 > **NOTA DE FUNDACIÓN:** Todas las conexiones a la base de datos deben realizarse obligatoriamente a través de `api/conexion.php`, leyendo `DB_HOST`, `DB_NAME`, `DB_USER` y `DB_PASS` del `.env`. Cero conexiones directas o hardcodeadas.
 
@@ -270,12 +270,307 @@
 | `02_schema_clientes_membresias.sql` | `leads_prospectos`, `atletas`, `catalogo_servicios`, `membresias`, `pagos_asistencia`, `asistencias` | `leads_prospectos`, `atletas`, `catalogo_servicios` | `membresias` (saldo de sesiones por paquete), `pagos_asistencia` (espejo de `Clientes.xlsx`), `asistencias` (check-in). |
 | `03_schema_evaluaciones_clinicas.sql` | `historial_clinico`, `evaluaciones_antropometria`, `percentiles_sft_referencia`, `evaluaciones_sft`, `evaluaciones_biomecanica` | — | Ficha clínica unificada (mayor_65/menor_65), antropometría completa (pliegues/perímetros/diámetros/somatotipo), normativas SFT semaforizadas en DB (sin tablas externas), checklist Sentadilla Overhead. |
 | `04_schema_agenda_sesiones.sql` | `staff`, `disponibilidad_agenda`, `audit_log_medico`, `planes_macrociclo`, `sesiones_entrenamiento`, `detalles_ejercicio` | `staff`, `disponibilidad_agenda`, `audit_log_medico` | `planes_macrociclo` (periodización anual), `sesiones_entrenamiento` + `detalles_ejercicio` (Ficha plan de sesión: calentamiento → parte medular → vuelta a la calma). Cierra FKs diferidos: `usuarios.id_staff → staff`, `asistencias.id_cita → disponibilidad_agenda`. |
+| `05_schema_alertas_membresias.sql` | `alertas_renovacion` | — | Semaforización de consumo de membresías (amarillo = 2 sesiones restantes, rojo = 0), disparada desde `AthlosBusinessRules::deducirSesionAtleta()`. `UNIQUE(id_membresia, tipo_alerta)` evita duplicar la misma alerta en cada sesión posterior. |
 
 **Reglas de diseño aplicadas:**
 - `catalogo_servicios.tipo_servicio = 'paquete'` cubre los "paquetes/promos" del directriz original (ej. "Performance 12 sesiones") — no se creó tabla `paquetes` separada para evitar duplicar el catálogo existente.
 - `historial_clinico` es una tabla única para mayores y menores de 65 (`tipo_historial` ENUM) porque los formularios comparten ~80% de las preguntas; las columnas exclusivas de cada ficha quedan NULL-ables.
 - `percentiles_sft_referencia` persiste las tablas normativas Rikli & Jones completas (hombres/mujeres, 60-94 años) para que el Wizard SFT semaforice sin consultar fuentes externas (Checklist Fase 4).
 - Todas las tablas nuevas referencian `usuarios.id_usuario` (no `staff.id_staff`) en columnas `*_por`/`created_by`, porque el registro de auditoría de "quién capturó el dato" es responsabilidad del motor RBAC, no del directorio operativo de staff.
+
+### Detalle columna por columna — Tablas SSOS (`01_` a `05_`)
+
+> Verificado 1:1 contra `knowledge/sql/tourfindycom_athlosp_db.sql` (volcado real de producción) el
+> 2026-07-09 — sin drift respecto a los scripts DDL versionados. `leads_prospectos`, `atletas`,
+> `catalogo_servicios`, `staff`, `disponibilidad_agenda` y `audit_log_medico` ya están documentadas
+> arriba en "ESTRUCTURA DE TABLAS (SCHEMA)" — no se repiten aquí.
+
+#### `01_schema_usuarios_rbac.sql`
+
+**Tabla: `roles`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_rol` | TINYINT UNSIGNED | PK, AUTO_INCREMENT | Identificador del rol |
+| `clave_rol` | ENUM('super_admin','admin','coach') | NOT NULL, UNIQUE | Clave técnica usada por `require_role()` |
+| `nombre_rol` | VARCHAR(100) | NOT NULL | Nombre visible (ej. "Dirección de Laboratorio") |
+| `descripcion` | TEXT | NULL | Alcance del rol |
+| `activo` | TINYINT(1) | NOT NULL, DEFAULT 1 | Rol habilitado |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+
+**Tabla: `permisos`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_permiso` | SMALLINT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `clave_permiso` | VARCHAR(100) | NOT NULL, UNIQUE | Ej. `clientes.ver_saldos` |
+| `modulo` | VARCHAR(50) | NOT NULL | Agrupador (sistema/clientes/agenda/evaluaciones/sesiones/cobranza) |
+| `descripcion` | VARCHAR(255) | NOT NULL | — |
+
+**Tabla: `rol_permisos`** (pivote N:M)
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_rol` | TINYINT UNSIGNED | PK compuesta, FK → `roles.id_rol` | — |
+| `id_permiso` | SMALLINT UNSIGNED | PK compuesta, FK → `permisos.id_permiso` | — |
+
+**Tabla: `usuarios`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_usuario` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_rol` | TINYINT UNSIGNED | NOT NULL, FK → `roles.id_rol` | — |
+| `id_staff` | INT UNSIGNED | NULL, FK → `staff.id_staff` | Ficha operativa asociada (opcional) |
+| `nombre_completo` | VARCHAR(150) | NOT NULL | — |
+| `email` | VARCHAR(150) | NOT NULL, UNIQUE | Login |
+| `password_hash` | VARCHAR(255) | NOT NULL | `password_hash()` PHP (bcrypt), nunca texto plano |
+| `activo` | TINYINT(1) | NOT NULL, DEFAULT 1 | — |
+| `requiere_cambio_password` | TINYINT(1) | NOT NULL, DEFAULT 1 | — |
+| `ultimo_login` | DATETIME | NULL | — |
+| `intentos_fallidos` | TINYINT UNSIGNED | NOT NULL, DEFAULT 0 | — |
+| `bloqueado_hasta` | DATETIME | NULL | Bloqueo temporal (5 intentos → 15 min) |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+| `updated_at` | DATETIME | ON UPDATE CURRENT_TIMESTAMP | — |
+
+**Tabla: `sesiones_log`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_log_sesion` | BIGINT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_usuario` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | NULL si el login falló antes de resolver el usuario |
+| `email_intento` | VARCHAR(150) | NOT NULL | — |
+| `tipo_evento` | ENUM('login_exitoso','login_fallido','logout','bloqueo_temporal','cambio_password','token_csrf_invalido') | NOT NULL | — |
+| `ip_origen` | VARCHAR(45) | NOT NULL | Soporta IPv4/IPv6 |
+| `user_agent` | VARCHAR(255) | NULL | — |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+
+#### `02_schema_clientes_membresias.sql` (tablas nuevas)
+
+**Tabla: `membresias`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_membresia` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, FK → `atletas.id_atleta` | — |
+| `id_servicio` | INT UNSIGNED | NOT NULL, FK → `catalogo_servicios.id_servicio` | — |
+| `fecha_inicio` | DATE | NOT NULL | — |
+| `fecha_fin` | DATE | NULL | NULL para `sesion_unica` sin vigencia calendario |
+| `sesiones_totales` | SMALLINT UNSIGNED | NOT NULL, DEFAULT 0 | — |
+| `sesiones_restantes` | SMALLINT UNSIGNED | NOT NULL, DEFAULT 0 | Decrece en cada check-in |
+| `precio_pagado` | DECIMAL(10,2) | NOT NULL | — |
+| `estatus` | ENUM('activa','agotada','vencida','cancelada') | NOT NULL, DEFAULT 'activa' | — |
+| `notas` | VARCHAR(255) | NULL | — |
+| `created_at` / `updated_at` | DATETIME | — | — |
+
+**Tabla: `pagos_asistencia`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_pago` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, FK → `atletas.id_atleta` | — |
+| `id_membresia` | INT UNSIGNED | NULL, FK → `membresias.id_membresia` | — |
+| `concepto_pago` | VARCHAR(200) | NOT NULL | Columna "Programa" del Excel legacy |
+| `monto` | DECIMAL(10,2) | NOT NULL | — |
+| `metodo_pago` | ENUM('efectivo','tarjeta','transferencia','otro') | NOT NULL, DEFAULT 'efectivo' | — |
+| `fecha_pago` | DATE | NOT NULL | — |
+| `registrado_por` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | — |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+
+**Tabla: `asistencias`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_asistencia` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, FK → `atletas.id_atleta` | — |
+| `id_cita` | INT UNSIGNED | NULL, FK → `disponibilidad_agenda.id_cita` | — |
+| `id_membresia` | INT UNSIGNED | NULL, FK → `membresias.id_membresia` | — |
+| `fecha_hora_checkin` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+| `registrado_por` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | — |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+
+#### `03_schema_evaluaciones_clinicas.sql`
+
+**Tabla: `historial_clinico`** — un registro por atleta (`UNIQUE(id_atleta)`), upsert desde
+`historial_form.php` (wizard de 8 pasos, Fase 15-17).
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_historial` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, UNIQUE, FK → `atletas.id_atleta` | — |
+| `tipo_historial` | ENUM('mayor_65','menor_65') | NOT NULL | Fijado por el candado cognitivo (Fase 17) si el PDF detecta edad ≥ 65 |
+| `actividades_ejercicio_actual` | TEXT | NULL | — |
+| `dias_ejercicio_moderado_semana` | TINYINT UNSIGNED | NULL | — |
+| `objetivo_perdida_peso` / `objetivo_masa_muscular` / `objetivo_rendimiento_deportivo` / `objetivo_mejorar_salud` | TINYINT UNSIGNED | NULL | Escala 0-10 (mayor_65) / 0-5 (menor_65) |
+| `dieta_saludable_score` | TINYINT UNSIGNED | NULL | Escala 0-10 |
+| `sigue_dieta_actual` | TEXT | NULL | — |
+| `consumo_sal` / `consumo_azucar` / `consumo_grasas` | ENUM('bajo','medio','alto') | NULL | — |
+| `control_antojos_score` | TINYINT UNSIGNED | NULL | Escala 0-10, sólo mayor_65 |
+| `bebidas_alcoholicas_semana` | SMALLINT UNSIGNED | NULL | — |
+| `consumo_cafeina` | TEXT | NULL | Sólo mayor_65 |
+| `sueno_adecuado` | TEXT | NULL | — |
+| `nivel_estres_score` | TINYINT UNSIGNED | NULL | Escala 0-10, sólo mayor_65 |
+| `tecnicas_manejo_estres` | TEXT | NULL | Sólo mayor_65 |
+| `fuma_o_vapea` | TEXT | NULL | — |
+| `ocupacion` | VARCHAR(150) | NULL | Sólo mayor_65 |
+| `trabajo_sedentario_detalle` / `trabajo_movimientos_repetitivos_detalle` | TEXT | NULL | Sólo mayor_65 |
+| `trabajo_calzado_tacon` | TINYINT(1) | NULL | Sólo mayor_65 |
+| `actividad_recreativa_detalle` / `otro_pasatiempo_detalle` | TEXT | NULL | Sólo mayor_65 |
+| `cirugias_previas` | TEXT | NULL | Combina lesión + cirugía previa (mapper las concatena) |
+| `rehabilitacion_adecuada_autorizacion` | TEXT | NULL | — |
+| `condicion_cronica` | TEXT | NULL | — |
+| `medicamentos_actuales` | TEXT | NULL | — |
+| `autorizacion_medica_ejercicio` | TINYINT(1) | NULL | Checkbox — captura manual, no viene del PDF |
+| `nombre_medico` / `telefono_medico` / `contacto_emergencia_nombre` / `contacto_emergencia_telefono` | VARCHAR | NULL | Sólo mayor_65 (`telefono_medico`/`contacto_emergencia_telefono` quedan manuales — el PDF no separa nombre/teléfono) |
+| `telefono_personal` / `correo_electronico` | VARCHAR | NULL | Sólo menor_65 |
+| `notas_adicionales` | TEXT | NULL | — |
+| `fecha_captura` | DATE | NOT NULL | — |
+| `capturado_por` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | — |
+| `created_at` / `updated_at` | DATETIME | — | — |
+
+**Tabla: `evaluaciones_antropometria`** — histórico acumulativo (una fila por evaluación, nunca se
+sobreescribe).
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_evaluacion` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, FK → `atletas.id_atleta` | — |
+| `fecha_antropometria` | DATE | NOT NULL | — |
+| `asesor` | VARCHAR(150) | NULL | — |
+| `edad_evaluacion` | TINYINT UNSIGNED | NULL | — |
+| `peso_kg` / `estatura_cm` | DECIMAL(5,2) | NOT NULL | — |
+| `imc` | DECIMAL(5,2) | NULL | Recalculado en PHP, nunca tomado de un Excel/PDF sin verificar |
+| `clasificacion_imc` | ENUM('bajo_peso','normal','sobrepeso','obesidad','obesidad_severa','obesidad_morbida') | NULL | Vía `ssos_clasificar_imc()` |
+| `indice_ponderal` | DECIMAL(6,3) | NULL | — |
+| `pliegue_tricipital`, `pliegue_bicipital`, `pliegue_subescapular`, `pliegue_abdominal`, `pliegue_ileocrestal`, `pliegue_supraespinal`, `pliegue_muslo`, `pliegue_pierna` | DECIMAL(5,2) | NULL | Durnin & Womersley / Siri |
+| `sumatoria_pliegues` | DECIMAL(6,2) | NULL | — |
+| `perimetro_brazo_relajado_der/izq`, `perimetro_brazo_contraido_der/izq`, `perimetro_muneca_der/izq`, `perimetro_cintura_minima`, `perimetro_cadera_maxima`, `perimetro_muslo_der/izq`, `perimetro_pierna_relajada_der/izq`, `perimetro_pierna_contraida_der/izq` | DECIMAL(5,2) | NULL | Distinguen lado derecho/izquierdo |
+| `diametro_humeral`, `diametro_femoral`, `diametro_estiloideo`, `diametro_biacromial`, `diametro_biiliocrestal` | DECIMAL(5,2) | NULL | — |
+| `densidad_corporal` | DECIMAL(6,4) | NULL | — |
+| `porcentaje_grasa_siri` / `masa_grasa_siri_kg` | DECIMAL(5,2) | NULL | — |
+| `porcentaje_grasa_rocha` / `masa_osea_rocha_kg` | DECIMAL(5,2) | NULL | — |
+| `masa_muscular_matiegka_kg` / `masa_residual_wurch_kg` | DECIMAL(5,2) | NULL | — |
+| `clasificacion_grasa` | ENUM(9 valores) | NULL | — |
+| `endomorfia` / `mesomorfia` / `ectomorfia` | DECIMAL(4,2) | NULL | Somatotipo Heath-Carter |
+| `indice_cintura_cadera` | DECIMAL(4,3) | NULL | — |
+| `clasificacion_riesgo_cintura` | ENUM('sin_riesgo','sin_peligro','peligro_metabolico') | NULL | — |
+| `actividad_ejercicio_actual`, `frecuencia_ejercicio`, `duracion_por_sesion`, `intensidad_ejercicio` | VARCHAR | NULL | — |
+| `capturado_por` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | — |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+
+**Tabla: `percentiles_sft_referencia`** — catálogo/seed (normas Rikli & Jones), no varía por atleta.
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_percentil` | SMALLINT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `sexo` | ENUM('masculino','femenino') | NOT NULL | — |
+| `edad_min` / `edad_max` | TINYINT UNSIGNED | NOT NULL | — |
+| `variable` | ENUM('chair_sit_reach','back_scratch','chair_stand','arm_curl','time_up_go','two_min_step') | NOT NULL | — |
+| `valor_min` / `valor_max` | DECIMAL(6,2) | NOT NULL | — |
+| `unidad` | VARCHAR(20) | NOT NULL | cm/reps/segundos/pasos |
+
+**Tabla: `evaluaciones_sft`** — histórico acumulativo (una fila por evaluación).
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_evaluacion_sft` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, FK → `atletas.id_atleta` | — |
+| `fecha_evaluacion` | DATE | NOT NULL | — |
+| `edad_evaluacion` | TINYINT UNSIGNED | NOT NULL | — |
+| `sexo` | ENUM('masculino','femenino') | NOT NULL | — |
+| `chair_sit_reach_cm`, `back_scratch_cm`, `functional_reach_cm` | DECIMAL(5,2) | NULL | — |
+| `chair_stand_reps`, `arm_curl_reps` | TINYINT UNSIGNED | NULL | — |
+| `time_up_go_seg`, `time_up_go_cognitivo_seg` | DECIMAL(4,2) | NULL | — |
+| `two_min_step_pasos` | SMALLINT UNSIGNED | NULL | — |
+| `semaforo_chair_sit_reach`, `semaforo_back_scratch`, `semaforo_chair_stand`, `semaforo_arm_curl`, `semaforo_time_up_go`, `semaforo_two_min_step`, `semaforo_general` | ENUM('verde','amarillo','rojo') | NULL | Calculado en PHP contra `percentiles_sft_referencia` |
+| `observaciones` | TEXT | NULL | — |
+| `evaluado_por` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | — |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+
+**Tabla: `evaluaciones_biomecanica`** — checklist Sentadilla Overhead (aún sin importador de PDF, ver
+Roadmap).
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_evaluacion_biomecanica` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, FK → `atletas.id_atleta` | — |
+| `fecha_evaluacion` | DATE | NOT NULL | — |
+| `feet_flatten`, `feet_turn_out`, `heel_rises`, `knees_move_inward`, `excessive_forward_lean`, `lower_back_arches`, `lower_back_rounds`, `arms_fall_forward` | TINYINT(1) | NOT NULL, DEFAULT 0 | Un flag por compensación postural |
+| `observaciones` | TEXT | NULL | — |
+| `evaluado_por` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | — |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+
+#### `04_schema_agenda_sesiones.sql` (tablas nuevas)
+
+**Tabla: `planes_macrociclo`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_macro` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, FK → `atletas.id_atleta` | — |
+| `temporada` | VARCHAR(100) | NULL | — |
+| `mesociclo` | ENUM('prep_general','prep_especifica','competitiva','transitorio') | NOT NULL | — |
+| `mes` | ENUM(12 meses) | NOT NULL | — |
+| `tipo_microciclo` | ENUM('ajuste','activacion','carga','competicion','impacto','recuperacion') | NULL | — |
+| `volumen`, `velocidad`, `fuerza`, `resistencia`, `flexibilidad`, `tecnica`, `agilidad` | TINYINT UNSIGNED | NULL | Escala 0-10 de énfasis |
+| `total_horas` | DECIMAL(5,2) | NULL | — |
+| `dias_microciclo` | TINYINT UNSIGNED | NULL | — |
+| `creado_por` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | — |
+| `created_at` / `updated_at` | DATETIME | — | — |
+
+**Tabla: `sesiones_entrenamiento`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_sesion` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, FK → `atletas.id_atleta` | — |
+| `id_cita` | INT UNSIGNED | NULL, FK → `disponibilidad_agenda.id_cita` | — |
+| `id_staff` | INT UNSIGNED | NOT NULL, FK → `staff.id_staff` | — |
+| `id_macro` | INT UNSIGNED | NULL, FK → `planes_macrociclo.id_macro` | — |
+| `fecha_sesion` | DATE | NOT NULL | — |
+| `numero_sesion` | SMALLINT UNSIGNED | NULL | Consecutivo dentro del microciclo/paquete |
+| `enfoque` | VARCHAR(150) | NULL | — |
+| `fase` | ENUM('prep_general','prep_especifica','competitiva','transitorio') | NULL | — |
+| `rpe_sesion` | DECIMAL(3,1) UNSIGNED | NULL | Escala 1-10 (slider Pie de Cancha) |
+| `notas_entrenador` | TEXT | NULL | — |
+| `created_by` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | — |
+| `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | — |
+
+**Tabla: `detalles_ejercicio`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_detalle` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_sesion` | INT UNSIGNED | NOT NULL, FK → `sesiones_entrenamiento.id_sesion` | — |
+| `bloque` | ENUM('masaje','movilidad','activacion','calentamiento','activacion_cadera','estiramiento_dinamico','integracion_movimiento','activacion_cognitiva','pliometria','parte_medular','vuelta_calma') | NOT NULL | — |
+| `orden` | SMALLINT UNSIGNED | NOT NULL, DEFAULT 0 | — |
+| `nombre_ejercicio` | VARCHAR(200) | NOT NULL | — |
+| `sets` / `reps` | VARCHAR(20) | NULL | Texto libre, admite rangos ("2-4") |
+| `intensidad` / `descanso` | VARCHAR(50) | NULL | — |
+| `notas` | VARCHAR(255) | NULL | — |
+
+#### `05_schema_alertas_membresias.sql`
+
+**Tabla: `alertas_renovacion`**
+
+| Columna | Tipo | Restricciones | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id_alerta` | INT UNSIGNED | PK, AUTO_INCREMENT | — |
+| `id_atleta` | INT UNSIGNED | NOT NULL, FK → `atletas.id_atleta` | — |
+| `id_membresia` | INT UNSIGNED | NOT NULL, FK → `membresias.id_membresia` | — |
+| `tipo_alerta` | ENUM('amarillo','rojo') | NOT NULL | amarillo = 2 sesiones restantes, rojo = 0 |
+| `sesiones_restantes_momento` | SMALLINT UNSIGNED | NOT NULL | — |
+| `atendida` | TINYINT(1) | NOT NULL, DEFAULT 0 | — |
+| `atendida_por` | INT UNSIGNED | NULL, FK → `usuarios.id_usuario` | — |
+| `fecha_atendida` | DATETIME | NULL | — |
+| `created_at` / `updated_at` | DATETIME | — | — |
+| — | — | UNIQUE(`id_membresia`, `tipo_alerta`) | Evita duplicar la misma alerta |
+
+#### Fuera de alcance de Athlos SSOS
+
+`acadep_vocacional_leads` existe en el volcado real (`tourfindycom_athlosp_db.sql`) pero **no
+pertenece a este proyecto** — es una tabla de un test vocacional/quiz distinto que comparte el mismo
+servidor de base de datos. No se documenta aquí a detalle porque ningún archivo de `public/ssos/` la
+referencia.
 
 ---
 

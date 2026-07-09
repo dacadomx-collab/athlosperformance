@@ -183,14 +183,14 @@ body.ssos-app-body {
 }
 
 /* ─── Breadcrumb ("Volver al Dashboard" / "Volver al Expediente") ────────
-   Flex responsivo, sin anchos fijos en px: los botones se acomodan en una
-   sola fila en escritorio y se apilan/envuelven en móvil sin desbordar el
-   contenedor ni forzar scroll horizontal. */
-.ssos-breadcrumb {
-    display: flex;
-    flex-wrap: wrap;
+   Usa el mismo patrón ARF-Grid genérico (.arf-grid, ver más abajo) — sólo
+   se sobreescribe justify-content porque un breadcrumb va alineado a la
+   izquierda, no centrado. Sin anchos fijos en px: los botones se acomodan
+   en una sola fila en escritorio y se apilan/envuelven en móvil sin
+   desbordar el contenedor ni forzar scroll horizontal. */
+.ssos-breadcrumb.arf-grid {
+    justify-content: flex-start;
     align-items: center;
-    gap: 0.5rem;
 }
 
 .ssos-breadcrumb .btn {
@@ -385,6 +385,34 @@ body.ssos-app-body {
 .btn-ssos-turquesa:hover,
 .btn-ssos-turquesa:focus {
     background: #05A2B1;
+    color: #06262B;
+}
+
+/* Botón secundario de marca (breadcrumb, "Cancelar", etc.) — reemplaza el
+   btn-outline-secondary genérico de Bootstrap por los colores oficiales
+   Athlos, con la misma variante clara/oscura que el resto del sistema. */
+.btn-ssos-outline {
+    background: transparent;
+    border: 2px solid var(--athlos-azul-profundo);
+    color: var(--athlos-azul-profundo);
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+.btn-ssos-outline:hover,
+.btn-ssos-outline:focus {
+    background: var(--athlos-azul-profundo);
+    color: #FFFFFF;
+}
+
+[data-theme="dark"] .btn-ssos-outline {
+    border-color: var(--athlos-turquesa);
+    color: var(--athlos-turquesa);
+}
+
+[data-theme="dark"] .btn-ssos-outline:hover,
+[data-theme="dark"] .btn-ssos-outline:focus {
+    background: var(--athlos-turquesa);
     color: #06262B;
 }
 
