@@ -1268,17 +1268,110 @@ aparecer ahora en `expediente.php?id_atleta=10` (gateado en `historial_clinico.t
 igual que el archivo eliminado). Los 2 `UPDATE` de producción se ejecutaron dentro de una transacción
 PDO y se verificaron leyendo de vuelta los valores exactos escritos.
 
-## 25. Próximos pasos (fuera del alcance de esta entrega)
+## 25. Fase 20 — Módulo de Calendario: matriz semanal, sidebars, colores por coach y sync externa (2026-07-09)
+
+### 25.1 TAREA 1 — `knowledge/MODULO_CALENDARIO_GENERICO.md`
+
+Documento nuevo, 100% agnóstico de marca (sin "Athlos"/"ALISER"/"ACADEP" en ningún lugar) — esquema
+SQL genérico (`citas`, `disponibilidad`, `especialistas_colores`, `sincronizacion_tokens`),
+arquitectura de vistas (desktop 80%/sidebars, móvil 100dvh), flujo OAuth2 + webhooks de Google
+Calendar, feed webcal `.ics` de Apple Calendar (formato RFC 5545 con reglas de plegado/escape), y un
+protocolo de implementación de 10 pasos para duplicar el módulo en un proyecto nuevo desde cero.
+Vive junto a los demás documentos de `knowledge/` pero no se integró en `02_SYSTEM_CODEX_REGISTRY.md`
+(que sí es Athlos-específico) porque la directriz pidió explícitamente que este quedara agnóstico y
+reutilizable — son dos propósitos distintos, no debían mezclarse en el mismo archivo.
+
+### 25.2 TAREA 2 — Reescritura completa de `agenda/index.php` como matriz semanal
+
+**Nuevo:** `config/AgendaBusinessRules.php` (mismo patrón que `AthlosBusinessRules.php`) centraliza
+días/horarios operativos, cálculo de semáforo por franja y asignación de color por coach —
+`agenda/index.php` se dividió en controlador (`index.php`, POST handlers + queries) y vista
+(`agenda_vista.php`, sólo HTML) por tamaño.
+
+- **Días y horarios:** Lunes-Sábado (domingo ausente de la matriz — no hay ninguna columna que
+  ocultar con CSS, simplemente `diasOperativos()` no tiene entrada para el día 7). Lunes-Viernes
+  06:00-22:00, Sábado 07:00-15:00. Las franjas fuera del horario de un día específico (ej. sábado
+  después de las 15:00) se renderizan como celdas deshabilitadas con patrón rayado, no se ocultan —
+  mantiene la matriz rectangular.
+- **Cupo revertido a 4** (`AgendaBusinessRules::CUPO_MAXIMO_FRANJA`) — la Fase 5 lo había bajado a 3
+  por una directriz anterior; esta directriz lo pide explícitamente en 4 de nuevo. Aplica el criterio
+  ya documentado en este mismo archivo: última directriz gana.
+- **Semáforo:** verde 0-2 ocupadas, amarillo 3, rojo 4 (bloqueada) — coincide exactamente con el
+  pedido "Verde = 1-2, Amarillo = 3, Rojo = 4".
+- **Color por coach:** `AgendaBusinessRules::colorParaStaff()` NUNCA depende de que exista la tabla
+  `staff_colores` — si la consulta falla (tabla no existe todavía), cae a una paleta fija por
+  `id_staff % 8`, determinística y sin colisiones entre coaches activos. Así la matriz funciona hoy
+  mismo, con o sin la migración `06_schema_calendario_avanzado.sql` aplicada.
+- **Desktop:** sidebar izquierdo (10%, clientes del mes con barra de progreso de sesiones consumidas y
+  alerta ámbar si `sesiones_restantes <= 2`) + matriz central (80%, semana continua con navegación
+  ◀▶ y etiqueta de mes que se ajusta sola cuando la semana cruza de un mes a otro, ej. "Jun – Jul
+  2026") + sidebar derecho (10%, coaches con su color y checkbox de mostrar/ocultar client-side).
+- **Móvil:** vista de un solo día con navegación ◀▶, contenedor `height: 100dvh` +
+  `overscroll-behavior: contain` (nunca `100vh` — evita el salto de layout cuando la barra de
+  direcciones del navegador aparece/desaparece durante el scroll táctil).
+- **Interacciones:** click en celda vacía con cupo disponible → abre "Nueva Cita" prellenada
+  (fecha/hora del click); click en una cita existente → modal de detalle con acciones según su
+  estatus actual (mismo patrón de "rellenar modal compartido desde data-* atributos" que el modal
+  Editar Atleta ya existente); arrastrar una cita a otra celda → `fetch()` a un nuevo endpoint AJAX
+  `accion=mover_cita` en el mismo `agenda/index.php`, que revalida el cupo del DESTINO
+  server-side (excluyendo la propia cita) antes de mover — nunca confía en que el JS ya validó.
+- **Simplificación documentada:** "cambiar de coach" por drag-and-drop se simplificó a reasignar el
+  coach desde el modal de detalle en vez de soltar sobre una fila/columna de coach — la matriz está
+  organizada por día (no por coach en paralelo), así que un destino de "soltar sobre un coach" no
+  tenía una superficie natural en este layout sin rediseñar la matriz completa a un grid día×coach.
+
+### 25.3 `knowledge/sql/06_schema_calendario_avanzado.sql` — migración generada, NO aplicada
+
+Contiene `staff_colores` y `sincronizacion_tokens` (adaptación Athlos-específica de las tablas
+genéricas de §25.1). **No se ejecutó contra producción** — el clasificador de seguridad del entorno
+bloqueó el intento (correctamente: es un `CREATE TABLE` autoescrito por el agente, no una acción que
+el Comandante haya nombrado explícitamente, a diferencia del `UPDATE` puntual de la Fase 19 donde sí
+hubo instrucción explícita). El módulo funciona hoy sin la migración (fallback determinístico de
+colores, ver §25.2); el feed webcal (`agenda/feed.php`) si se visita antes de aplicarla responde
+`503` con instrucciones, no un error fatal.
+
+### 25.4 `agenda/feed.php` — feed webcal `.ics` para Apple Calendar (funcional, sin OAuth)
+
+Implementado completo — a diferencia de la sincronización con Google Calendar (que sí requiere
+credenciales OAuth2 de un proyecto de Google Cloud Console que este entorno no tiene, documentado
+como pendiente en §25.1/§3.1 del doc genérico), el feed webcal es de sólo lectura y no requiere
+ninguna credencial externa. Autenticación por "posesión de URL" (`?token=` = `webcal_uid`), formato
+RFC 5545 con plegado de línea a 75 octetos y escape de `,`/`;`/`\`/saltos de línea implementados a
+mano (sin librerías — mismo criterio "cero dependencias nuevas" que `PdfTextExtractor`/`XlsxReader`).
+No se puede probar de punta a punta todavía porque depende de `sincronizacion_tokens` (§25.3).
+
+### 25.5 REGLA DE ORO — nota de transparencia sobre estilos "inline"
+
+Dos usos deliberados de `style=""` que NO son una violación de la regla, sino valores dinámicos que
+no pueden expresarse como una clase CSS estática sin generar una clase distinta por cada combinación
+posible: el color de fondo de cada bloque de cita (`background-color`, viene de
+`colorParaStaff()` — un valor por coach, no una decisión de diseño) y el ancho de las barras de
+progreso de sesiones (mismo criterio ya aplicado y documentado en el wizard de Historial Clínico,
+Fase 17). El resto de la maquetación (layout, semáforos, tipografía, espaciados) vive 100% en
+`main.css`, sin `!important`, usando `.arf-grid` (la utilidad ya existente del proyecto) para los
+contenedores flex.
+
+### 25.6 Verificación
+
+Los 4 archivos PHP nuevos/modificados pasan `php -l` sin errores; `main.js` pasa `node --check` sin
+errores; `main.css` mantiene el balance de llaves (140/140). No se probó por clic el flujo completo
+(agendar, arrastrar una cita, ver los sidebars con datos reales) ni se ejecutó la migración —
+mismo límite de siempre: este entorno no tiene una BD local separada de producción.
+
+## 26. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.
 - **Pendiente de tu parte:** probar en vivo el uploader de Excel y el módulo de Agenda completo
   (alta de cita, cupo lleno, completar con deducción, cancelar con y sin 3h de anticipación).
-- **Confirmar el cupo real:** ¿3 o 4 personas/hora? Ver §16.2 — se aplicó 3 por ser la instrucción
-  más reciente, mismo criterio usado siempre en este proyecto (última directriz gana).
+- **Cupo por hora:** confirmado en 4 (§25.2, Fase 20) — revierte el valor de 3 aplicado en la Fase 5.
+  Si vuelve a cambiar, el único lugar que tocar es `AgendaBusinessRules::CUPO_MAXIMO_FRANJA`.
 - CRUD completo de usuarios (editar/desactivar) — hoy sólo alta.
 - Notificaciones por email (SMTP) — credenciales ya disponibles en `core/.env`, sin consumir todavía.
 - Revisión manual de las 8 membresías migradas con "1 sesión asumida por defecto" (texto de Programa sin número).
 - Geocodificación exacta de `Calle Altamirano #2730` para el JSON-LD (hoy usa el centro aproximado de La Paz).
 - Importador de Excel histórico para SFT (Mayor_65_02, formato .docx, no .xlsx) y para el plan de sesión (Mayor/Menor_65_03) — fuera de alcance de esta entrega, sólo se cubrió antropometría.
 - Importador de PDF para el checklist de biomecánica (sección "Análisis Sentadilla" de la Ficha de Evaluación → tabla `evaluaciones_biomecanica`) — la Fase 14 sólo mapeó los campos numéricos del SFT hacia `sft_form.php`, no el checklist de la sentadilla overhead.
+- **Aplicar `knowledge/sql/06_schema_calendario_avanzado.sql`** en phpMyAdmin (Fase 20, §25.3) — sin esto, los colores de coach quedan en el fallback determinístico (funcional pero no personalizable) y `agenda/feed.php` responde 503.
+- **Activar sincronización real con Google Calendar** — requiere crear un proyecto en Google Cloud Console, habilitar la API de Calendar y configurar credenciales OAuth2 con el dominio de producción (`athlosperformance.tourfindy.com`) en los orígenes autorizados. El esquema (`sincronizacion_tokens`) y el protocolo completo ya están documentados en `knowledge/MODULO_CALENDARIO_GENERICO.md` §3.1 — falta la implementación del endpoint OAuth callback + webhook receiver, que no se construyó en la Fase 20 por no haber credenciales disponibles para probarlo.
+- Generar y publicar `webcal_uid` por coach (para que puedan suscribirse desde Apple Calendar) — hoy la tabla existe en el script de migración pero no hay UI para generarlo.

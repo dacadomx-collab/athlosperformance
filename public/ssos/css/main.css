@@ -712,3 +712,244 @@ body.ssos-app-body {
     font-size: 0.85rem;
     color: var(--ssos-text-muted);
 }
+
+/* ═══════════ Módulo de Agenda — matriz semanal (ver knowledge/MODULO_CALENDARIO_GENERICO.md) ═══════════ */
+
+.ssos-agenda-toolbar {
+    align-items: center;
+}
+
+.ssos-agenda-titulo-semana {
+    font-weight: 700;
+    color: var(--athlos-azul-profundo);
+    text-transform: capitalize;
+}
+
+[data-theme="dark"] .ssos-agenda-titulo-semana {
+    color: var(--athlos-turquesa);
+}
+
+/* ─── Desktop: sidebar 10% | matriz 80% | sidebar 10% ────────────────────── */
+
+.ssos-agenda-desktop {
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.ssos-agenda-sidebar {
+    flex: 1 1 10%;
+    min-width: 12rem;
+    max-width: 16rem;
+    background: var(--ssos-surface);
+    border: 1px solid var(--ssos-border);
+    border-radius: 14px;
+    padding: 1rem;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.ssos-agenda-matriz-wrap {
+    flex: 1 1 80%;
+    min-width: 0;
+    overflow-x: auto;
+    background: var(--ssos-surface);
+    border: 1px solid var(--ssos-border);
+    border-radius: 14px;
+}
+
+.ssos-agenda-matriz {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.ssos-agenda-matriz th,
+.ssos-agenda-matriz td {
+    border: 1px solid var(--ssos-border);
+    padding: 0.3rem;
+    vertical-align: top;
+}
+
+.ssos-agenda-matriz thead th {
+    position: sticky;
+    top: 0;
+    background: var(--ssos-surface);
+    z-index: 2;
+    text-align: center;
+    padding: 0.5rem 0.3rem;
+}
+
+.ssos-agenda-col-hora {
+    position: sticky;
+    left: 0;
+    background: var(--ssos-surface);
+    z-index: 1;
+    font-weight: 700;
+    color: var(--ssos-text-muted);
+    white-space: nowrap;
+    width: 3.5rem;
+}
+
+.ssos-agenda-dia-label {
+    font-weight: 700;
+}
+
+.ssos-agenda-dia-fecha {
+    font-size: 0.75rem;
+    color: var(--ssos-text-muted);
+}
+
+.ssos-agenda-celda {
+    min-width: 7rem;
+    height: 3rem;
+}
+
+.ssos-agenda-celda--cerrada {
+    background: repeating-linear-gradient(
+        45deg,
+        var(--ssos-border),
+        var(--ssos-border) 4px,
+        transparent 4px,
+        transparent 10px
+    );
+    opacity: 0.35;
+}
+
+.ssos-agenda-celda--verde { background: rgba(30, 158, 90, 0.08); }
+.ssos-agenda-celda--amarillo { background: rgba(230, 184, 0, 0.12); }
+.ssos-agenda-celda--rojo { background: rgba(214, 69, 69, 0.12); }
+
+.ssos-agenda-cita {
+    color: #FFFFFF;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15rem 0.35rem;
+    border-radius: 6px;
+    margin-bottom: 0.2rem;
+    cursor: grab;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ssos-agenda-cita:active {
+    cursor: grabbing;
+}
+
+.ssos-agenda-cita.is-dragging {
+    opacity: 0.4;
+}
+
+.ssos-agenda-celda.is-drop-target {
+    outline: 2px dashed var(--athlos-turquesa);
+    outline-offset: -2px;
+}
+
+/* ─── Sidebar izquierdo: clientes del mes ────────────────────────────────── */
+
+.ssos-agenda-cliente-mes {
+    margin-bottom: 0.75rem;
+}
+
+.ssos-agenda-cliente-mes-nombre {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.ssos-agenda-cliente-mes--alerta .ssos-agenda-cliente-mes-nombre {
+    color: #D68910;
+}
+
+.ssos-agenda-progress {
+    height: 0.4rem;
+    margin: 0.25rem 0;
+    background: var(--ssos-border);
+}
+
+.ssos-agenda-progress-bar {
+    background: var(--athlos-turquesa);
+}
+
+.ssos-agenda-cliente-mes--alerta .ssos-agenda-progress-bar {
+    background: #D68910;
+}
+
+.ssos-agenda-cliente-mes-detalle {
+    font-size: 0.72rem;
+    color: var(--ssos-text-muted);
+}
+
+/* ─── Sidebar derecho: coaches ────────────────────────────────────────────── */
+
+.ssos-agenda-coach-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.ssos-agenda-coach-color {
+    display: inline-block;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ─── Móvil: pantalla completa táctil, sin scroll accidental del body ───── */
+
+.ssos-agenda-movil {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    margin: -1.5rem -1rem -4rem;
+}
+
+.ssos-agenda-movil-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--ssos-border);
+    background: var(--ssos-surface);
+}
+
+.ssos-agenda-movil-lista {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.75rem 1rem 2rem;
+}
+
+.ssos-agenda-movil-franja {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--ssos-border);
+}
+
+.ssos-agenda-movil-hora {
+    flex: 0 0 3.5rem;
+    font-weight: 700;
+    color: var(--ssos-text-muted);
+    font-size: 0.85rem;
+}
+
+.ssos-agenda-movil-citas {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.ssos-agenda-movil-cita {
+    background: var(--ssos-bg);
+    border: 1px solid var(--ssos-border);
+    border-left: 4px solid var(--athlos-turquesa);
+    border-radius: 8px;
+    padding: 0.4rem 0.6rem;
+}

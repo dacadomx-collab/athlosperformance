@@ -220,4 +220,171 @@
             modalEditarAtleta.querySelector("#editar_fecha_nacimiento").value = boton.dataset.fechaNacimiento || "";
         });
     }
+
+    // ─── Agenda: matriz semanal — click para agendar/ver detalle, drag&drop
+    // para reagendar, y toggle de visibilidad por coach. Todo delegado sobre
+    // `document` (mismo patrón que el resto del archivo), así que funciona
+    // sin importar cuántas celdas/citas haya en la matriz. ──────────────────
+    var agendaMatriz = document.querySelector(".ssos-agenda-matriz");
+    if (agendaMatriz) {
+        var modalNuevaCitaEl = document.getElementById("modalNuevaCita");
+        var modalNuevaCita = modalNuevaCitaEl && typeof bootstrap !== "undefined" ? new bootstrap.Modal(modalNuevaCitaEl) : null;
+        var modalDetalleCitaEl = document.getElementById("modalDetalleCita");
+        var modalDetalleCita = modalDetalleCitaEl && typeof bootstrap !== "undefined" ? new bootstrap.Modal(modalDetalleCitaEl) : null;
+        var formEstatusCita = document.getElementById("ssosFormEstatusCita");
+
+        var etiquetasEstatusJs = {
+            reservada: "Reservada", confirmada: "Confirmada", completada: "Completada",
+            cancelada: "Cancelada", no_show: "No-Show",
+        };
+
+        function csrfTokenAgenda() {
+            var input = formEstatusCita ? formEstatusCita.querySelector('input[name="csrf_token"]') : null;
+            return input ? input.value : "";
+        }
+
+        // ── Click en una cita: abre modal de detalle con acciones según su estatus ──
+        agendaMatriz.addEventListener("click", function (event) {
+            var citaEl = event.target.closest("[data-ssos-agenda-cita]");
+            if (!citaEl || !modalDetalleCita) {
+                return;
+            }
+            event.stopPropagation();
+
+            document.getElementById("ssosDetalleCitaNombre").textContent = citaEl.dataset.nombre || "";
+            document.getElementById("ssosDetalleCitaInfo").textContent =
+                (citaEl.dataset.staffNombre || "") + " · " + (citaEl.dataset.servicio || "") + " · " + (citaEl.dataset.hora || "");
+            var estatusEl = document.getElementById("ssosDetalleCitaEstatus");
+            estatusEl.textContent = etiquetasEstatusJs[citaEl.dataset.estatus] || citaEl.dataset.estatus;
+
+            var acciones = document.getElementById("ssosDetalleCitaAcciones");
+            acciones.innerHTML = "";
+            var idCita = citaEl.dataset.idCita;
+            var estatus = citaEl.dataset.estatus;
+
+            function botonAccion(texto, claseCss, nuevoEstatus) {
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "btn btn-sm " + claseCss;
+                btn.textContent = texto;
+                btn.addEventListener("click", function () {
+                    document.getElementById("ssosFormEstatusCitaId").value = idCita;
+                    document.getElementById("ssosFormEstatusCitaNuevo").value = nuevoEstatus;
+                    formEstatusCita.submit();
+                });
+                return btn;
+            }
+
+            if (estatus === "reservada") {
+                acciones.appendChild(botonAccion("Confirmar", "btn-outline-secondary", "confirmada"));
+            }
+            if (estatus === "reservada" || estatus === "confirmada") {
+                acciones.appendChild(botonAccion("Completar", "btn-ssos-turquesa", "completada"));
+                acciones.appendChild(botonAccion("No-Show", "btn-outline-secondary", "no_show"));
+                acciones.appendChild(botonAccion("Cancelar", "btn-outline-danger", "cancelada"));
+            }
+
+            modalDetalleCita.show();
+        });
+
+        // ── Click en una celda vacía/operativa: abre "Nueva Cita" prellenada ──
+        agendaMatriz.addEventListener("click", function (event) {
+            if (event.target.closest("[data-ssos-agenda-cita]")) {
+                return; // ya lo maneja el listener de arriba
+            }
+            var celda = event.target.closest("[data-ssos-agenda-celda]");
+            if (!celda || !modalNuevaCita) {
+                return;
+            }
+            var ocupadas = parseInt(celda.dataset.ocupadas || "0", 10);
+            if (ocupadas >= 4) {
+                return; // franja llena — el semáforo rojo ya lo comunica visualmente
+            }
+            document.getElementById("ssosNuevaCitaFecha").value = celda.dataset.fecha;
+            document.getElementById("ssosNuevaCitaHora").value = celda.dataset.hora;
+            modalNuevaCita.show();
+        });
+
+        // ── Drag & drop: mover una cita a otra franja ──────────────────────
+        agendaMatriz.addEventListener("dragstart", function (event) {
+            var citaEl = event.target.closest("[data-ssos-agenda-cita]");
+            if (!citaEl) {
+                return;
+            }
+            event.dataTransfer.setData("text/plain", citaEl.dataset.idCita);
+            citaEl.classList.add("is-dragging");
+        });
+
+        agendaMatriz.addEventListener("dragend", function (event) {
+            var citaEl = event.target.closest("[data-ssos-agenda-cita]");
+            if (citaEl) {
+                citaEl.classList.remove("is-dragging");
+            }
+        });
+
+        agendaMatriz.addEventListener("dragover", function (event) {
+            var celda = event.target.closest("[data-ssos-agenda-celda]");
+            if (!celda) {
+                return;
+            }
+            event.preventDefault();
+            celda.classList.add("is-drop-target");
+        });
+
+        agendaMatriz.addEventListener("dragleave", function (event) {
+            var celda = event.target.closest("[data-ssos-agenda-celda]");
+            if (celda) {
+                celda.classList.remove("is-drop-target");
+            }
+        });
+
+        agendaMatriz.addEventListener("drop", function (event) {
+            var celda = event.target.closest("[data-ssos-agenda-celda]");
+            if (!celda) {
+                return;
+            }
+            event.preventDefault();
+            celda.classList.remove("is-drop-target");
+
+            var idCita = event.dataTransfer.getData("text/plain");
+            if (!idCita) {
+                return;
+            }
+
+            var body = new URLSearchParams({
+                csrf_token: csrfTokenAgenda(),
+                accion: "mover_cita",
+                id_cita: idCita,
+                nueva_fecha: celda.dataset.fecha,
+                nueva_hora: celda.dataset.hora,
+            });
+
+            fetch(window.location.pathname + window.location.search, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: body.toString(),
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.ok) {
+                        window.location.reload();
+                    } else {
+                        window.alert(data.error || "No se pudo mover la cita.");
+                    }
+                })
+                .catch(function () {
+                    window.alert("No se pudo mover la cita (error de red).");
+                });
+        });
+
+        // ── Sidebar derecho: ocultar/mostrar citas por coach (client-side, sin recargar) ──
+        document.querySelectorAll("[data-ssos-agenda-toggle-staff]").forEach(function (checkbox) {
+            checkbox.addEventListener("change", function () {
+                var idStaff = checkbox.getAttribute("data-ssos-agenda-toggle-staff");
+                document.querySelectorAll('[data-ssos-agenda-cita][data-id-staff="' + idStaff + '"]').forEach(function (citaEl) {
+                    citaEl.style.display = checkbox.checked ? "" : "none";
+                });
+            });
+        });
+    }
 })();
