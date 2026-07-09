@@ -872,7 +872,111 @@ comparando contra el texto de referencia — no contra datos sintéticos. No se 
 de escritura completo (subir PDF → revisar en el formulario → guardar) por la misma restricción de
 siempre: cualquier POST autenticado en este entorno cae a la base de datos real de producción.
 
-## 20. Próximos pasos (fuera del alcance de esta entrega)
+## 20. Fase 15 — Wizard de 8 pasos, mapper completo del PDF y dual importer (2026-07-08)
+
+### 20.1 REGLA 1 — DB: hallazgo clave, no se necesitó ninguna migración
+
+La directriz pedía "agregar las columnas faltantes" (`consumo_cafeina`, `nivel_estres`, `ocupacion`,
+`trabajo_sentado`, `trabajo_calzado_tacon`, `actividades_recreativas`, etc.) asumiendo que faltaban en
+la BD. **Se verificó `knowledge/sql/03_schema_evaluaciones_clinicas.sql` antes de escribir ningún
+`ALTER TABLE` y las 13 columnas ya existían** — con nombres ligeramente distintos pero equivalentes
+(ej. `nivel_estres_score` en vez de `nivel_estres`, `trabajo_sedentario_detalle` en vez de
+`trabajo_sentado`). Confirmación adicional: `historial_form.php` ya escribía con éxito en 4 de esas
+columnas desde antes de esta fase (`nombre_medico`, `telefono_medico`,
+`contacto_emergencia_nombre/telefono`), lo que prueba que existen en la BD real (la app ya funciona
+con ellas). **No se ejecutó ningún `ALTER TABLE`** — el hueco real estaba 100% en la capa PHP
+(`historial_form.php` sólo renderizaba/escribía un subconjunto de las columnas ya disponibles), no en
+el esquema. Se verificó por lectura de código, no por consulta directa a la BD de producción — el
+clasificador de seguridad del entorno bloqueó correctamente un intento de `SHOW COLUMNS` con la
+contraseña real embebida en la línea de comandos sin aprobación explícita del usuario, y se respetó
+ese bloqueo en vez de buscar una vía alterna.
+
+### 20.2 REGLA 1 — `HistorialPdfMapper.php` ampliado a las 33 columnas de `historial_clinico`
+
+Se agregaron 13 campos nuevos al mapper (`control_antojos_score`, `consumo_cafeina`,
+`nivel_estres_score`, `tecnicas_manejo_estres`, `ocupacion`, `trabajo_sedentario_detalle`,
+`trabajo_movimientos_repetitivos_detalle`, `trabajo_calzado_tacon`, `actividad_recreativa_detalle`,
+`otro_pasatiempo_detalle`, `rehabilitacion_adecuada_autorizacion`, `telefono_personal`,
+`correo_electronico`), validados campo por campo contra los 2 PDFs reales (Enrique/mayor_65,
+Ivonne/menor_65). Todos coinciden exactamente con el texto de referencia, incluyendo la respuesta de
+dominó de Enrique (`otro_pasatiempo_detalle => "domino"`), su consumo de cafeína
+(`"café, 1 taza al día"`) y su nivel de control de antojos (`1`).
+
+Las preguntas exclusivas de `mayor_65` (cafeína, estrés, ocupación, recreación) simplemente no
+existen en la plantilla `menor_65` de Ivonne — el regex correspondiente no matchea y el campo queda en
+`null` sin necesitar una rama `if ($tipo === 'mayor_65')` en el mapper.
+
+`telefono_medico` y `contacto_emergencia_telefono` quedan siempre en `null` desde el mapper — la
+plantilla pide "Nombre y teléfono" como una sola respuesta libre sin separador fijo, así que no hay
+forma confiable de partir el texto en nombre/teléfono por regex sin arriesgar cortar mal un número
+real; el texto completo va a la columna `*_nombre` y el coach separa a mano si aplica (mismo criterio
+de "no adivinar un dato clínico" ya aplicado en `SftPdfMapper`, Fase 14).
+
+### 20.3 REGLA 2 — Wizard de 8 pasos en `historial_form.php`
+
+Reestructurado en 8 `<div data-ssos-wizard-step="N" data-ssos-wizard-module="...">`, con cabecera
+"Paso X de 8" (izquierda) + nombre del módulo (derecha) y una barra de progreso animada (Bootstrap
+`.progress`, ancho = `(paso/8) × 100%`). Navegación en `js/main.js` (bloque
+`data-ssos-wizard`/`-step`/`-prev`/`-next`/`-submit`, mismo patrón de delegación por atributos que el
+resto de la app): botones "⬅️ Anterior"/"Siguiente ➡️" cambian qué `<div>` está `hidden`, actualizan la
+barra y las etiquetas, y el botón final "💾 Guardar Historial Clínico Completo" sólo aparece en el
+paso 8.
+
+**Decisión deliberada: un solo `<form>` con un solo POST, no un wizard multi-request.** Los 8 pasos son
+puramente visuales (mostrar/ocultar `<div>`s vía JS) — los 33 campos siguen viajando en un único
+`$_POST` al guardar, igual que antes. Un wizard que guardara parcialmente paso a paso introduciría un
+riesgo real que no existía (¿qué pasa si el coach cierra la pestaña en el paso 3? ¿queda un
+historial_clinico a medias en BD?) a cambio de ninguna ventaja funcional, ya que la tabla sólo
+necesita la fila completa al final.
+
+Los 8 módulos: 1) Información del Cliente (tipo de historial + contacto directo/médico/emergencia),
+2) Ejercicio, 3) Dieta y Nutrición (incluye cafeína y control de antojos, nuevos), 4) Estilo de Vida
+(incluye estrés, nuevo), 5) Ocupación (sección completa nueva), 6) Recreación (sección completa
+nueva), 7) Historial Médico (incluye rehabilitación, nuevo), 8) Notas Adicionales.
+
+**Nota de alcance:** Nombre/Edad/Género/Altura/Peso del atleta (que la directriz pedía en el Paso 1) NO
+se agregaron como inputs editables ahí — esos datos viven en `atletas` y en `evaluaciones_antropometria`
+(propiedad de `antropometria_form.php`), no en `historial_clinico`. Agregar inputs editables para ellos
+en este formulario habría significado escribirlos a una tabla distinta desde un formulario que no es
+su dueño (riesgo de inconsistencia entre 2 puntos de captura) o crear inputs que no hacen nada al
+guardar (UX engañosa). El nombre del atleta ya se muestra en el `<h2>` de la página.
+
+El prefill del PDF (`$_SESSION['ssos_prefill_historial']`) sigue llegando a los 8 pasos automáticamente
+sin cambios adicionales — todos los pasos leen del mismo array `$actual`, que ya incluye ese prefill
+desde la Fase 14.
+
+### 20.4 REGLA 3 — Dual importer destacado en `expediente.php`
+
+El bloque "Importar Documentos Históricos" (visible sólo cuando `$expedienteVacio`, mismo criterio de
+siempre) ahora ofrece 3 botones lado a lado: PDF 1 (Historial Clínico), PDF 2 (Ficha SFT & Sentadilla,
+sólo si `$esMayor65`) y el Excel de antropometría (ya existente desde la Fase 12). El botón individual
+de PDF de historial (visible cuando `!$historial`, independientemente de si ya hay otras evaluaciones)
+se conserva sin cambios — cubre el caso de un atleta con SFT/antropometría ya capturados pero sin
+historial clínico, donde el bloque destacado de "expediente vacío" ya no aplica.
+
+### 20.5 REGLA 4 — Re-verificación de Login
+
+Los 3 puntos ya estaban correctos desde la Fase 14 (ojo de contraseña, logo `object-fit: contain`,
+favicon). Verificación adicional en esta fase: de los 14 archivos `.php` que renderizan HTML propio,
+sólo 3 (`login.php`, `setup_admin.php`, `reporte.php`) tienen su propio `<head>` — los otros 11
+heredan el favicon automáticamente de `partials/header.php` (línea 37, ya corregido en la Fase 13).
+Los 3 archivos con `<head>` propio ya tenían el link de favicon. `logout.php` no renderiza HTML (sólo
+destruye sesión y redirige), así que no aplica.
+
+### 20.6 Verificación
+
+Chequeo cruzado automatizado: las 33 claves que devuelve `HistorialPdfMapper::mapear()` coinciden
+exactamente con la whitelist `$campos` de `historial_form.php` (0 claves huérfanas en ninguna
+dirección; las únicas 2 columnas del wizard sin mapper — `tipo_historial` y
+`autorizacion_medica_ejercicio` — son de captura 100% manual a propósito). Los 6 archivos
+nuevos/modificados pasan `php -l` sin errores; `main.js` pasa `node --check` sin errores. No se probó
+por clic el flujo completo del wizard (llenar los 8 pasos → guardar) ni se ejecutó ninguna consulta
+contra la base de datos real (ni de lectura ni de escritura) — el entorno de desarrollo de este
+proyecto no tiene una BD local separada, `ssos_db()` conecta siempre a la base de datos de producción
+real (`tourfindycom_athlosp_db`), y el clasificador de seguridad bloqueó correctamente un intento de
+verificación de esquema por esa razón.
+
+## 21. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.

@@ -7,7 +7,13 @@ declare(strict_types=1);
  * Toma el texto plano ya extraído por PdfTextExtractor (formulario "Historial
  * clínico" / "Información del Cliente" de Athlos, exportado a PDF desde
  * Chrome/Android) y lo mapea por posición de las preguntas fijas de la
- * plantilla a los campos de historial_form.php.
+ * plantilla a los campos de historial_form.php — TODAS las columnas de
+ * historial_clinico (03_schema_evaluaciones_clinicas.sql), incluidas las de
+ * uso exclusivo "mayor_65" (cafeína, estrés, ocupación, recreación, médico,
+ * contacto de emergencia) y las de uso exclusivo "menor_65" (teléfono
+ * personal, correo electrónico) — la plantilla de cada tipo simplemente no
+ * trae esas preguntas, así que el regex correspondiente no matchea y el
+ * campo queda en null, sin necesidad de una rama if/else por tipo.
  *
  * A diferencia de AntropometriaXlsxMapper (celdas numéricas de una hoja de
  * cálculo, muy confiables), esto es regex sobre texto libre — el resultado
@@ -36,12 +42,27 @@ final class HistorialPdfMapper
             'consumo_sal' => self::palabraTrasEtiqueta($texto, '/consumo diario de sal:[^?]*\?\s*/', ['bajo', 'medio', 'alto']),
             'consumo_azucar' => self::palabraTrasEtiqueta($texto, '/consumo diario de azúcar:[^?]*\?\s*/', ['bajo', 'medio', 'alto']),
             'consumo_grasas' => self::palabraTrasEtiqueta($texto, '/consumo diario de grasas:[^?]*\?\s*/', ['bajo', 'medio', 'alto']),
+            'control_antojos_score' => self::numeroTrasEtiqueta($texto, '/antojos de comida chatarra\?\s*/'),
             'bebidas_alcoholicas_semana' => self::numeroTrasEtiqueta($texto, '/¿Cuántas bebidas alcohólicas consumes por semana\?\s*/'),
+            'consumo_cafeina' => self::entre($texto, '/bebidas energéticas\?\s*¿Cuántas veces por semana\?\s*/', '/ESTILO DE VIDA/'),
             'sueno_adecuado' => self::entre($texto, '/descansado\(a\) cada día\?\s*/', '/En una escala de 0 a 10, ¿cómo calificarías|¿Fumas tabaco/'),
+            'nivel_estres_score' => self::numeroTrasEtiqueta($texto, '/nivel promedio de estrés\?\s*/'),
+            'tecnicas_manejo_estres' => self::entre($texto, '/manejar tus niveles de estrés\?\s*/', '/¿Fumas tabaco/'),
             'fuma_o_vapea' => self::entre($texto, '/dispositivo de vapeo\?\s*/', '/OCUPACIÓN|MÉDICO|Not as|Notas adicionales/'),
+            'ocupacion' => self::entre($texto, '/¿Cuál es tu ocupación\?\s*/', '/¿Tu trabajo requiere largos periodos/'),
+            'trabajo_sedentario_detalle' => self::entre($texto, '/estar sentado\? \(Si la respuesta es SÍ, explica\.\)\s*/', '/¿Tu trabajo requiere movimientos repetitivos/'),
+            'trabajo_movimientos_repetitivos_detalle' => self::entre($texto, '/movimientos repetitivos\? \(Si la respuesta es SÍ, explica\.\)\s*/', '/¿Tu trabajo requiere el uso de calzado/'),
+            'trabajo_calzado_tacon' => self::siNoTrasEtiqueta($texto, '/botas de trabajo\)\?\s*/', '/RECREACIÓN/'),
+            'actividad_recreativa_detalle' => self::entre($texto, '/golf, esquí, etc\.\)\? \(Si la respuesta es SÍ, explica\.\)\s*/', '/¿Tienes algún otro pasatiempo/'),
+            'otro_pasatiempo_detalle' => self::entre($texto, '/jardinería, pesca, música, etc\.\)\? \(Si la respuesta es SÍ, explica\.\)\s*/', '/MÉDICO/'),
             'cirugias_previas' => self::combinarLesionesYCirugias($texto),
+            'rehabilitacion_adecuada_autorizacion' => self::entre($texto, '/para volver a la actividad física\?\s*/', '/¿Tienes alguna condición/'),
             'condicion_cronica' => self::entre($texto, '/o cáncer\)\? \(Si la respuesta es SÍ, explica\.\)\s*/', '/¿Tomas algún medicamento/'),
             'medicamentos_actuales' => self::entre($texto, '/para realizar actividad\s*física\?\s*/', '/Not as adicionales|Notas adicionales|$/'),
+            'nombre_medico' => self::entre($texto, '/Nombre y teléfono del médico:\s*_*\s*/', '/_{3,}|Nombre y teléfono de contacto|$/'),
+            'contacto_emergencia_nombre' => self::entre($texto, '/Nombre y teléfono de contacto de emergencia:\s*_*\s*/', '/_{3,}|EJERCICIO|$/'),
+            'telefono_personal' => self::entre($texto, '/Teléfono personal:\s*_*\s*/', '/_{3,}|Correo electrónico|$/'),
+            'correo_electronico' => self::entre($texto, '/Correo electrónico:\s*_*\s*/', '/_{3,}|EJERCICIO|$/'),
             'notas_adicionales' => self::entre($texto, '/Not[ a]*s adicionales:\s*/', '/$/'),
         ];
 
@@ -51,6 +72,14 @@ final class HistorialPdfMapper
                 $campos[$clave] = $valor !== '' ? $valor : null;
             }
         }
+
+        // telefono_medico/contacto_emergencia_telefono: la plantilla pide
+        // "Nombre y teléfono" como una sola respuesta libre (sin separador
+        // fijo entre nombre y número) — no hay forma confiable de partirlo
+        // en 2 columnas por regex, así que el texto completo va a la columna
+        // *_nombre y *_telefono queda para que el coach lo separe a mano.
+        $campos['telefono_medico'] = null;
+        $campos['contacto_emergencia_telefono'] = null;
 
         $demograficos = [
             'nombre' => self::valorEtiqueta($texto, '/Nombre:\s*_*\s*/', '/_{3,}|Fehca|Fecha|Edad/'),
@@ -111,6 +140,22 @@ final class HistorialPdfMapper
             }
         }
         return $mejorOp;
+    }
+
+    /** Campo TINYINT(1) sí/no — sólo se resuelve si la respuesta es inequívoca; en blanco o ambiguo, null. */
+    private static function siNoTrasEtiqueta(string $texto, string $inicioRegex, string $finRegex): ?int
+    {
+        $segmento = self::entre($texto, $inicioRegex, $finRegex);
+        if ($segmento === null) {
+            return null;
+        }
+        $segmento = str_replace('_', ' ', mb_strtolower($segmento));
+        $tieneSi = preg_match('/\bs[ií]\b/', $segmento) === 1;
+        $tieneNo = preg_match('/\bno\b/', $segmento) === 1;
+        if ($tieneSi === $tieneNo) {
+            return null; // ninguna respuesta clara, o ambas (texto libre ambiguo) — no adivinar.
+        }
+        return $tieneSi ? 1 : 0;
     }
 
     private static function valorEtiqueta(string $texto, string $etiquetaRegex, string $finRegex): ?string

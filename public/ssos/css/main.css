@@ -245,6 +245,52 @@ body.ssos-app-body {
     overflow-x: auto;
 }
 
+/* ─── Wizard de 8 pasos (Historial Clínico) ─────────────────────────────── */
+
+.ssos-wizard-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.ssos-wizard-step-label {
+    font-weight: 700;
+    color: var(--athlos-azul-profundo);
+}
+
+[data-theme="dark"] .ssos-wizard-step-label {
+    color: var(--athlos-turquesa);
+}
+
+.ssos-wizard-module-label {
+    color: var(--ssos-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.85rem;
+}
+
+.ssos-wizard-progress {
+    height: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--ssos-border);
+}
+
+.ssos-wizard-progress-bar {
+    background: var(--athlos-turquesa);
+    transition: width 0.3s ease;
+}
+
+.ssos-wizard-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
 .ssos-table-card table {
     color: var(--ssos-text);
     margin-bottom: 0;

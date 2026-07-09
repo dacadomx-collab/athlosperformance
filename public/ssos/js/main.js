@@ -140,6 +140,70 @@
         boton.setAttribute("aria-label", mostrando ? "Mostrar contraseña" : "Ocultar contraseña");
     });
 
+    // ─── Wizard de 8 pasos (Historial Clínico): navegación 100% client-side,
+    // un solo <form>/POST — el wizard sólo esconde/muestra fieldsets, nunca
+    // envía nada a medio llenar. ─────────────────────────────────────────────
+    document.querySelectorAll("[data-ssos-wizard]").forEach(function (wizard) {
+        var pasos = Array.prototype.slice.call(wizard.querySelectorAll("[data-ssos-wizard-step]"));
+        if (pasos.length === 0) {
+            return;
+        }
+        var total = pasos.length;
+        var stepLabel = wizard.querySelector("[data-ssos-wizard-step-label]");
+        var moduleLabel = wizard.querySelector("[data-ssos-wizard-module-label]");
+        var progressBar = wizard.querySelector("[data-ssos-wizard-progress-bar]");
+        var btnPrev = wizard.querySelector("[data-ssos-wizard-prev]");
+        var btnNext = wizard.querySelector("[data-ssos-wizard-next]");
+        var btnSubmit = wizard.querySelector("[data-ssos-wizard-submit]");
+        var actual = 0;
+
+        var mostrar = function (indice) {
+            pasos.forEach(function (paso, i) {
+                paso.hidden = i !== indice;
+            });
+            if (stepLabel) {
+                stepLabel.textContent = "Paso " + (indice + 1) + " de " + total;
+            }
+            if (moduleLabel) {
+                moduleLabel.textContent = pasos[indice].getAttribute("data-ssos-wizard-module") || "";
+            }
+            if (progressBar) {
+                var pct = Math.round(((indice + 1) / total) * 100);
+                progressBar.style.width = pct + "%";
+                wizard.querySelector(".ssos-wizard-progress").setAttribute("aria-valuenow", String(pct));
+            }
+            if (btnPrev) {
+                btnPrev.hidden = indice === 0;
+            }
+            if (btnNext) {
+                btnNext.hidden = indice === total - 1;
+            }
+            if (btnSubmit) {
+                btnSubmit.hidden = indice !== total - 1;
+            }
+            wizard.scrollIntoView({ behavior: "smooth", block: "start" });
+        };
+
+        if (btnNext) {
+            btnNext.addEventListener("click", function () {
+                if (actual < total - 1) {
+                    actual++;
+                    mostrar(actual);
+                }
+            });
+        }
+        if (btnPrev) {
+            btnPrev.addEventListener("click", function () {
+                if (actual > 0) {
+                    actual--;
+                    mostrar(actual);
+                }
+            });
+        }
+
+        mostrar(actual);
+    });
+
     // ─── Modal compartido "Editar Atleta": rellena los campos desde los
     // data-* del botón que lo abrió, en vez de un modal por fila. ────────────
     var modalEditarAtleta = document.getElementById("modalEditarAtleta");
