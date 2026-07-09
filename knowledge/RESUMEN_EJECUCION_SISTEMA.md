@@ -1060,7 +1060,80 @@ claves del mapper siguen coincidiendo 1:1 con la whitelist del wizard tras los c
 nuevos/modificados pasan `php -l` sin errores. No se tocó ninguna fila real de `atletas`,
 `historial_clinico` ni `evaluaciones_antropometria` en esta fase.
 
-## 22. Próximos pasos (fuera del alcance de esta entrega)
+## 22. Fase 17 — Candado cognitivo secuencial y módulo Evaluación (SFT) (2026-07-08)
+
+### 22.1 REGLA 3 — Auditoría exhaustiva de la Ficha Evaluación: sin hallazgos nuevos
+
+Se releyó el PDF completo de "Ficha Evaluación adulto mayor" (las 3 páginas, con el lector de PDF
+nativo del asistente como segunda verificación independiente de `PdfTextExtractor`) buscando
+específicamente los campos que la directriz sugería como posibles ausentes: frecuencia cardíaca,
+presión arterial, saturación de oxígeno, notas de equilibrio. **Ninguno existe en el documento real.**
+La sección "Análisis Sentadilla" (páginas 2-3) es texto de referencia/definición de cada compensación
+postural (Feet Flatten, Knees Move Inward, etc.) acompañado de fotografías ilustrativas fijas
+(Figuras 5.15-5.18, protocolo Rikli & Jones) — no es un checklist con casillas marcadas específicas de
+Enrique, es el mismo texto explicativo para cualquier paciente. No hay señal en el documento que
+distinga "esta compensación aplica a Enrique" de "esta compensación no aplica" — por lo tanto no se
+generó ningún `ALTER TABLE`: no hay un campo real que esté sin mapear. Se reporta esto explícitamente
+en vez de fabricar columnas para datos que el PDF no contiene.
+
+### 22.2 REGLA 1 — Candado cognitivo: flujo secuencial Historial → Evaluación
+
+`expediente.php`: el bloque de "expediente vacío" ahora ofrece **únicamente** el importador de PDF de
+Historial Clínico (antes mostraba también el de Ficha SFT lado a lado). El botón "🩺 Evaluación (SFT)"
+sólo aparece cuando `historial_clinico.tipo_historial === 'mayor_65'` — se agregó
+`$moduloEvaluacionDisponible`, deliberadamente basado en el tipo de historial YA clasificado y no en
+la edad cruda de `atletas` (que puede existir sin historial capturado todavía). Si el atleta es mayor
+de 65 por edad pero aún no tiene el historial capturado, se muestra un botón deshabilitado con el
+mensaje "🔒 captura el Historial primero" en vez de ocultarlo sin explicación.
+
+`historial_form.php`: si el PDF recién importado detectó una edad ≥ 65 **y** el historial es nuevo
+(`!$habiaHistorialEnBD`), el selector "Tipo de historial" se fija a "Adulto Mayor (65+)" y se
+deshabilita (con un `<input type="hidden">` para que el valor sí viaje en el POST pese a estar
+`disabled`), mostrando un aviso "🔒 Fijado automáticamente... según la edad detectada en el PDF (85
+años)". Deliberadamente **no** se bloquea en ediciones posteriores de un historial ya guardado sin un
+PDF nuevo de por medio — el coach conserva la capacidad de corregir una clasificación ya capturada si
+de verdad lo necesita; el candado sólo actúa en el momento de la importación automática, que es
+donde la directriz lo pedía.
+
+**Defensa en profundidad:** el mismo candado (`historial_clinico.tipo_historial === 'mayor_65'`) se
+valida también server-side dentro de `sft_form.php` e `importar_pdf_sft.php` directamente — no sólo en
+el nuevo hub `evaluacion_sft.php` — porque ambas URLs son alcanzables directo sin pasar por el hub, y
+la UI ocultando un botón nunca es, por sí sola, un control de seguridad real.
+
+### 22.3 REGLA 2 — Nuevo módulo `atleta/evaluacion_sft.php`
+
+Hub central del Senior Fitness Test para atletas mayor_65, con 3 secciones:
+
+- **Ayudas visuales:** 4 contenedores para las Figuras 5.15-5.18 del protocolo Rikli & Jones, mapeados
+  a `public/ssos/img/sft/figura-5-1X.jpg` con *fallback* `onerror` a un placeholder visual ("🖼️ Figura
+  5.16 — Knees Move Inward") cuando el archivo no existe todavía. **Deliberadamente no se extrajeron
+  las fotografías reales del PDF ni se descargaron de internet** — son fotografías con derechos de
+  autor del libro/plantilla original (aparecen literalmente en el PDF, confirmado al releerlo); el
+  staff coloca su propia copia con licencia en esa carpeta si quiere mostrarlas.
+- **Tablas de referencia SFT dinámicas ("Inteligencia de Género"):** se consulta
+  `percentiles_sft_referencia` filtrado por `atletas.sexo` y se pivotea en PHP (`obtener_normas_sft()`)
+  al mismo layout visual de las tablas "SFT Norms, Men/Women" del PDF original. Si el sexo del atleta
+  todavía no está definido (`no_especificado`), se muestran ambas tablas con una advertencia en vez de
+  ocultar una al azar.
+- Accesos a "Importar PDF" y "Nuevo SFT (manual)", y lista de evaluaciones SFT previas del atleta.
+
+### 22.4 REGLA 3 — Feedback visual de campos vacíos tras importar un PDF
+
+`importar_pdf_historial.php` e `importar_pdf_sft.php` ahora comparan los campos mapeados contra `null`
+y muestran una tarjeta "⚠️ Campos que el PDF dejó en blanco — captúralos a mano" con un badge por cada
+campo sin respuesta en el documento original (ej. para Enrique: técnicas de manejo de estrés, trabajo
+sedentario/repetitivo, calzado con tacón, notas adicionales — todos genuinamente en blanco en su PDF
+real). Distingue explícitamente "el PDF no tenía esta respuesta" de "hubo un error de extracción".
+
+### 22.5 Verificación
+
+Los 6 archivos nuevos/modificados pasan `php -l` sin errores. La auditoría de campos (§22.1) se hizo
+releyendo el PDF real por 2 vías independientes (extractor propio + lector de referencia) — no se
+generó DDL nuevo porque no hacía falta. No se probó por clic el flujo completo (candado en vivo,
+render de las tablas de normas, placeholders de figuras) por la misma restricción de siempre: este
+entorno no tiene una BD local separada de producción.
+
+## 23. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.

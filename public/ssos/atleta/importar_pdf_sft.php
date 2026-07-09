@@ -39,6 +39,15 @@ if (!$atleta) {
     die('Atleta no encontrado.');
 }
 
+// REGLA-01 (candado cognitivo): mismo requisito que evaluacion_sft.php.
+$stmt = $db->prepare('SELECT tipo_historial FROM historial_clinico WHERE id_atleta = :id');
+$stmt->execute(['id' => $id_atleta]);
+$historialCandado = $stmt->fetch();
+if (!$historialCandado || $historialCandado['tipo_historial'] !== 'mayor_65') {
+    http_response_code(403);
+    die('Este módulo requiere un Historial Clínico capturado y clasificado como Adulto Mayor (65+). Captúralo primero desde el Expediente.');
+}
+
 $errores = [];
 $resultado = null;
 
@@ -116,6 +125,29 @@ require __DIR__ . '/../partials/header.php';
                     <li><strong><?= e(ucfirst($etiqueta)) ?>:</strong> <?= e((string) $valor) ?></li>
                 <?php endforeach; ?>
             </ul>
+        </div>
+    <?php endif; ?>
+    <?php
+        $etiquetasCampos = [
+            'chair_stand_reps' => 'Chair Stand', 'arm_curl_reps' => 'Arm Curl',
+            'two_min_step_pasos' => '2-Min Step', 'functional_reach_cm' => 'Functional Reach',
+            'time_up_go_cognitivo_seg' => 'Time Up-&-Go Cognitivo', 'observaciones' => 'Observaciones de Sentadilla',
+        ];
+        $camposVacios = [];
+        foreach ($resultado['campos'] as $campo => $valor) {
+            if ($valor === null && isset($etiquetasCampos[$campo])) {
+                $camposVacios[] = $etiquetasCampos[$campo];
+            }
+        }
+    ?>
+    <?php if (!empty($camposVacios)): ?>
+        <div class="ssos-table-card mb-3 border-warning">
+            <h5 class="mb-2">⚠️ Campos que el PDF dejó en blanco — captúralos a mano</h5>
+            <div class="d-flex flex-wrap gap-2">
+                <?php foreach ($camposVacios as $etiqueta): ?>
+                    <span class="badge text-bg-warning"><?= e($etiqueta) ?></span>
+                <?php endforeach; ?>
+            </div>
         </div>
     <?php endif; ?>
     <a href="sft_form.php?id_atleta=<?= $id_atleta ?>&desde_pdf=1" class="btn btn-ssos-turquesa btn-lg">

@@ -117,6 +117,46 @@ require __DIR__ . '/../partials/header.php';
             </ul>
         </div>
     <?php endif; ?>
+    <?php
+        $etiquetasCampos = [
+            'telefono_personal' => 'Teléfono personal', 'correo_electronico' => 'Correo electrónico',
+            'nombre_medico' => 'Nombre del médico', 'telefono_medico' => 'Teléfono del médico',
+            'contacto_emergencia_nombre' => 'Contacto de emergencia', 'contacto_emergencia_telefono' => 'Teléfono de emergencia',
+            'actividades_ejercicio_actual' => 'Actividades de ejercicio', 'dias_ejercicio_moderado_semana' => 'Días de ejercicio/semana',
+            'objetivo_perdida_peso' => 'Objetivo: pérdida de peso', 'objetivo_masa_muscular' => 'Objetivo: masa muscular',
+            'objetivo_rendimiento_deportivo' => 'Objetivo: rendimiento', 'objetivo_mejorar_salud' => 'Objetivo: mejorar salud',
+            'dieta_saludable_score' => 'Dieta saludable (score)', 'sigue_dieta_actual' => 'Dieta actual',
+            'consumo_sal' => 'Consumo de sal', 'consumo_azucar' => 'Consumo de azúcar', 'consumo_grasas' => 'Consumo de grasas',
+            'control_antojos_score' => 'Control de antojos', 'bebidas_alcoholicas_semana' => 'Alcohol/semana', 'consumo_cafeina' => 'Cafeína',
+            'sueno_adecuado' => 'Sueño', 'nivel_estres_score' => 'Nivel de estrés', 'tecnicas_manejo_estres' => 'Técnicas de estrés',
+            'fuma_o_vapea' => 'Fuma/vapea', 'ocupacion' => 'Ocupación', 'trabajo_sedentario_detalle' => 'Trabajo sedentario',
+            'trabajo_movimientos_repetitivos_detalle' => 'Movimientos repetitivos', 'trabajo_calzado_tacon' => 'Calzado con tacón',
+            'actividad_recreativa_detalle' => 'Actividad recreativa', 'otro_pasatiempo_detalle' => 'Otro pasatiempo',
+            'cirugias_previas' => 'Lesiones/cirugías previas', 'rehabilitacion_adecuada_autorizacion' => 'Rehabilitación/autorización',
+            'condicion_cronica' => 'Condición crónica', 'medicamentos_actuales' => 'Medicamentos actuales',
+            'notas_adicionales' => 'Notas adicionales',
+        ];
+        $camposVacios = [];
+        foreach ($resultado['campos'] as $campo => $valor) {
+            if ($valor === null && isset($etiquetasCampos[$campo])) {
+                $camposVacios[] = $etiquetasCampos[$campo];
+            }
+        }
+    ?>
+    <?php if (!empty($camposVacios)): ?>
+        <div class="ssos-table-card mb-3 border-warning">
+            <h5 class="mb-2">⚠️ Campos que el PDF dejó en blanco — captúralos a mano</h5>
+            <p class="text-body-secondary mb-2">
+                El PDF no traía respuesta para estos <?= count($camposVacios) ?> campos. No es un error de
+                extracción — revísalos en el wizard y complétalos si aplica.
+            </p>
+            <div class="d-flex flex-wrap gap-2">
+                <?php foreach ($camposVacios as $etiqueta): ?>
+                    <span class="badge text-bg-warning"><?= e($etiqueta) ?></span>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
     <a href="historial_form.php?id_atleta=<?= $id_atleta ?>&desde_pdf=1" class="btn btn-ssos-turquesa btn-lg">
         Continuar a Revisar y Guardar Historial Clínico
     </a>

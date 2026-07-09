@@ -77,6 +77,13 @@ if (!empty($atleta['fecha_nacimiento'])) {
     $esMayor65 = $edad >= 65;
 }
 
+// REGLA-01 (candado cognitivo, "el PDF es la única ley"): el módulo de
+// Evaluación (SFT) sólo se desbloquea cuando el historial_clinico YA fue
+// capturado/clasificado como mayor_65 — no basta con la edad cruda de
+// `atletas` (que puede venir de un alta manual sin historial todavía). Esto
+// fuerza el flujo secuencial: primero Historial, después Evaluación.
+$moduloEvaluacionDisponible = $historial && $historial['tipo_historial'] === 'mayor_65';
+
 // ── Expediente vacío: sin historial clínico NI ninguna evaluación previa.
 // Sólo en ese caso se ofrece el cargador de Excel histórico (REGLA 1) — en
 // cuanto exista al menos un dato (por Excel o formulario manual), el botón
@@ -101,22 +108,18 @@ require __DIR__ . '/../partials/header.php';
 
 <?php if ($expedienteVacio): ?>
     <div class="ssos-table-card ssos-dropzone mb-4">
-        <h5 class="mb-2">📥 Importar Documentos Históricos</h5>
+        <h5 class="mb-2">📥 Paso 1: Importar Historial Clínico</h5>
         <p class="text-body-secondary mb-3">
-            Este atleta todavía no tiene historial clínico ni evaluaciones. Si ya existen PDFs o el Excel
-            histórico de este atleta, súbelos aquí en vez de capturar todo a mano — el texto se prellena
-            en el formulario correspondiente y tú confirmas cada campo antes de guardar. En cuanto se
-            registre el primer dato, estas opciones desaparecen.
+            Este atleta todavía no tiene historial clínico ni evaluaciones. Empieza aquí: sube el PDF de
+            Historial Clínico y el texto se prellena en el formulario — tú confirmas cada campo antes de
+            guardar. Si el PDF indica 65 años o más, el sistema fija el tipo a Adulto Mayor
+            automáticamente y <strong>recién ahí</strong> aparece el módulo "Evaluación (SFT)" — por
+            diseño, no se ofrece antes de tener el historial capturado.
         </p>
         <div class="d-flex flex-wrap gap-2">
             <a href="importar_pdf_historial.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-turquesa btn-lg">
-                📄 Importar PDF 1: Historial Clínico
+                📄 Importar PDF: Historial Clínico
             </a>
-            <?php if ($esMayor65): ?>
-                <a href="importar_pdf_sft.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-turquesa btn-lg">
-                    📊 Importar PDF 2: Ficha Evaluación SFT &amp; Sentadilla
-                </a>
-            <?php endif; ?>
             <a href="importar_excel_historico.php?id_atleta=<?= $id_atleta ?>" class="btn btn-outline-primary btn-lg">
                 📥 Subir Excel de Antropometría (.xlsx)
             </a>
@@ -127,9 +130,12 @@ require __DIR__ . '/../partials/header.php';
 <div class="d-flex flex-wrap gap-2 mb-4">
     <a href="historial_form.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-primary">📋 Historial Clínico</a>
     <a href="antropometria_form.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-primary">📏 Nueva Antropometría</a>
-    <?php if ($esMayor65): ?>
-        <a href="sft_form.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-primary">🏃 Nuevo Senior Fitness Test</a>
-        <a href="importar_pdf_sft.php?id_atleta=<?= $id_atleta ?>" class="btn btn-outline-primary">📄 Importar Ficha SFT desde PDF</a>
+    <?php if ($moduloEvaluacionDisponible): ?>
+        <a href="evaluacion_sft.php?id_atleta=<?= $id_atleta ?>" class="btn btn-ssos-primary">🩺 Evaluación (SFT)</a>
+    <?php elseif ($esMayor65): ?>
+        <span class="btn btn-outline-secondary disabled" title="Captura primero el Historial Clínico (65+) para desbloquear este módulo">
+            🔒 Evaluación (SFT) — captura el Historial primero
+        </span>
     <?php endif; ?>
     <a href="<?= e($urlReporte) ?>" class="btn btn-ssos-turquesa" target="_blank" rel="noopener noreferrer">
         📄 Generar Reporte Athlos Score™ (PDF / Impresión)

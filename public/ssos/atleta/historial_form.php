@@ -91,6 +91,20 @@ if (!empty($_SESSION['ssos_prefill_historial_demografico'][$id_atleta])) {
     $prefillDemografico['peso_kg'] = is_numeric($demo['peso'] ?? null) ? (string) $demo['peso'] : '';
 }
 
+// REGLA-01 (candado cognitivo): si el PDF que se acaba de importar detectó
+// una edad >= 65 y este historial todavía no existía, el tipo se fija y
+// bloquea a mayor_65 — el módulo "Evaluación (SFT)" en expediente.php sólo
+// aparece cuando tipo_historial === 'mayor_65', así que este candado es lo
+// que efectivamente activa el flujo secuencial. No se bloquea en ediciones
+// posteriores (sin un PDF nuevo en esta misma carga) para no atrapar al
+// coach si de verdad necesita corregir una clasificación ya guardada.
+$tipoHistorialBloqueado = !$habiaHistorialEnBD
+    && $prefillDemografico !== []
+    && (int) ($prefillDemografico['edad'] ?? 0) >= 65;
+if ($tipoHistorialBloqueado) {
+    $actual['tipo_historial'] = 'mayor_65';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_validate($_POST['csrf_token'] ?? null)) {
         $errores[] = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
@@ -267,10 +281,22 @@ require __DIR__ . '/../partials/header.php';
         <div class="ssos-wizard-step" data-ssos-wizard-step="1" data-ssos-wizard-module="Información del Cliente">
             <div class="ssos-table-card mb-3">
                 <label class="form-label fw-bold">Tipo de historial</label>
-                <select name="tipo_historial" class="form-select" required>
-                    <option value="menor_65" <?= ($actual['tipo_historial'] ?? '') === 'menor_65' ? 'selected' : '' ?>>Menor de 65 años</option>
-                    <option value="mayor_65" <?= ($actual['tipo_historial'] ?? '') === 'mayor_65' ? 'selected' : '' ?>>Adulto Mayor (65+)</option>
-                </select>
+                <?php if ($tipoHistorialBloqueado): ?>
+                    <div class="alert alert-info ssos-alert py-2 mb-2">
+                        🔒 Fijado automáticamente a <strong>Adulto Mayor (65+)</strong> — el PDF importado
+                        indica <?= (int) $prefillDemografico['edad'] ?> años. Al guardar, se habilitará el
+                        módulo "Evaluación (SFT)".
+                    </div>
+                    <input type="hidden" name="tipo_historial" value="mayor_65">
+                    <select class="form-select" disabled>
+                        <option selected>Adulto Mayor (65+) — bloqueado por edad detectada en PDF</option>
+                    </select>
+                <?php else: ?>
+                    <select name="tipo_historial" class="form-select" required>
+                        <option value="menor_65" <?= ($actual['tipo_historial'] ?? '') === 'menor_65' ? 'selected' : '' ?>>Menor de 65 años</option>
+                        <option value="mayor_65" <?= ($actual['tipo_historial'] ?? '') === 'mayor_65' ? 'selected' : '' ?>>Adulto Mayor (65+)</option>
+                    </select>
+                <?php endif; ?>
             </div>
             <div class="ssos-table-card mb-3">
                 <h5>Datos del atleta</h5>

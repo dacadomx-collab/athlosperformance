@@ -291,6 +291,37 @@ body.ssos-app-body {
     margin-top: 1rem;
 }
 
+/* ─── Módulo Evaluación (SFT): placeholders de figuras de referencia ────── */
+
+.ssos-sft-figura {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    border: 1px dashed var(--ssos-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--ssos-bg);
+}
+
+.ssos-sft-figura img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ssos-sft-figura-placeholder {
+    display: none;
+    position: absolute;
+    inset: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--ssos-text-muted);
+    gap: 0.35rem;
+}
+
 .ssos-table-card table {
     color: var(--ssos-text);
     margin-bottom: 0;

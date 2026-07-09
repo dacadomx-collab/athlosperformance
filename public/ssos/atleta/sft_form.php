@@ -35,6 +35,17 @@ if (!$atleta) {
     die('Atleta no encontrado.');
 }
 
+// REGLA-01 (candado cognitivo): mismo requisito que evaluacion_sft.php,
+// validado aquí también porque esta URL es alcanzable directamente sin pasar
+// por el hub — el candado debe sostenerse en cualquier punto de entrada.
+$stmt = $db->prepare('SELECT tipo_historial FROM historial_clinico WHERE id_atleta = :id');
+$stmt->execute(['id' => $id_atleta]);
+$historialCandado = $stmt->fetch();
+if (!$historialCandado || $historialCandado['tipo_historial'] !== 'mayor_65') {
+    http_response_code(403);
+    die('Este módulo requiere un Historial Clínico capturado y clasificado como Adulto Mayor (65+). Captúralo primero desde el Expediente.');
+}
+
 $edadActual = !empty($atleta['fecha_nacimiento'])
     ? (new DateTimeImmutable($atleta['fecha_nacimiento']))->diff(new DateTimeImmutable())->y
     : null;
