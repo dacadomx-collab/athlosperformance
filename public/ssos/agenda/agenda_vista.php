@@ -4,12 +4,19 @@ declare(strict_types=1);
 /**
  * Vista de agenda.php — separada del controlador por tamaño. Recibe todas
  * las variables ya calculadas ($diasSemana, $horasMatriz, $citasPorCelda,
- * $coloresStaff, $clientesDelMes, etc.) desde index.php vía `require`.
+ * $coloresStaff, $clientesDelMes, etc.) desde index.php o desde el tab-pane
+ * de dashboard/index.php vía `require`. Cuando se embebe en el Dashboard, el
+ * caller define `$ssos_agenda_embebida = true` ANTES de este require, para
+ * no duplicar el encabezado de página (el Dashboard ya pone el suyo propio
+ * arriba de las pestañas).
  */
+$ssos_agenda_embebida = $ssos_agenda_embebida ?? false;
 ?>
 
-<span class="ssos-role-badge">Agenda y Calendario de Citas</span>
-<h2 class="mt-3">Semana del <?= e($lunes->format('d/m/Y')) ?></h2>
+<?php if (!$ssos_agenda_embebida): ?>
+    <span class="ssos-role-badge">Agenda y Calendario de Citas</span>
+    <h2 class="mt-3">Semana del <?= e($lunes->format('d/m/Y')) ?></h2>
+<?php endif; ?>
 <p class="text-body-secondary">Cupo máximo: <strong><?= AgendaBusinessRules::CUPO_MAXIMO_FRANJA ?> personas por franja de hora</strong>. Lunes a Sábado — domingo cerrado.</p>
 
 <?php if ($mensajeOk): ?>

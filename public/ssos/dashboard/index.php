@@ -20,10 +20,20 @@ require_login();
 $db = ssos_db();
 $rol = $_SESSION['clave_rol'];
 
+$verCalendario = in_array($rol, ['coach', 'admin', 'super_admin'], true);
 $verClientes = in_array($rol, ['admin', 'super_admin'], true);
 $verPieDeCancha = in_array($rol, ['coach', 'admin', 'super_admin'], true);
 $verControl = $rol === 'super_admin';
 $verHerramientas = $rol === 'super_admin';
+
+// El Calendario es la pestaña de aterrizaje del Dashboard (Fase 23) — misma
+// lógica de datos/POST que la página standalone agenda/index.php, extraída a
+// agenda_logica.php para no duplicarla. Debe ejecutarse ANTES de cualquier
+// salida HTML: el handler AJAX de "mover cita" (drag-and-drop) responde JSON
+// y hace `exit` a mitad de este archivo si la petición es esa.
+if ($verCalendario) {
+    require_once __DIR__ . '/../agenda/agenda_logica.php';
+}
 
 // ── Alta de usuarios del staff (Coach/Administración), sólo Dirección ───────
 $erroresUsuarioNuevo = [];
@@ -273,7 +283,14 @@ $etiquetasRol = [
 ];
 
 // ── Orden de pestañas visibles + cuál queda activa por defecto ──────────────
+// El Calendario va PRIMERO a propósito: al ser tabsDisponibles[0], queda
+// automáticamente como pestaña de aterrizaje (REGLA de la Fase 23) sin
+// necesitar una bandera "es la pestaña por defecto" separada y sin riesgo de
+// que se desincronice si el orden cambia en el futuro.
 $tabsDisponibles = [];
+if ($verCalendario) {
+    $tabsDisponibles[] = ['id' => 'calendario', 'icono' => '📅', 'label' => 'Calendario'];
+}
 if ($verControl) {
     $tabsDisponibles[] = ['id' => 'control', 'icono' => '📊', 'label' => 'Dirección y Control'];
 }
@@ -286,7 +303,7 @@ if ($verPieDeCancha) {
 if ($verHerramientas) {
     $tabsDisponibles[] = ['id' => 'herramientas', 'icono' => '🛠️', 'label' => 'Herramientas & API'];
 }
-$tabActivaPorDefecto = $tabsDisponibles[0]['id'] ?? 'pie-de-cancha';
+$tabActivaPorDefecto = $tabsDisponibles[0]['id'] ?? 'calendario';
 
 $ssos_page_title = 'Dashboard';
 $ssos_active_nav = 'dashboard';
@@ -311,6 +328,13 @@ require __DIR__ . '/../partials/header.php';
 </ul>
 
 <div class="tab-content" id="ssosTabContent">
+
+<?php if ($verCalendario): ?>
+<div class="tab-pane fade ssos-tab-pane <?= 'calendario' === $tabActivaPorDefecto ? 'show active' : '' ?>"
+     id="pane-calendario" role="tabpanel" aria-labelledby="tab-btn-calendario">
+    <?php $ssos_agenda_embebida = true; require __DIR__ . '/../agenda/agenda_vista.php'; ?>
+</div>
+<?php endif; ?>
 
 <?php if ($verControl): ?>
 <div class="tab-pane fade ssos-tab-pane <?= 'control' === $tabActivaPorDefecto ? 'show active' : '' ?>"
