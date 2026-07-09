@@ -77,6 +77,19 @@ function ssos_asset(string $path): string
 }
 
 /**
+ * URL absoluta hacia un asset FUERA de /ssos, en `assets/` en la raíz del
+ * repo (compartido con el sitio Next.js — ej. `assets/img/logo.png`).
+ * `ssos_base_url()` termina en ".../public/ssos"; subir 2 niveles llega a la
+ * raíz del repo (".../public/ssos" → ".../public" → raíz), sea cual sea el
+ * dominio/subcarpeta real de la petición (misma independencia de entorno que
+ * `ssos_asset()`).
+ */
+function ssos_asset_repo(string $path): string
+{
+    return dirname(ssos_base_url(), 2) . '/' . ltrim($path, '/');
+}
+
+/**
  * Redirige al Dashboard Único (todos los roles entran al mismo archivo;
  * el contenido se renderiza condicionalmente por rol dentro de él) y
  * termina la ejecución.

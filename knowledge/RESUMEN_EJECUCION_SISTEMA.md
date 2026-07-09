@@ -1133,7 +1133,76 @@ generó DDL nuevo porque no hacía falta. No se probó por clic el flujo complet
 render de las tablas de normas, placeholders de figuras) por la misma restricción de siempre: este
 entorno no tiene una BD local separada de producción.
 
-## 23. Próximos pasos (fuera del alcance de esta entrega)
+## 23. Fase 18 — Breadcrumb responsivo, favicon global, mapa de BD y auditoría forense (2026-07-09)
+
+### 23.1 REGLA 1 — Breadcrumb sin utilidades ad-hoc + favicon global
+
+`partials/header.php`: el contenedor `.ssos-breadcrumb` ("⬅️ Volver al Dashboard" / "📂 Volver al
+Expediente") dejó de depender de clases sueltas de Bootstrap (`d-flex flex-wrap gap-2` inline en el
+`<div>`) y pasó a una regla centralizada en `main.css` (`display:flex; flex-wrap:wrap; gap:0.5rem`,
+sin anchos fijos en px, con `white-space: normal` en los botones para que el texto envuelva en vez de
+desbordar en pantallas angostas). No se encontró ningún `style=""` literal en ese botón al auditar el
+código — el único inline style real del proyecto es el ancho dinámico de la barra de progreso del
+wizard (`historial_form.php`, controlado por JS en tiempo real), que es un caso legítimo de valor
+calculado en runtime, no una decisión de diseño estática, y se dejó sin cambios.
+
+Favicon: se detectó `assets/img/logo.png` (500×500, PNG con transparencia, en la raíz del repo —
+compartido con el sitio Next.js, fuera de `public/ssos/`). Nuevo helper `ssos_asset_repo()` en
+`helpers.php` (sube 2 niveles desde `ssos_base_url()` para llegar a la raíz del repo, misma
+independencia de entorno que `ssos_asset()`). Los 4 `<link rel="icon">` del proyecto (`header.php`,
+`login.php`, `setup_admin.php`, `reporte.php`) se migraron de `img/favicon.ico` (`image/x-icon`) a
+`assets/img/logo.png` (`image/png`).
+
+### 23.2 REGLA 2 — `knowledge/MAPA_BASE_DATOS.md`: índice generado, no transcrito a mano
+
+Nuevo documento generado automáticamente (script PHP de una sola vez, no una herramienta permanente)
+parseando `knowledge/sql/tourfindycom_athlosp_db.sql` — las 24 tablas reales de producción, columna
+por columna, con tipo/nulabilidad/default. **Estructura únicamente**: se verificó explícitamente que
+el archivo no contiene ningún nombre de paciente ni fila de datos real (grep de "Enrique"/"Ivonne"/
+apellidos conocidos → 0 coincidencias) antes de considerarlo seguro para el repositorio. Se aprovechó
+para diffear estructuralmente `atletas`, `historial_clinico` y `evaluaciones_antropometria` contra los
+esquemas versionados (`02_...sql`, `03_...sql`): **coinciden exactamente**, sin drift — las únicas
+diferencias visuales (`JSON` vs `longtext ... CHECK (json_valid(...))`, `INT UNSIGNED` vs
+`int(10) UNSIGNED`) son representaciones equivalentes que MariaDB normaliza al hacer `SHOW CREATE
+TABLE`, no diferencias reales de esquema.
+
+### 23.3 REGLA 3 — Auditoría forense: Historial Clínico de Enrique, aislado de la Ficha Evaluación
+
+Se releyó el PDF "Enrique Historial clínico adultos mayores Español.pdf" pregunta por pregunta (33
+preguntas/campos en total) y se verificó cada una contra `historial_clinico`, `atletas` y
+`evaluaciones_antropometria` en el volcado real. **Resultado: no falta ninguna columna — no se generó
+ningún `ALTER TABLE`.** Cobertura confirmada campo por campo:
+
+- Las 33 preguntas del PDF (ejercicio, dieta, estilo de vida, ocupación, recreación, médico, notas)
+  mapean 1:1 a columnas ya existentes de `historial_clinico` (ver Fases 14 y 16).
+- Nombre/Edad/Género/Altura/Peso alimentan `atletas.fecha_nacimiento`/`sexo` y
+  `evaluaciones_antropometria.estatura_cm`/`peso_kg` vía la sincronización de la Fase 16 — ya
+  cubiertos, ninguna columna nueva requerida.
+- `telefono_medico`/`contacto_emergencia_telefono` (el PDF los pide como una sola respuesta libre
+  "Nombre y teléfono", sin separador) y el checkbox `autorizacion_medica_ejercicio` (el PDF no lo
+  presenta como una pregunta Sí/No aislada, va mezclado en la respuesta de texto libre de
+  medicamentos) se dejan deliberadamente para captura manual — ya documentado en la Fase 16, no es un
+  hueco de esquema, es una decisión de "no adivinar un dato clínico".
+
+**Hallazgo no solicitado pero relevante, encontrado al leer los datos reales del volcado:** el
+registro real de Enrique (`id_atleta = 10`) ya tiene un `historial_clinico` guardado
+(`id_historial = 1`, `created_at = 2026-07-08 23:49:41`) con **`tipo_historial = 'menor_65'`** —
+pese a que Enrique tiene 85 años — y `atletas.fecha_nacimiento`/`sexo` siguen en `NULL`/
+`no_especificado`. Esto es consistente con que ese guardado se hizo con una versión del wizard
+anterior al candado cognitivo y la sincronización multi-tabla (Fases 16-17, ambas de esta misma
+sesión) — no es un bug del código actual, es un registro de prueba que quedó desactualizado. Se
+reporta para que el Comandante decida: volver a guardar el historial desde el wizard actual (que sí
+lo clasificaría correctamente y sincronizaría atletas/antropometría), o corregirlo a mano en
+phpMyAdmin.
+
+### 23.4 Verificación
+
+Los 6 archivos PHP/CSS modificados pasan `php -l`/revisión visual sin errores. `MAPA_BASE_DATOS.md`
+verificado sin datos de pacientes reales antes de commitear. La auditoría del §23.3 se hizo releyendo
+el PDF real (no de memoria) y cruzando contra el volcado real de producción (no sólo el esquema
+versionado) para máxima fidelidad ("el PDF es la única ley").
+
+## 24. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.

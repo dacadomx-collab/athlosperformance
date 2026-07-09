@@ -34,7 +34,7 @@ $ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Athlos Performance — Sistema de Control Deportivo | <?= e($ssos_page_title) ?></title>
-    <link rel="icon" type="image/x-icon" href="<?= e(ssos_asset('img/favicon.ico')) ?>">
+    <link rel="icon" type="image/png" href="<?= e(ssos_asset_repo('assets/img/logo.png')) ?>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="<?= e(ssos_base_url()) ?>/css/main.css" rel="stylesheet">
 </head>
@@ -89,7 +89,7 @@ $ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard';
 <main class="ssos-main">
 
 <?php if ($ssos_mostrar_breadcrumb_dashboard || $ssos_breadcrumb_atleta): ?>
-    <div class="ssos-breadcrumb mb-3 d-flex flex-wrap gap-2">
+    <div class="ssos-breadcrumb mb-3">
         <?php if ($ssos_mostrar_breadcrumb_dashboard): ?>
             <a href="<?= e($ssos_dashboard_href) ?>" class="btn btn-sm btn-outline-secondary">⬅️ Volver al Dashboard</a>
         <?php endif; ?>
