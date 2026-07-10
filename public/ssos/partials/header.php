@@ -16,6 +16,7 @@ $ssos_rol_label = match ($ssos_rol) {
     'super_admin' => 'Dirección de Laboratorio',
     'admin'       => 'Administración / Recepción',
     'coach'       => 'Coach Especialista',
+    'atleta'      => 'Portal del Atleta',
     default       => '',
 };
 
@@ -26,7 +27,7 @@ $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
 // antes de incluir este header. El link "Volver al Dashboard" es universal —
 // se oculta sólo en el propio dashboard, para no linkear una página a sí misma.
 $ssos_breadcrumb_atleta = $ssos_breadcrumb_atleta ?? null;
-$ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard';
+$ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard' && $ssos_rol !== 'atleta';
 ?>
 <!DOCTYPE html>
 <html lang="es" data-theme="light">
@@ -89,7 +90,7 @@ $ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard';
 <main class="ssos-main">
 
 <?php if ($ssos_mostrar_breadcrumb_dashboard || $ssos_breadcrumb_atleta): ?>
-    <div class="ssos-breadcrumb arf-grid mb-3">
+    <div class="ssos-breadcrumb arf-grid mb-3<?= $ssos_active_nav === 'agenda' ? ' ssos-breadcrumb--full-viewport-movil' : '' ?>">
         <?php if ($ssos_mostrar_breadcrumb_dashboard): ?>
             <a href="<?= e($ssos_dashboard_href) ?>" class="btn btn-sm btn-ssos-outline">⬅️ Volver al Dashboard</a>
         <?php endif; ?>

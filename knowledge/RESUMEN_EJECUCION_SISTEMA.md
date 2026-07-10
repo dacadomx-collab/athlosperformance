@@ -1563,7 +1563,125 @@ detecta:
 - `agenda/index.php` standalone (admin): 86 498 bytes, sin warnings, conserva su propio encabezado
   "Semana del..." (confirmando que la bandera `$ssos_agenda_embebida` no afecta la página standalone).
 
-## 29. Próximos pasos (fuera del alcance de esta entrega)
+## 29. Fase 24 — Disponibilidad Pública, Configuración Dinámica de Agenda y Portal del Atleta (2026-07-10)
+
+Directiva de 6 misiones del Comandante: encabezado de semana con mes completo, limpieza de UI móvil,
+disponibilidad pública con flujo de pre-aprobación, panel de configuración dinámica (horarios/aforo/
+bloqueos/credenciales de sync), portal de autogestión para el rol `atleta`, y documentación agnóstica
+de las 3 piezas nuevas en `knowledge/MODULO_CALENDARIO_GENERICO.md`.
+
+### 29.1 Misión 1 — Título de semana con mes completo
+
+`AgendaBusinessRules::tituloSemana()` reemplaza el antiguo formato `Semana del DD/MM/YYYY` por
+`Semana del {día} al {día} · {Mes} {Año}` cuando la semana cae en un solo mes, o
+`Semana del {día} {MesCorto} al {día} {MesCorto} · {Mes1} – {Mes2} {Año}` cuando cruza de mes (con manejo
+del caso de cruce de año). Se agregaron `MESES_ES`/`MESES_ES_CORTO` como const arrays propias (el
+proyecto no usaba `setlocale`/`IntlDateFormatter` en ningún otro lugar, así que no valía la pena
+introducir esa dependencia sólo para esto). Bug menor detectado y corregido en la propia sesión: los
+nombres de mes salían en minúscula (`julio` en vez de `Julio`) — faltaba `ucfirst()` en dos de las
+cuatro ramas del método; verificado con casos de mismo mes y de cruce de mes tras el fix.
+
+### 29.2 Misión 2 — Limpieza de interfaz móvil (full viewport)
+
+El breadcrumb superior ("⬅️ Volver al Dashboard") se oculta específicamente en la página de Agenda por
+debajo de 992px (`ssos-breadcrumb--full-viewport-movil`, clase condicional agregada sólo cuando
+`$ssos_active_nav === 'agenda'`), y el bloque de encabezado/toolbar de escritorio (badge de rol, `<h2>`
+de título, toolbar de acciones) se envolvió en `d-none d-lg-block` — en móvil sólo queda visible la
+vista de un solo día a pantalla completa que ya existía desde fases previas. La barra superior con el
+botón hamburguesa se mantiene siempre (es el único punto de navegación que queda en móvil).
+
+### 29.3 Misión 3 — Disponibilidad Pública y flujo de pre-aprobación
+
+- **Migración `07_schema_configuracion_agenda_publica.sql`** (aplicada a producción con autorización
+  explícita del Comandante vía pregunta directa, después de que el clasificador de seguridad la marcara
+  como fuera del alcance de la autorización genérica ya dada — toca el enum de roles y agrega una FK
+  nueva, un cambio estructural mayor al de la Fase 21): agrega las tablas `agenda_disponibilidad`,
+  `agenda_configuracion`, `agenda_bloqueos`; extiende `disponibilidad_agenda.estatus_cita` con
+  `pendiente_aprobacion` y `cancelada_por_cliente`; agrega columnas `solicitante_nombre`/
+  `solicitante_telefono`/`solicitante_email`; agrega el rol `atleta` a `roles` y la columna
+  `usuarios.id_atleta` con su FK. Idempotente (`IF NOT EXISTS`/`INSERT IGNORE` en todo lo posible).
+- **`agenda/agenda_publica.php` + `agenda/agenda_publica_vista.php`** (nuevos, sin login —
+  `partials/header_publico.php`/`footer_publico.php` nuevos, deliberadamente sin sesión ni menú):
+  vista pública que reutiliza el mismo `AgendaBusinessRules` que la matriz interna (mismos días
+  operativos, mismo aforo, mismos bloqueos) para listar sólo franjas futuras con cupo libre, agrupadas
+  por día de la semana visible, con navegación semana anterior/siguiente. Un clic en una franja libre
+  abre un modal Bootstrap con formulario mínimo (nombre + teléfono/correo + servicio + especialista de
+  preferencia); el envío inserta una fila con `estatus_cita = 'pendiente_aprobacion'` — nunca reserva
+  directamente.
+- **Panel de aprobación en `agenda/agenda_vista.php`**: lista `$solicitudesPendientes` (todas las
+  futuras, resuelto en `agenda_logica.php`) con botones "✔ Aceptar"/"✕ Rechazar" que reutilizan el
+  handler existente `cambiar_estatus_cita`, extendido con dos ramas nuevas: aprobar revalida el cupo en
+  ese instante (una solicitud pendiente nunca ocupó cupo mientras esperaba, así que puede haberse
+  llenado con otra cita mientras tanto) y rechazar salta la regla de 3h de anticipación (nunca llegó a
+  confirmarse). También se agregó un banner de alerta con `$cancelacionesClienteRecientes` (últimos 7
+  días) — comparte la misma consulta que alimenta la Misión 5.
+- **Botón "🔗 Compartir Disponibilidad Pública"** en la toolbar del calendario administrativo, usando el
+  patrón `data-ssos-copy-link` ya existente en `main.js` (Clipboard API + toast, sin `alert()`).
+
+### 29.4 Misión 4 — Panel de Configuración Dinámica (`agenda/configuracion.php`, nuevo)
+
+Sólo `admin`/`super_admin`. Extiende `AgendaBusinessRules` con el patrón "config con reserva
+determinística" (§9.1 del documento genérico) para `diasOperativos()`, `cupoMaximoFranja()` y
+`bloqueosEnRango()` — cada uno intenta leer de la BD y cae a la constante hardcodeada previa si la
+migración 07 aún no está aplicada, así el módulo nunca se rompe por una migración pendiente. El panel
+cubre las 5 piezas pedidas: horarios por día (upsert de los 7 días vía `ON DUPLICATE KEY UPDATE`),
+aforo máximo (validado 1-50), alta/baja de bloqueos de recurso (staff específico o laboratorio
+completo), y credenciales de sincronización externa — Google OAuth Client ID en texto plano + Client
+Secret cifrado con AES-256-CBC (`ssos_encriptar()`/`ssos_desencriptar()`, nuevas en `helpers.php`,
+llave derivada de `HMAC_SECRET` ya existente — no se introdujo ninguna variable de entorno nueva) y
+visualización del enlace de feed Apple Webcal de ejemplo, con disclaimer honesto de que el flujo OAuth
+en sí (callback + webhook) no está implementado todavía (documentado como pendiente, §30).
+
+### 29.5 Misión 5 — Portal del Atleta y cancelación autónoma
+
+- **`atleta/portal.php`** (nuevo): `require_role('atleta')`, filtra siempre por
+  `$_SESSION['id_atleta']` (nunca por parámetro de URL) — lista únicamente las citas propias, con botón
+  de cancelar visible sólo si la cita está en un estatus cancelable y quedan ≥ 3 horas. Al cancelar,
+  `estatus_cita = 'cancelada_por_cliente'` — estatus distinto de una cancelación de staff, para poder
+  distinguir ambas señales de negocio en reportes futuros.
+- **`redirect_post_login()`** (helpers.php) extendido con un tercer destino: `atleta` → `/atleta/portal.php`.
+- **`login.php`** ahora selecciona y guarda `usuarios.id_atleta` en `$_SESSION['id_atleta']` junto con
+  el resto de la sesión.
+- **`partials/header.php`**: agregado el label "Portal del Atleta" para el badge de rol, y el
+  breadcrumb "Volver al Dashboard" se oculta también para el rol `atleta` (no tiene acceso a esa
+  pantalla).
+- **Alta de cuentas de atleta**: el formulario existente "Nuevo Usuario del Staff" en
+  `dashboard/index.php` (sólo Dirección) se extendió con la opción de rol "Atleta / Cliente" — al
+  elegirla, se muestra un selector para vincular un atleta ya existente (`atletasActivos`, ya cargado
+  por `agenda_logica.php`) en vez de crear una fila nueva en `staff`; el `INSERT` en `usuarios` ahora
+  incluye `id_atleta`.
+
+### 29.6 Verificación en runtime (CLI, sin navegador — patrón ya establecido en fases previas)
+
+- `agenda_publica.php` (GET simulado, sin sesión): 49 665 bytes, título dinámico correcto
+  ("Semana del 13 al 18 · Julio 2026"), botones de franja libre presentes, modal de solicitud presente.
+- `dashboard/index.php` (GET simulado, rol `admin`, sin solicitudes pendientes en BD): panel de
+  aprobación correctamente ausente (`empty($solicitudesPendientes)`), botón de compartir presente.
+- Se insertó una solicitud pública sintética real (`INSERT ... estatus_cita = 'pendiente_aprobacion'`,
+  claramente marcada `TEST SOLICITUD PUBLICA`), se confirmó que el panel de aprobación aparece cuando
+  hay al menos una fila pendiente, y se eliminó la fila de prueba al terminar.
+- Se creó un usuario y una cita sintéticos para el rol `atleta` (`TEST PORTAL ATLETA`, claramente
+  marcados), se confirmó que `atleta/portal.php` muestra el saludo con el nombre real del atleta
+  vinculado, la fila de la cita, el formulario de cancelación, y que NO aparece el breadcrumb "Volver
+  al Dashboard"; ambas filas de prueba se eliminaron al terminar.
+- **Limitación honesta de esta verificación:** el envío real de POST hacia `cambiar_estatus_cita`
+  (Aceptar/Rechazar) y hacia `cancelar_cita_propia` no se pudo simular end-to-end vía CLI, porque ambos
+  handlers leen los campos con `filter_input(INPUT_POST, ...)`, que en PHP CLI siempre devuelve `NULL`
+  (lee del buffer real de entrada de la petición SAPI, no de `$_POST` manipulado a mano) — limitación
+  ya conocida de este método de prueba, no un bug del código. La lógica de ambos handlers se verificó
+  por lectura de código (revalidación de cupo al aprobar, salto de la regla de 3h al rechazar,
+  verificación de pertenencia antes de cancelar) en vez de por ejecución. **Falta probar Aceptar/
+  Rechazar/Cancelar en un navegador real antes de considerar la Misión 3/5 100% cerradas.**
+
+### 29.7 Misión 6 — Documentación genérica
+
+Se agregaron las secciones §8 (Motor de Disponibilidad Pública y Flujo de Pre-Aprobación), §9 (Matriz
+de Configuración Dinámica: horarios/aforo/ausencias de recurso) y §10 (Protocolo de Cancelación
+Autónoma del Cliente y Reapertura Automática de Slot) a `knowledge/MODULO_CALENDARIO_GENERICO.md`,
+100% agnósticas de marca y de lenguaje de programación, siguiendo el mismo estilo (tablas, pseudocódigo,
+reglas explícitas "por qué") de las secciones 1-7 ya existentes.
+
+## 30. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.
@@ -1588,3 +1706,6 @@ detecta:
   original desde Excel.
 - **Activar sincronización real con Google Calendar** — requiere crear un proyecto en Google Cloud Console, habilitar la API de Calendar y configurar credenciales OAuth2 con el dominio de producción (`athlosperformance.tourfindy.com`) en los orígenes autorizados. El esquema (`sincronizacion_tokens`) y el protocolo completo ya están documentados en `knowledge/MODULO_CALENDARIO_GENERICO.md` §3.1 — falta la implementación del endpoint OAuth callback + webhook receiver, que no se construyó en la Fase 20 por no haber credenciales disponibles para probarlo.
 - Generar y publicar `webcal_uid` por coach (para que puedan suscribirse desde Apple Calendar) — hoy la tabla existe en el script de migración pero no hay UI para generarlo.
+- **Probar en un navegador real** (no sólo CLI) los 3 flujos POST de la Fase 24 que `filter_input(INPUT_POST, ...)` impide simular por línea de comandos: aprobar/rechazar una solicitud pública desde `agenda/index.php`, y cancelar una cita propia desde `atleta/portal.php` (con y sin las 3h mínimas de anticipación).
+- **Dar de alta al menos una cuenta real de atleta** (Fase 24, Misión 5) — el flujo de vinculación ya existe en `dashboard/index.php` ("Nuevo Usuario del Staff" → rol "Atleta / Cliente"), pero ningún atleta real tiene todavía credenciales de acceso al portal.
+- El flujo OAuth de Google Calendar (callback + webhook receiver) sigue sin implementarse — el Panel de Configuración (Fase 24) ya permite *guardar* Client ID/Secret cifrado, pero nada todavía *usa* esas credenciales para sincronizar.

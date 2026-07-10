@@ -14,10 +14,8 @@ $ssos_agenda_embebida = $ssos_agenda_embebida ?? false;
 ?>
 
 <?php if (!$ssos_agenda_embebida): ?>
-    <span class="ssos-role-badge">Agenda y Calendario de Citas</span>
-    <h2 class="mt-3">Semana del <?= e($lunes->format('d/m/Y')) ?></h2>
+    <span class="ssos-role-badge d-none d-lg-inline-block">Agenda y Calendario de Citas</span>
 <?php endif; ?>
-<p class="text-body-secondary">Cupo máximo: <strong><?= AgendaBusinessRules::CUPO_MAXIMO_FRANJA ?> personas por franja de hora</strong>. Lunes a Sábado — domingo cerrado.</p>
 
 <?php if ($mensajeOk): ?>
     <div class="alert alert-success ssos-alert" role="alert"><?= e($mensajeOk) ?></div>
@@ -26,14 +24,67 @@ $ssos_agenda_embebida = $ssos_agenda_embebida ?? false;
     <div class="alert alert-danger ssos-alert" role="alert"><?= e($error) ?></div>
 <?php endforeach; ?>
 
-<div class="ssos-agenda-toolbar arf-grid mb-3">
-    <a href="?fecha=<?= e($lunes->modify('-7 days')->format('Y-m-d')) ?>" class="btn btn-sm btn-ssos-outline">◀ Semana anterior</a>
-    <span class="ssos-agenda-titulo-semana"><?= e(ucfirst($tituloSemana)) ?></span>
-    <a href="?fecha=<?= e($lunes->modify('+7 days')->format('Y-m-d')) ?>" class="btn btn-sm btn-ssos-outline">Semana siguiente ▶</a>
-    <span class="ssos-agenda-indicador-avance" title="<?= $franjasOcupadasTotales ?> de <?= $franjasOperativasTotales * AgendaBusinessRules::CUPO_MAXIMO_FRANJA ?> lugares ocupados esta semana">
-        📊 <?= $pctOcupacionSemana ?>% de ocupación esta semana
-    </span>
-    <button type="button" class="btn btn-sm btn-ssos-turquesa ms-auto" data-bs-toggle="modal" data-bs-target="#modalNuevaCita">+ Nueva Cita</button>
+<?php if (!empty($cancelacionesClienteRecientes)): ?>
+    <div class="alert alert-warning ssos-alert" role="alert">
+        <strong>⚠️ Cancelaciones de clientes en los últimos 7 días:</strong>
+        <ul class="mb-0 mt-1">
+            <?php foreach ($cancelacionesClienteRecientes as $c): ?>
+                <li><?= e($c['atleta_nombre'] ?? 'Atleta') ?> canceló su cita del <?= e($c['fecha_cita']) ?> <?= e(substr($c['hora_inicio'], 0, 5)) ?> con <?= e($c['staff_nombre']) ?> — el espacio ya quedó libre.</li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($solicitudesPendientes)): ?>
+    <div class="ssos-table-card mb-3 border-warning">
+        <h5 class="mb-2">📥 Solicitudes públicas pendientes de aprobación</h5>
+        <p class="text-body-secondary small mb-2">Vinieron del enlace de Disponibilidad Pública — no ocupan cupo hasta que las apruebes.</p>
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Fecha/Hora</th><th>Solicitante</th><th>Especialista</th><th>Servicio</th><th>Acciones</th></tr></thead>
+            <tbody>
+                <?php foreach ($solicitudesPendientes as $s): ?>
+                    <tr>
+                        <td><?= e($s['fecha_cita']) ?> <?= e(substr($s['hora_inicio'], 0, 5)) ?></td>
+                        <td><?= e($s['solicitante_nombre'] ?? '—') ?><br><span class="text-body-secondary small"><?= e($s['solicitante_telefono'] ?? '') ?> <?= e($s['solicitante_email'] ?? '') ?></span></td>
+                        <td><?= e($s['staff_nombre']) ?></td>
+                        <td><?= e($s['nombre_servicio']) ?></td>
+                        <td class="d-flex flex-wrap gap-1">
+                            <form method="post"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="accion" value="cambiar_estatus_cita"><input type="hidden" name="id_cita" value="<?= (int) $s['id_cita'] ?>"><input type="hidden" name="nuevo_estatus" value="confirmada"><button type="submit" class="btn btn-sm btn-ssos-turquesa">✔ Aceptar</button></form>
+                            <form method="post"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="accion" value="cambiar_estatus_cita"><input type="hidden" name="id_cita" value="<?= (int) $s['id_cita'] ?>"><input type="hidden" name="nuevo_estatus" value="cancelada"><button type="submit" class="btn btn-sm btn-outline-danger">✕ Rechazar</button></form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif; ?>
+
+<!-- Encabezado + toolbar: sólo desktop. En móvil la vista de un solo día
+     (más abajo, .ssos-agenda-movil) trae su propia navegación compacta —
+     duplicar esta barra ahí sólo restaría los 100dvh que pide la Misión 2. -->
+<div class="d-none d-lg-block">
+    <h2 class="mt-3"><?= e(AgendaBusinessRules::tituloSemana($lunes, $lunes->modify('+5 days'))) ?></h2>
+    <p class="text-body-secondary">Cupo máximo: <strong><?= $cupoMaximoFranja ?> personas por franja de hora</strong>. Lunes a Sábado — domingo cerrado.</p>
+
+    <div class="ssos-agenda-toolbar arf-grid mb-3">
+        <a href="?fecha=<?= e($lunes->modify('-7 days')->format('Y-m-d')) ?>" class="btn btn-sm btn-ssos-outline">◀ Semana anterior</a>
+        <a href="?fecha=<?= e($lunes->modify('+7 days')->format('Y-m-d')) ?>" class="btn btn-sm btn-ssos-outline">Semana siguiente ▶</a>
+        <span class="ssos-agenda-indicador-avance" title="<?= $franjasOcupadasTotales ?> de <?= $franjasOperativasTotales * $cupoMaximoFranja ?> lugares ocupados esta semana">
+            📊 <?= $pctOcupacionSemana ?>% de ocupación esta semana
+        </span>
+        <?php if (!empty($solicitudesPendientes)): ?>
+            <span class="badge text-bg-warning" title="Solicitudes públicas esperando aprobación">📥 <?= count($solicitudesPendientes) ?> solicitud(es) pendiente(s)</span>
+        <?php endif; ?>
+        <div class="ms-auto d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm btn-ssos-outline" data-ssos-copy-link="<?= e(ssos_base_url()) ?>/agenda/agenda_publica.php">
+                🔗 Compartir Disponibilidad Pública
+            </button>
+            <?php if (in_array($_SESSION['clave_rol'] ?? '', ['admin', 'super_admin'], true)): ?>
+                <a href="configuracion.php" class="btn btn-sm btn-ssos-outline">⚙️ Configuración</a>
+            <?php endif; ?>
+            <button type="button" class="btn btn-sm btn-ssos-turquesa" data-bs-toggle="modal" data-bs-target="#modalNuevaCita">+ Nueva Cita</button>
+        </div>
+    </div>
 </div>
 
 <!-- ══════════ VISTA DESKTOP: matriz semanal 80% + sidebars ══════════ -->
@@ -88,13 +139,16 @@ $ssos_agenda_embebida = $ssos_agenda_embebida ?? false;
                         <th class="ssos-agenda-col-hora"><?= e($hora) ?></th>
                         <?php foreach ($diasSemana as $dia): ?>
                             <?php
-                                $operativa = AgendaBusinessRules::franjaEsOperativa($dia['dia_iso'], $hora);
+                                $operativa = AgendaBusinessRules::franjaEsOperativa($diasOperativos, $dia['dia_iso'], $hora);
+                                $motivoBloqueoGeneral = $operativa ? AgendaBusinessRules::franjaBloqueada($bloqueosSemana, $dia['fecha'], $hora . ':00', null) : null;
                                 $citasCelda = $citasPorCelda[$dia['fecha']][$hora] ?? [];
                                 $ocupadas = $ocupacionPorCelda[$dia['fecha']][$hora] ?? 0;
-                                $semaforo = $operativa ? AgendaBusinessRules::semaforoFranja($ocupadas) : null;
+                                $semaforo = $operativa ? AgendaBusinessRules::semaforoFranja($ocupadas, $cupoMaximoFranja) : null;
                             ?>
                             <?php if (!$operativa): ?>
                                 <td class="ssos-agenda-celda ssos-agenda-celda--cerrada"></td>
+                            <?php elseif ($motivoBloqueoGeneral !== null): ?>
+                                <td class="ssos-agenda-celda ssos-agenda-celda--bloqueada" title="🔒 <?= e($motivoBloqueoGeneral) ?>">🔒</td>
                             <?php else: ?>
                                 <td class="ssos-agenda-celda ssos-agenda-celda--<?= $semaforo ?>"
                                     data-ssos-agenda-celda
@@ -149,18 +203,22 @@ $ssos_agenda_embebida = $ssos_agenda_embebida ?? false;
         <a href="?fecha=<?= e((new DateTimeImmutable($fecha))->modify('-1 day')->format('Y-m-d')) ?>" class="btn btn-sm btn-ssos-outline">◀</a>
         <span class="fw-bold"><?= e((new DateTimeImmutable($fecha))->format('l d/m')) ?></span>
         <a href="?fecha=<?= e((new DateTimeImmutable($fecha))->modify('+1 day')->format('Y-m-d')) ?>" class="btn btn-sm btn-ssos-outline">▶</a>
+        <button type="button" class="btn btn-sm btn-ssos-turquesa ms-auto" data-bs-toggle="modal" data-bs-target="#modalNuevaCita">+ Cita</button>
     </div>
     <div class="ssos-agenda-movil-lista">
         <?php
             $diaIsoMovil = (int) (new DateTimeImmutable($fecha))->format('N');
         ?>
         <?php foreach ($horasMatriz as $hora): ?>
-            <?php if (!AgendaBusinessRules::franjaEsOperativa($diaIsoMovil, $hora)) continue; ?>
+            <?php if (!AgendaBusinessRules::franjaEsOperativa($diasOperativos, $diaIsoMovil, $hora)) continue; ?>
             <?php $citasHora = $citasDelDiaMovil[$hora] ?? []; ?>
+            <?php $motivoBloqueoMovil = AgendaBusinessRules::franjaBloqueada($bloqueosSemana, $fecha, $hora . ':00', null); ?>
             <div class="ssos-agenda-movil-franja">
                 <div class="ssos-agenda-movil-hora"><?= e($hora) ?></div>
                 <div class="ssos-agenda-movil-citas">
-                    <?php if (empty($citasHora)): ?>
+                    <?php if ($motivoBloqueoMovil !== null): ?>
+                        <span class="text-body-secondary small">🔒 <?= e($motivoBloqueoMovil) ?></span>
+                    <?php elseif (empty($citasHora)): ?>
                         <span class="text-body-secondary small">Disponible</span>
                     <?php endif; ?>
                     <?php foreach ($citasHora as $cita): ?>

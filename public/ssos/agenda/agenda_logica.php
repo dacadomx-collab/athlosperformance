@@ -32,8 +32,14 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
 }
 
 $lunes = AgendaBusinessRules::lunesDeLaSemana($fecha);
-$diasOperativos = AgendaBusinessRules::diasOperativos();
-$horasMatriz = AgendaBusinessRules::horasMatriz();
+
+// Config dinámica (Panel de Configuración, Fase 24) resuelta UNA vez por
+// request — todo lo demás en este archivo y en agenda_vista.php recibe estos
+// valores ya resueltos como parámetro, en vez de volver a consultar la BD.
+$diasOperativos = AgendaBusinessRules::diasOperativos($db);
+$cupoMaximoFranja = AgendaBusinessRules::cupoMaximoFranja($db);
+$horasMatriz = AgendaBusinessRules::horasMatriz($diasOperativos);
+$bloqueosSemana = AgendaBusinessRules::bloqueosEnRango($db, $lunes->format('Y-m-d'), $lunes->modify('+5 days')->format('Y-m-d'));
 
 $diasSemana = [];
 foreach ($diasOperativos as $diaIso => $config) {
@@ -43,15 +49,11 @@ foreach ($diasOperativos as $diaIso => $config) {
         'fecha' => $fechaDia->format('Y-m-d'),
         'label' => $config['label'],
         'dia_mes' => (int) $fechaDia->format('j'),
-        'mes_label' => $fechaDia->format('M'),
+        'mes_label' => AgendaBusinessRules::mesEnEspanolCorto($fechaDia),
         'apertura' => $config['apertura'],
         'cierre' => $config['cierre'],
     ];
 }
-$domingo = $lunes->modify('+6 days');
-$tituloSemana = $lunes->format('M') === $domingo->format('M')
-    ? $lunes->format('F Y')
-    : $lunes->format('M') . ' – ' . $domingo->format('M Y');
 
 $errores = [];
 $mensajeOk = null;
@@ -83,6 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'crear
 
         if (empty($errores)) {
             try {
+                $bloqueoDelDia = AgendaBusinessRules::bloqueosEnRango($db, $fechaCita, $fechaCita);
+                $motivoBloqueo = AgendaBusinessRules::franjaBloqueada($bloqueoDelDia, $fechaCita, $horaCita . ':00', $idStaffCita);
+
                 $stmtCupo = $db->prepare(
                     "SELECT COUNT(*) FROM disponibilidad_agenda
                      WHERE fecha_cita = :fecha AND hora_inicio = :hora
@@ -91,8 +96,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'crear
                 $stmtCupo->execute(['fecha' => $fechaCita, 'hora' => $horaCita . ':00']);
                 $ocupadas = (int) $stmtCupo->fetchColumn();
 
-                if ($ocupadas >= AgendaBusinessRules::CUPO_MAXIMO_FRANJA) {
-                    $errores[] = "Cupo lleno para las {$horaCita} (" . AgendaBusinessRules::CUPO_MAXIMO_FRANJA . '/' . AgendaBusinessRules::CUPO_MAXIMO_FRANJA . '). Elige otro horario.';
+                if ($motivoBloqueo !== null) {
+                    $errores[] = "Ese horario está bloqueado ({$motivoBloqueo}). Elige otro horario o especialista.";
+                } elseif ($ocupadas >= $cupoMaximoFranja) {
+                    $errores[] = "Cupo lleno para las {$horaCita} (" . $cupoMaximoFranja . '/' . $cupoMaximoFranja . '). Elige otro horario.';
                 } else {
                     $horaFin = date('H:i', strtotime($horaCita) + 3600);
                     $notas = $nombreProspecto !== '' && !$idAtletaCita ? "Prospecto (sin ficha): {$nombreProspecto}" : null;
@@ -109,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'crear
                         'fecha' => $fechaCita,
                         'hora_inicio' => $horaCita . ':00',
                         'hora_fin' => $horaFin . ':00',
-                        'cupo' => AgendaBusinessRules::CUPO_MAXIMO_FRANJA,
+                        'cupo' => $cupoMaximoFranja,
                         'notas' => $notas,
                     ]);
                     $mensajeOk = 'Cita creada exitosamente.';
@@ -139,6 +146,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'cambi
 
             if (!$cita) {
                 $errores[] = 'Cita no encontrada.';
+            } elseif ($cita['estatus_cita'] === 'pendiente_aprobacion' && $nuevoEstatus === 'confirmada') {
+                // Aprobar una solicitud pública (Misión 3) — revalida el cupo AHORA,
+                // porque una solicitud pendiente nunca contó contra el aforo mientras
+                // esperaba aprobación (varias solicitudes pueden competir por la misma franja).
+                $stmtCupoAprobar = $db->prepare(
+                    "SELECT COUNT(*) FROM disponibilidad_agenda
+                     WHERE fecha_cita = :fecha AND hora_inicio = :hora AND estatus_cita IN ('reservada','confirmada')"
+                );
+                $stmtCupoAprobar->execute(['fecha' => $cita['fecha_cita'], 'hora' => $cita['hora_inicio']]);
+                if ((int) $stmtCupoAprobar->fetchColumn() >= $cupoMaximoFranja) {
+                    $errores[] = 'No se pudo aprobar: la franja ya se llenó con otras citas mientras tanto. Reagenda al solicitante en otro horario.';
+                } else {
+                    $db->prepare('UPDATE disponibilidad_agenda SET estatus_cita = \'confirmada\' WHERE id_cita = :id')->execute(['id' => $idCita]);
+                    $mensajeOk = 'Solicitud aprobada y confirmada.';
+                }
+            } elseif ($cita['estatus_cita'] === 'pendiente_aprobacion' && $nuevoEstatus === 'cancelada') {
+                // Rechazar una solicitud pública — nunca ocupó cupo real, así que no aplica la regla de 3h.
+                $db->prepare('UPDATE disponibilidad_agenda SET estatus_cita = \'cancelada\' WHERE id_cita = :id')->execute(['id' => $idCita]);
+                $mensajeOk = 'Solicitud rechazada.';
             } elseif ($nuevoEstatus === 'cancelada') {
                 $citaDatetime = new DateTimeImmutable("{$cita['fecha_cita']} {$cita['hora_inicio']}");
                 $horasRestantes = ($citaDatetime->getTimestamp() - time()) / 3600;
@@ -191,12 +217,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'mover
     }
 
     $diaIso = (int) (new DateTimeImmutable($nuevaFecha))->format('N');
-    if (!AgendaBusinessRules::franjaEsOperativa($diaIso, $nuevaHora)) {
+    if (!AgendaBusinessRules::franjaEsOperativa($diasOperativos, $diaIso, $nuevaHora)) {
         echo json_encode(['ok' => false, 'error' => 'Esa franja está fuera del horario operativo.']);
         exit;
     }
 
     try {
+        $stmtStaffCita = $db->prepare('SELECT id_staff FROM disponibilidad_agenda WHERE id_cita = :id');
+        $stmtStaffCita->execute(['id' => $idCita]);
+        $idStaffCitaMovida = (int) ($stmtStaffCita->fetchColumn() ?: 0);
+        $bloqueoDestino = AgendaBusinessRules::bloqueosEnRango($db, $nuevaFecha, $nuevaFecha);
+        $motivoBloqueo = AgendaBusinessRules::franjaBloqueada($bloqueoDestino, $nuevaFecha, $nuevaHora . ':00', $idStaffCitaMovida ?: null);
+        if ($motivoBloqueo !== null) {
+            echo json_encode(['ok' => false, 'error' => "Esa franja está bloqueada ({$motivoBloqueo})."]);
+            exit;
+        }
+
         // Cupo del destino, EXCLUYENDO la propia cita que se está moviendo (si ya estaba en esa franja).
         $stmtCupo = $db->prepare(
             "SELECT COUNT(*) FROM disponibilidad_agenda
@@ -207,8 +243,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'mover
         $stmtCupo->execute(['fecha' => $nuevaFecha, 'hora' => $nuevaHora . ':00', 'id_cita' => $idCita]);
         $ocupadas = (int) $stmtCupo->fetchColumn();
 
-        if ($ocupadas >= AgendaBusinessRules::CUPO_MAXIMO_FRANJA) {
-            echo json_encode(['ok' => false, 'error' => 'La franja destino ya está llena (' . AgendaBusinessRules::CUPO_MAXIMO_FRANJA . '/' . AgendaBusinessRules::CUPO_MAXIMO_FRANJA . ').']);
+        if ($ocupadas >= $cupoMaximoFranja) {
+            echo json_encode(['ok' => false, 'error' => 'La franja destino ya está llena (' . $cupoMaximoFranja . '/' . $cupoMaximoFranja . ').']);
             exit;
         }
 
@@ -231,6 +267,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'mover
 }
 
 // ── Datos para la vista ──────────────────────────────────────────────────
+
+// Solicitudes públicas pendientes de aprobación (Misión 3) — se listan TODAS
+// las futuras, no sólo las de la semana visible, porque un prospecto puede
+// pedir una fecha fuera de la semana que el coach tiene abierta ahora mismo.
+$solicitudesPendientes = $db->query(
+    "SELECT da.id_cita, da.fecha_cita, da.hora_inicio, da.solicitante_nombre, da.solicitante_telefono, da.solicitante_email,
+            s.nombre_completo AS staff_nombre, cs.nombre_servicio
+     FROM disponibilidad_agenda da
+     INNER JOIN staff s ON s.id_staff = da.id_staff
+     INNER JOIN catalogo_servicios cs ON cs.id_servicio = da.id_servicio
+     WHERE da.estatus_cita = 'pendiente_aprobacion' AND da.fecha_cita >= CURDATE()
+     ORDER BY da.fecha_cita, da.hora_inicio"
+)->fetchAll();
+
+// Cancelaciones autónomas del cliente (Misión 5) sin atender todavía — "alerta
+// visual" al coach/admin: se resuelve con la misma tabla, sin infraestructura
+// de notificaciones nueva (no hay SMTP/WhatsApp activado en este entorno).
+$cancelacionesClienteRecientes = $db->query(
+    "SELECT da.id_cita, da.fecha_cita, da.hora_inicio, a.nombre_completo AS atleta_nombre, s.nombre_completo AS staff_nombre
+     FROM disponibilidad_agenda da
+     LEFT JOIN atletas a ON a.id_atleta = da.id_atleta
+     INNER JOIN staff s ON s.id_staff = da.id_staff
+     WHERE da.estatus_cita = 'cancelada_por_cliente' AND da.updated_at >= (NOW() - INTERVAL 7 DAY)
+     ORDER BY da.updated_at DESC"
+)->fetchAll();
+
 $staffList = $db->query('SELECT id_staff, nombre_completo FROM staff WHERE activo = 1 ORDER BY nombre_completo')->fetchAll();
 $servicios = $db->query("SELECT id_servicio, nombre_servicio FROM catalogo_servicios WHERE activo = 1 ORDER BY nombre_servicio")->fetchAll();
 $atletasActivos = $db->query("SELECT id_atleta, nombre_completo FROM atletas WHERE estatus = 'activo' ORDER BY nombre_completo")->fetchAll();
@@ -272,11 +334,11 @@ $franjasOcupadasTotales = 0;
 $citasPorStaffSemana = [];
 foreach ($diasSemana as $dia) {
     foreach ($horasMatriz as $hora) {
-        if (!AgendaBusinessRules::franjaEsOperativa($dia['dia_iso'], $hora)) {
+        if (!AgendaBusinessRules::franjaEsOperativa($diasOperativos, $dia['dia_iso'], $hora)) {
             continue;
         }
         $franjasOperativasTotales++;
-        $franjasOcupadasTotales += min($ocupacionPorCelda[$dia['fecha']][$hora] ?? 0, AgendaBusinessRules::CUPO_MAXIMO_FRANJA);
+        $franjasOcupadasTotales += min($ocupacionPorCelda[$dia['fecha']][$hora] ?? 0, $cupoMaximoFranja);
     }
 }
 foreach ($citasSemana as $c) {
@@ -285,7 +347,7 @@ foreach ($citasSemana as $c) {
     }
 }
 $pctOcupacionSemana = $franjasOperativasTotales > 0
-    ? (int) round(($franjasOcupadasTotales / ($franjasOperativasTotales * AgendaBusinessRules::CUPO_MAXIMO_FRANJA)) * 100)
+    ? (int) round(($franjasOcupadasTotales / ($franjasOperativasTotales * $cupoMaximoFranja)) * 100)
     : 0;
 
 // Sidebar izquierdo: clientes con membresía activa este mes, priorizando los que están por agotarse.

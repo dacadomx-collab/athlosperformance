@@ -16,9 +16,12 @@ declare(strict_types=1);
  * vista de un solo día a pantalla completa (100dvh) — ver css `.ssos-agenda-*`
  * en main.css.
  *
- * Cupo estricto: máximo AgendaBusinessRules::CUPO_MAXIMO_FRANJA citas activas
- * por franja de hora (semáforo verde/amarillo/rojo). Arquitectura genérica y
- * agnóstica de este módulo documentada en knowledge/MODULO_CALENDARIO_GENERICO.md.
+ * Días/horarios/aforo son configurables desde el Panel de Configuración
+ * (Fase 24, `dashboard/configuracion_agenda.php`) — `AgendaBusinessRules`
+ * los resuelve desde la BD con fallback determinístico si la migración
+ * `07_schema_configuracion_agenda_publica.sql` aún no se aplicó. Arquitectura
+ * genérica y agnóstica de este módulo documentada en
+ * knowledge/MODULO_CALENDARIO_GENERICO.md.
  */
 
 require_once __DIR__ . '/../config/helpers.php';

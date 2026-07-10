@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $stmt = $db->prepare(
             'SELECT u.id_usuario, u.nombre_completo, u.email, u.password_hash, u.activo,
-                    u.intentos_fallidos, u.bloqueado_hasta, u.id_staff, r.clave_rol
+                    u.intentos_fallidos, u.bloqueado_hasta, u.id_staff, u.id_atleta, r.clave_rol
              FROM usuarios u
              INNER JOIN roles r ON r.id_rol = u.id_rol
              WHERE u.email = :email
@@ -64,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['email'] = $usuario['email'];
             $_SESSION['clave_rol'] = $usuario['clave_rol'];
             $_SESSION['id_staff'] = $usuario['id_staff'] !== null ? (int) $usuario['id_staff'] : null;
+            $_SESSION['id_atleta'] = $usuario['id_atleta'] !== null ? (int) $usuario['id_atleta'] : null;
 
             log_sesion_evento((int) $usuario['id_usuario'], $email, 'login_exitoso');
             redirect_post_login($usuario['clave_rol']);

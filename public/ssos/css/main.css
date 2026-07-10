@@ -820,6 +820,19 @@ body.ssos-app-body {
 .ssos-agenda-celda--amarillo { background: rgba(230, 184, 0, 0.12); }
 .ssos-agenda-celda--rojo { background: rgba(214, 69, 69, 0.12); }
 
+.ssos-agenda-celda--bloqueada {
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(44, 62, 80, 0.15),
+        rgba(44, 62, 80, 0.15) 4px,
+        transparent 4px,
+        transparent 10px
+    );
+    text-align: center;
+    color: var(--ssos-text-muted);
+    cursor: not-allowed;
+}
+
 .ssos-agenda-cita {
     color: #FFFFFF;
     font-size: 0.72rem;
@@ -934,6 +947,17 @@ body.ssos-app-body {
 }
 
 /* ─── Móvil: pantalla completa táctil, sin scroll accidental del body ───── */
+
+/* Misión 2 (Fase 24): en la página de Agenda, el breadcrumb "Volver al
+   Dashboard" (partials/header.php) compite por espacio vertical con la
+   matriz de 100dvh en pantallas angostas — el menú hamburguesa ya cubre esa
+   misma navegación, así que se oculta específicamente ahí (nunca en el
+   resto del sistema, donde sigue siendo el atajo más rápido). */
+@media (max-width: 991.98px) {
+    .ssos-breadcrumb--full-viewport-movil {
+        display: none;
+    }
+}
 
 .ssos-agenda-movil {
     height: 100dvh;

@@ -550,3 +550,224 @@ cita real "desapareció" por una sobrescritura silenciosa.
       un minuto; crear un evento en Google Calendar → aparece en la app tras el siguiente webhook.
     - Si se publicó el feed webcal: suscribir la URL en Apple Calendar → las citas aparecen (permitir
       hasta 15-24h de retraso, es el comportamiento normal de Apple, no un bug).
+
+---
+
+## 8. Motor de Disponibilidad Pública y Flujo de Pre-Aprobación
+
+Extiende el Motor de Disponibilidad (§3) con una superficie **sin autenticación** para que un
+prospecto o cliente externo pueda ver horarios libres y pedir una cita, sin que esa petición reserve
+nada por sí sola. La regla central de todo este flujo: **una solicitud pública nunca es una reserva
+confirmada** — es una fila con un estatus intermedio que un humano del equipo debe aprobar o rechazar.
+
+### 8.1 Estatus intermedio: `pendiente_aprobacion`
+
+Se agrega un valor más al enum de `citas.estatus_cita` (§1.1): `pendiente_aprobacion`. Una fila en
+este estatus:
+
+- **No cuenta contra el cupo máximo de la franja.** El cálculo de ocupación (§3.1, punto 4) sólo
+  considera estatus "activos" (`reservada`/`confirmada`); esto permite que varias solicitudes públicas
+  compitan por la misma franja limitada sin bloquearse mutuamente mientras esperan revisión.
+- **Se revalida el cupo en el momento de la aprobación, no en el de la solicitud.** Si dos prospectos
+  piden la última franja libre y el equipo aprueba la primera solicitud, al intentar aprobar la
+  segunda el sistema debe recontar la ocupación real en ese instante y rechazar la aprobación con un
+  mensaje claro ("la franja ya se llenó mientras tanto") en vez de sobrevender el cupo silenciosamente.
+- **Rechazar una solicitud pendiente nunca aplica la ventana mínima de cancelación (§10.2)** — esa
+  regla protege al operador de cancelaciones tardías de citas YA confirmadas; una solicitud que nunca
+  llegó a confirmarse no la necesita.
+
+### 8.2 Datos de contacto sin cuenta de usuario
+
+La vista pública no exige que el solicitante tenga una cuenta — la fila de la cita guarda directamente
+los datos de contacto mínimos (`nombre_solicitante`, `telefono_solicitante`, `correo_solicitante`) en
+vez de forzar un alta de cliente antes de poder pedir una cita. Si la solicitud se aprueba y el
+prospecto no tenía ficha de cliente todavía, el alta de cliente ocurre en ese momento (aprobación),
+no antes — evita ensuciar la base de clientes con fichas de gente que nunca llegó a confirmar nada.
+
+### 8.3 Qué expone la vista pública (y qué NO)
+
+| Expone | No expone |
+| :--- | :--- |
+| Días/franjas con cupo disponible (agregado, sin desglosar por especialista) | Nombres de clientes/citas ya agendadas en franjas ocupadas |
+| Lista de servicios activos, para que el solicitante elija cuál pide | Notas internas, historial clínico/de consumo, datos de facturación |
+| Lista de especialistas activos, como preferencia (no garantía) | Disponibilidad/agenda personal de un especialista fuera del contexto de esta reserva |
+| Franjas bloqueadas de forma agregada (simplemente no aparecen como opción) | El motivo detallado de un bloqueo específico de un especialista (sólo bloqueos generales ocultan la franja para todos) |
+
+**Regla de diseño:** la vista pública consulta el mismo motor de disponibilidad (§3) que la matriz
+interna — nunca una copia paralela de la lógica de horarios/cupo/bloqueos. Si el motor central cambia
+(ej. se agrega una regla de buffer entre citas), la vista pública la hereda automáticamente sin
+duplicar código.
+
+### 8.4 Flujo end-to-end
+
+```
+Prospecto abre el enlace público
+    → ve únicamente franjas con cupo > 0, futuras, dentro de horario operativo, sin bloqueo activo
+    → elige franja + servicio + especialista de preferencia
+    → llena nombre + al menos un dato de contacto (teléfono o correo)
+    → envía el formulario
+        → INSERT en `citas` con estatus_cita = 'pendiente_aprobacion' (NO se valida cupo estricto aquí
+          más que "no esté ya lleno de citas activas" — la validación fuerte ocurre en la aprobación)
+    → el equipo ve la solicitud en su panel administrativo (badge de conteo + lista con acción)
+    → equipo hace clic en "Aceptar":
+        → revalida cupo real en ese instante
+        → si hay cupo: estatus_cita = 'confirmada' (o el estatus activo equivalente del proyecto)
+        → si ya no hay cupo: rechaza la aprobación con mensaje explícito, la fila queda pendiente para
+          que el operador reagende manualmente al prospecto en otro horario
+    → equipo hace clic en "Rechazar":
+        → estatus_cita = 'cancelada' (o equivalente), sin aplicar ventana de cancelación
+```
+
+### 8.5 Enlace compartible con copiado de un clic
+
+El panel administrativo interno expone un botón "Compartir disponibilidad pública" que copia al
+portapapeles la URL de la vista pública (sin parámetros sensibles, sin token — es una URL genérica de
+solo-consulta). Implementación sugerida sin dependencias externas: la Clipboard API del navegador
+(`navigator.clipboard.writeText`), con una confirmación visual breve (toast) al completarse — nunca un
+`alert()` bloqueante.
+
+---
+
+## 9. Matriz de Configuración Dinámica (Horarios, Aforo y Ausencias de Recurso)
+
+Todo lo que en una primera versión del módulo suele vivir hardcodeado en código (qué días se trabaja,
+qué horario tiene cada día, cuántos cupos hay por franja) se convierte en **configuración editable en
+caliente por un rol administrativo**, sin despliegue de código ni reinicio del servicio. Este documento
+ya definía `disponibilidad` (§1.2) como la fuente de horarios — esta sección formaliza el patrón
+completo de panel de administración sobre esa y otras tablas de configuración.
+
+### 9.1 Principio de diseño: "configuración con reserva determinística, nunca error fatal"
+
+Cada pieza de configuración dinámica se lee así:
+
+```
+función obtenerConfiguracion(clave):
+    intentar leer el valor desde la tabla de configuración
+    si la tabla no existe todavía (proyecto sin migrar) o no hay fila para esa clave:
+        devolver un valor por defecto hardcodeado, equivalente al comportamiento pre-configuración
+    si la lectura tiene éxito:
+        devolver el valor real de la base de datos
+```
+
+Esto significa que **el módulo nunca se rompe** por una migración de configuración pendiente de
+aplicar — simplemente opera con los valores por defecto hasta que alguien active el panel. Es el mismo
+patrón que ya usa este documento para colores de especialista (§1.3) y horario recurrente (§1.2),
+extendido aquí a aforo variable y bloqueos de recurso.
+
+### 9.2 Días y horarios de trabajo configurables
+
+Editable directamente sobre la tabla `disponibilidad` (§1.2) desde una pantalla de administración:
+por cada día de la semana, un interruptor activo/inactivo y dos campos de hora (apertura/cierre). Un
+día "apagado" simplemente no tiene fila activa — la matriz visual (§4.1) y el motor de disponibilidad
+(§3) ya derivan automáticamente qué días mostrar a partir de esta tabla, así que apagar un día no
+requiere ningún cambio adicional en ningún otro componente.
+
+### 9.3 Aforo máximo variable
+
+`citas.cupo_maximo_franja` (§1.1) tiene un valor por defecto, pero el panel de configuración expone un
+campo numérico editable (ej. rango razonable 1-50) que se guarda en una tabla de configuración general
+de clave/valor. Al cambiar este valor:
+
+- Las citas **ya agendadas conservan el cupo que tenían al momento de crearse** (queda grabado en su
+  propia fila) — cambiar el aforo global no reescribe retroactivamente citas pasadas.
+- Las franjas **futuras aún no llenas** recalculan su semáforo (§3.3) inmediatamente contra el nuevo
+  valor, sin esperar a que alguien recargue una caché — el motor de disponibilidad siempre lee el valor
+  vigente en el momento de la consulta.
+
+### 9.4 Ausencias/bloqueos de recurso
+
+Reutiliza `bloqueos_disponibilidad` (§1.5) como la tabla única tanto para "un especialista específico
+no disponible" (`id_especialista` con valor) como para "cierre general del negocio" (`id_especialista`
+NULL — festivo, mantenimiento). El panel de administración ofrece un formulario simple: especialista
+(opcional — vacío significa bloqueo general), fecha/hora de inicio, fecha/hora de fin, motivo libre.
+
+**Regla de cruce importante para la vista agregada (matriz que no distingue por especialista):** al
+calcular si una franja debe mostrarse como bloqueada en una vista que agrega TODOS los especialistas
+(en vez de mostrar la agenda de uno solo), sólo los bloqueos **generales** (`id_especialista IS NULL`)
+deben ocultar la franja completa — un bloqueo del especialista A no debe ocultar la franja para el
+especialista B, que sigue disponible. La función de verificación de bloqueo debe aceptar un parámetro
+explícito de "¿para qué especialista estoy preguntando, o para ninguno en particular (vista agregada)?"
+en vez de intentar inferirlo implícitamente.
+
+### 9.5 Credenciales de sincronización externa, editables desde el mismo panel
+
+El mismo panel de configuración es el lugar natural para capturar las credenciales de §5: campos para
+`Client ID`/`Client Secret` de OAuth2 (Google Calendar) y la visualización de la URL del feed webcal
+(Apple Calendar, §5.2, generada automáticamente — nunca editable a mano, para no romper el formato).
+
+**Regla de seguridad no negociable:** el `Client Secret` (y cualquier credencial simétrica equivalente)
+se cifra antes de guardarse en base de datos con una llave derivada de una variable de entorno del
+servidor (nunca hardcodeada en el repositorio) — nunca se persiste en texto plano. Al mostrar el
+formulario de nuevo, el campo del secreto se presenta siempre enmascarado (nunca se descifra hacia el
+HTML); dejar el campo vacío al guardar significa "conservar el valor actual sin cambiarlo", no "borrar
+la credencial" — evita que un simple guardado accidental del formulario invalide la sincronización ya
+funcionando.
+
+---
+
+## 10. Protocolo de Cancelación Autónoma del Cliente y Reapertura Automática de Slot
+
+Habilita que la propia persona que reservó una cita pueda cancelarla desde su vista privada, sin
+depender de que el equipo administrativo lo haga por ella — con una ventana mínima de anticipación
+para proteger al recurso de cancelaciones de último minuto.
+
+### 10.1 Vista privada del cliente: alcance estrictamente propio
+
+El rol "cliente" (a diferencia de los roles de staff/administración) sólo puede ver **sus propias**
+citas — el filtro por identidad del cliente en sesión debe aplicarse siempre server-side en la consulta
+misma (`WHERE id_cliente = :id_cliente_de_la_sesion`), nunca confiando en un parámetro de la URL ni en
+un filtro que ocurra sólo en el frontend. Ningún endpoint de este portal debe aceptar un
+`id_cliente`/`id_cita` arbitrario sin verificar antes que la cita pertenece efectivamente al cliente en
+sesión — de lo contrario, un cliente autenticado podría cancelar la cita de otro cambiando un número en
+la petición.
+
+### 10.2 Estatus dedicado: `cancelada_por_cliente`
+
+Se agrega un valor más al enum de `citas.estatus_cita`: `cancelada_por_cliente`, distinto de una
+cancelación hecha por el equipo (`cancelada` genérico). Mantener ambos estatus separados permite que
+los reportes y las alertas distingan "el negocio canceló esta cita" de "el cliente decidió no venir" —
+son dos señales de negocio muy distintas (la segunda puede alimentar, por ejemplo, una métrica de tasa
+de cancelación de clientes).
+
+### 10.3 Regla de ventana mínima de anticipación
+
+```
+al recibir una solicitud de cancelación del propio cliente:
+    verificar que la cita pertenece al cliente en sesión (§10.1) — si no, rechazar sin más detalle
+    verificar que la cita está en un estatus cancelable (activo: reservada/confirmada)
+    horas_restantes = (fecha_hora_de_la_cita - ahora) en horas
+    si horas_restantes < ventana_minima_configurada (ej. 3 horas):
+        rechazar con mensaje explícito, invitando a contactar directamente al negocio
+    si no:
+        estatus_cita = 'cancelada_por_cliente'
+        continuar con §10.4
+```
+
+La ventana mínima (ej. 3 horas) es un valor configurable de negocio, no una constante rígida — mismo
+principio de "configuración con reserva determinística" de §9.1.
+
+### 10.4 Efectos automáticos de la cancelación (sin intervención manual)
+
+1. **Liberación de cupo:** al cambiar el estatus fuera de los estatus "activos" que cuentan para el
+   cálculo de ocupación (§3.1, punto 4), la siguiente consulta de disponibilidad —tanto en la matriz
+   interna como en la vista pública (§8)— refleja automáticamente el cupo liberado. No existe un paso
+   manual de "recalcular disponibilidad"; es una consecuencia directa de que ambas vistas siempre
+   consultan el estado actual de las citas en vivo, nunca una caché desincronizable.
+2. **Alerta visual al equipo:** se emite una notificación visible (banner o widget, no sólo un registro
+   silencioso en base de datos) hacia los roles responsables de esa franja/recurso — típicamente
+   visible durante una ventana razonable después del evento (ej. últimos 7 días), para que el equipo
+   note incluso cancelaciones ocurridas mientras nadie miraba la pantalla activamente.
+3. **Reapertura en la Disponibilidad Pública (§8):** dado que la vista pública consulta el mismo motor
+   de disponibilidad en vivo, la franja recién liberada por el cliente vuelve a aparecer como
+   disponible para nuevas solicitudes públicas sin ningún paso adicional — es el mismo efecto que
+   liberar cupo internamente, simplemente visible también desde la superficie pública.
+
+### 10.5 Qué NO hace este protocolo (alcance deliberadamente limitado)
+
+- No reprograma automáticamente al cliente en otro horario — sólo libera el slot; reagendar es una
+  acción nueva y explícita del cliente o del equipo.
+- No aplica penalizaciones ni políticas de cobro por cancelación — si el negocio destino necesita eso,
+  es una capa adicional sobre este protocolo, no parte de él.
+- No notifica automáticamente a otros clientes en lista de espera para ese slot — eso pertenece al
+  catálogo de eventos de dominio de §2 (`AppointmentCancelled` → consumidor de lista de espera, si el
+  proyecto destino implementa una), no a este protocolo específico de cancelación de cliente.

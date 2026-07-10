@@ -99,9 +99,11 @@ function ssos_asset_repo(string $path): string
  */
 function redirect_post_login(string $clave_rol): never
 {
-    $destino = in_array($clave_rol, ['super_admin', 'admin', 'coach'], true)
-        ? '/agenda/index.php'
-        : '/login.php';
+    $destino = match (true) {
+        in_array($clave_rol, ['super_admin', 'admin', 'coach'], true) => '/agenda/index.php',
+        $clave_rol === 'atleta' => '/atleta/portal.php',
+        default => '/login.php',
+    };
     header('Location: ' . ssos_base_url() . $destino);
     exit;
 }
@@ -319,6 +321,36 @@ function ssos_mask_secret(?string $secret): string
     }
 
     return substr($secret, 0, 4) . str_repeat('•', 8) . substr($secret, -4);
+}
+
+/**
+ * Cifrado simétrico reversible (AES-256-CBC) para secretos que la app SÍ
+ * necesita volver a leer en texto plano (ej. un Client Secret de OAuth que
+ * hay que reenviar a Google) — a diferencia de `password_hash()`, que es
+ * unidireccional a propósito. Llave derivada de `HMAC_SECRET` (core/.env,
+ * ya existente para firmar los tokens de reporte compartido) en vez de
+ * introducir una variable de entorno nueva sólo para esto. IV aleatorio por
+ * cada cifrado, concatenado al resultado (nunca se reutiliza un IV).
+ */
+function ssos_encriptar(string $texto): string
+{
+    $llave = hash('sha256', (string) ($_ENV['HMAC_SECRET'] ?? ''), true);
+    $iv = random_bytes(16);
+    $cifrado = openssl_encrypt($texto, 'aes-256-cbc', $llave, OPENSSL_RAW_DATA, $iv);
+    return base64_encode($iv . $cifrado);
+}
+
+function ssos_desencriptar(string $textoCifrado): ?string
+{
+    $llave = hash('sha256', (string) ($_ENV['HMAC_SECRET'] ?? ''), true);
+    $datos = base64_decode($textoCifrado, true);
+    if ($datos === false || strlen($datos) < 17) {
+        return null;
+    }
+    $iv = substr($datos, 0, 16);
+    $cifrado = substr($datos, 16);
+    $texto = openssl_decrypt($cifrado, 'aes-256-cbc', $llave, OPENSSL_RAW_DATA, $iv);
+    return $texto === false ? null : $texto;
 }
 
 /** Clasificación OMS por IMC — misma regla usada en antropometria_form.php e importar_excel_historico.php. */

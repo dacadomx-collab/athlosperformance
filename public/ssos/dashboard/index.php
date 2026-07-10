@@ -48,6 +48,7 @@ if ($verControl && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ??
         $rolNuevo = (string) ($_POST['rol_nuevo'] ?? '');
         $passwordNuevo = (string) ($_POST['password'] ?? '');
         $especialidadNueva = trim((string) ($_POST['especialidad'] ?? ''));
+        $idAtletaVinculado = filter_input(INPUT_POST, 'id_atleta_vinculado', FILTER_VALIDATE_INT) ?: null;
 
         if ($nombreNuevo === '' || mb_strlen($nombreNuevo) > 150) {
             $erroresUsuarioNuevo[] = 'El nombre es obligatorio (máximo 150 caracteres).';
@@ -55,14 +56,17 @@ if ($verControl && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ??
         if (!filter_var($emailNuevo, FILTER_VALIDATE_EMAIL)) {
             $erroresUsuarioNuevo[] = 'El correo no es válido.';
         }
-        if (!in_array($rolNuevo, ['coach', 'admin'], true)) {
-            $erroresUsuarioNuevo[] = 'Selecciona un rol válido (Coach o Administración).';
+        if (!in_array($rolNuevo, ['coach', 'admin', 'atleta'], true)) {
+            $erroresUsuarioNuevo[] = 'Selecciona un rol válido (Coach, Administración o Atleta).';
         }
         if (mb_strlen($passwordNuevo) < 8) {
             $erroresUsuarioNuevo[] = 'La contraseña debe tener al menos 8 caracteres.';
         }
         if ($rolNuevo === 'coach' && $especialidadNueva === '') {
             $erroresUsuarioNuevo[] = 'La especialidad es obligatoria para cuentas de Coach.';
+        }
+        if ($rolNuevo === 'atleta' && !$idAtletaVinculado) {
+            $erroresUsuarioNuevo[] = 'Selecciona el atleta al que se vinculará este acceso.';
         }
 
         if (empty($erroresUsuarioNuevo)) {
@@ -89,12 +93,13 @@ if ($verControl && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ??
                 $idRolNuevo = $stmt->fetchColumn();
 
                 $stmt = $db->prepare(
-                    'INSERT INTO usuarios (id_rol, id_staff, nombre_completo, email, password_hash, activo, requiere_cambio_password)
-                     VALUES (:id_rol, :id_staff, :nombre, :email, :hash, 1, 1)'
+                    'INSERT INTO usuarios (id_rol, id_staff, id_atleta, nombre_completo, email, password_hash, activo, requiere_cambio_password)
+                     VALUES (:id_rol, :id_staff, :id_atleta, :nombre, :email, :hash, 1, 1)'
                 );
                 $stmt->execute([
                     'id_rol' => $idRolNuevo,
                     'id_staff' => $idStaffNuevo,
+                    'id_atleta' => $rolNuevo === 'atleta' ? $idAtletaVinculado : null,
                     'nombre' => $nombreNuevo,
                     'email' => $emailNuevo,
                     'hash' => password_hash($passwordNuevo, PASSWORD_DEFAULT),
@@ -280,6 +285,7 @@ $etiquetasRol = [
     'super_admin' => 'Dirección de Laboratorio',
     'admin' => 'Administración / Recepción',
     'coach' => 'Coach Especialista',
+    'atleta' => 'Atleta / Cliente',
 ];
 
 // ── Orden de pestañas visibles + cuál queda activa por defecto ──────────────
@@ -450,11 +456,22 @@ require __DIR__ . '/../partials/header.php';
                         <select class="form-select" id="nuevo_rol" name="rol_nuevo" required>
                             <option value="coach">Coach Especialista</option>
                             <option value="admin">Administración / Recepción</option>
+                            <option value="atleta">Atleta / Cliente</option>
                         </select>
                     </div>
                     <div class="mb-3">
                         <label for="nuevo_especialidad" class="form-label">Especialidad (sólo Coach)</label>
                         <input type="text" class="form-control" id="nuevo_especialidad" name="especialidad" maxlength="100" placeholder="Ej. Fuerza y Acondicionamiento">
+                    </div>
+                    <div class="mb-3">
+                        <label for="nuevo_atleta_vinculado" class="form-label">Atleta a vincular (sólo Atleta/Cliente)</label>
+                        <select class="form-select" id="nuevo_atleta_vinculado" name="id_atleta_vinculado">
+                            <option value="">— Ninguno —</option>
+                            <?php foreach ($atletasActivos as $atletaOpcion): ?>
+                                <option value="<?= (int) $atletaOpcion['id_atleta'] ?>"><?= e($atletaOpcion['nombre_completo']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">El acceso del portal muestra únicamente las citas de este atleta.</div>
                     </div>
                     <div class="mb-3">
                         <label for="nuevo_password" class="form-label">Contraseña</label>
