@@ -655,6 +655,17 @@ referencia.
 | Navbar corregido | `public/ssos/css/main.css`, `partials/header.php` | Producción | Bug real: `.ssos-theme-toggle` (`position:fixed` esquina superior derecha) se superponía con `.navbar-toggler` de Bootstrap (misma esquina). Corregido: toggle ahora vive dentro de `.ssos-navbar-actions` (flex, `gap:1rem`), sin `position:fixed`. |
 | Limpieza de marca | Toda la interfaz + seed de `roles` en `01_schema_usuarios_rbac.sql` | Producción | "(AXON_DCD)" eliminado; badges ahora "Dirección de Laboratorio" / "Administración / Recepción" / "Coach Especialista". Menciones históricas en registros fechados de este documento se conservan intactas (bitácora, no interfaz). |
 
+### Fase 25 — Estabilización de Producción v1.0: migración 07, corrección de tipado y Alta de Coaches por Administración (2026-07-13)
+
+| Archivo | Ruta | Estado | Descripción |
+| :--- | :--- | :--- | :--- |
+| `07_schema_configuracion_agenda_publica.sql` (aplicada) | `knowledge/sql/` | Producción | Migración corrida en phpMyAdmin sobre la BD real de cPanel — confirmadas físicamente las columnas `solicitante_nombre/telefono/email` y el ENUM extendido (`pendiente_aprobacion`, `cancelada_por_cliente`) en `disponibilidad_agenda`. |
+| `agenda_logica.php` (blindaje defensivo) | `public/ssos/agenda/agenda_logica.php` | Producción | Las 7 consultas de datos de la vista (`solicitudesPendientes`, `cancelacionesClienteRecientes`, `staffList`, `servicios`, `atletasActivos`, `citasSemana`, `clientesDelMes`) ahora degradan a array vacío ante `PDOException` en vez de HTTP 500 — mismo patrón "config dinámica, nunca error fatal" ya usado en `AgendaBusinessRules`. |
+| `AgendaBusinessRules::colorParaStaff()` / `coloresParaStaffList()` (corrección de tipado) | `public/ssos/config/AgendaBusinessRules.php` | Producción | **Bug real de producción, no reproducible en XAMPP local:** el hosting cPanel usa `PDO_MYSQL` sin `mysqlnd`, que devuelve TODAS las columnas como `string` (incluidas `int(10) unsigned`). `colorParaStaff(int $idStaff)` con `strict_types=1` lanzaba `TypeError` al recibir el `id_staff` string de `array_column($staffList, 'id_staff')`. Firma ampliada a `int\|string` + cast `(int)` interno en ambos métodos. Verificado forzando IDs string contra una BD en memoria. |
+| Alta de Coaches por `admin` | `public/ssos/dashboard/index.php` | Producción | El alta de usuarios del staff (antes exclusiva de `super_admin`) se extendió a `admin`, con candado server-side `$rolesCreablesPorRol` — `admin` sólo puede crear rol `coach` (nunca `admin` ni `super_admin`, incluso con POST manipulado); `super_admin` conserva su alcance previo (`coach`/`admin`/`atleta`, nunca `super_admin`). UI propia (modal con rol fijo, sin `<select>`) agregada en la pestaña "Clientes y Membresías" — deliberadamente sin exponer a `admin` la pestaña completa "Dirección y Control" (lista de todos los usuarios + bitácora de sesiones). |
+
+**Estado declarado: PRODUCCIÓN STABLE v1.0.** Ver bitácora completa en `RESUMEN_EJECUCION_SISTEMA.md` §30 — este es el punto de referencia operativo vigente del proyecto.
+
 ---
 
 ## 🧩 REGISTRO DE COMPONENTES FRONTEND

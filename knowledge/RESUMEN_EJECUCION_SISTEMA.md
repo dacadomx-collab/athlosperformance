@@ -1681,7 +1681,51 @@ Autónoma del Cliente y Reapertura Automática de Slot) a `knowledge/MODULO_CALE
 100% agnósticas de marca y de lenguaje de programación, siguiendo el mismo estilo (tablas, pseudocódigo,
 reglas explícitas "por qué") de las secciones 1-7 ya existentes.
 
-## 30. Próximos pasos (fuera del alcance de esta entrega)
+## 30. Fase 25 — Estabilización de Producción v1.0: migración 07 aplicada, corrección de tipado en Agenda y Alta de Coaches por Administración (2026-07-13)
+
+**Contexto:** tras el cierre de la Fase 24, el primer ingreso real a `/ssos/agenda/index.php` en
+producción (cPanel) devolvió HTTP 500. Se diagnosticó y resolvió en 3 incidentes encadenados:
+
+1. **Migración 07 no aplicada en producción.** `agenda_logica.php` asumía las columnas
+   `solicitante_nombre/telefono/email` y los valores de ENUM `pendiente_aprobacion`/
+   `cancelada_por_cliente` (`07_schema_configuracion_agenda_publica.sql`), pero la BD real de
+   cPanel seguía en el esquema pre-Fase 24 — confirmado comparando contra el volcado real
+   `knowledge/sql/tourfindycom_athlosp_db.sql`. Se blindaron con `try/catch` las 7 consultas de
+   datos de `agenda_logica.php` (degradan a arrays vacíos en vez de matar la página, mismo patrón
+   que `AgendaBusinessRules`), y se confirmó — restaurando localmente el volcado real + aplicando
+   la migración 07 tal cual se corrió en phpMyAdmin — que con la migración aplicada el código toma
+   la ruta de datos completa (no el fallback).
+2. **`TypeError` en `AgendaBusinessRules::colorParaStaff()`.** El hosting de producción usa
+   `PDO_MYSQL` sin `mysqlnd`, que devuelve **todas** las columnas como `string` (incluidas las
+   `int(10) unsigned`) — a diferencia de XAMPP local (`mysqlnd`), que ya las entrega como `int`
+   nativo. Con `strict_types=1`, `colorParaStaff(int $idStaff)` fallaba al recibir el `"3"` string
+   de `array_column($staffList, 'id_staff')`. Corregido: firma `int|string $idStaff` + cast interno
+   `(int)`, mismo tratamiento en `coloresParaStaffList()`. Verificado con IDs string simulando el
+   comportamiento real del driver de producción.
+3. **Diagnóstico en vivo, sin exponer internals.** Se usó temporalmente un `try/catch` en
+   `agenda/index.php` que sólo muestra el detalle del error **después** de que `require_role()` ya
+   validó sesión/rol (mismo perímetro de confianza de la página) — nunca se activó `display_errors`
+   global, para no filtrar rutas/DSN a una petición no autenticada. Retirado una vez identificado
+   el `TypeError` real.
+
+**Extensión de permisos — Alta de Coaches por Administración/Recepción:** el alta de usuarios del
+staff (`accion=crear_usuario` en `dashboard/index.php`) estaba restringida a `super_admin`. Se
+extendió a `admin` con un candado explícito server-side —
+`$rolesCreablesPorRol = $rol === 'super_admin' ? ['coach','admin','atleta'] : ['coach'];` — de modo
+que **incluso si el POST llega manipulado**, una cuenta `admin` sólo puede crear `coach`, nunca
+`admin` ni `super_admin` (verificado con matriz de permisos: admin→coach permitido, admin→admin/
+super_admin bloqueado, super_admin→super_admin bloqueado igual que antes). La UI correspondiente
+("+ Nuevo Usuario del Staff") se agregó dentro de la pestaña **Clientes y Membresías** (que
+`admin` ya podía ver) como un modal propio con el rol fijo a `coach` (campo oculto, sin `<select>`
+de rol) — deliberadamente **no** se le dio a `admin` acceso a la pestaña completa "Dirección y
+Control" (que expone lista de todos los usuarios del sistema + bitácora de sesiones, fuera del
+alcance de este permiso).
+
+**Estado declarado: PRODUCCIÓN STABLE v1.0.** Los 3 incidentes de arranque de la Fase 24 quedaron
+resueltos y verificados (2 contra réplica local fiel del esquema real de producción, 1 con matriz
+de permisos ejecutada). Este es el punto de referencia operativo vigente del proyecto.
+
+## 31. Próximos pasos (fuera del alcance de esta entrega)
 
 - **Pendiente de tu parte:** ejecutar `admin/seed_test_users.php` cuando decidas en qué base de datos
   (revisa primero el tab Herramientas & API), y probar el cambio de rol localmente con esas cuentas.
@@ -1696,10 +1740,10 @@ reglas explícitas "por qué") de las secciones 1-7 ya existentes.
 - Importador de Excel histórico para SFT (Mayor_65_02, formato .docx, no .xlsx) y para el plan de sesión (Mayor/Menor_65_03) — fuera de alcance de esta entrega, sólo se cubrió antropometría.
 - Importador de PDF para el checklist de biomecánica (sección "Análisis Sentadilla" de la Ficha de Evaluación → tabla `evaluaciones_biomecanica`) — la Fase 14 sólo mapeó los campos numéricos del SFT hacia `sft_form.php`, no el checklist de la sentadilla overhead.
 - ~~Aplicar `knowledge/sql/06_schema_calendario_avanzado.sql`~~ — hecho en la Fase 21.
-- **Dar de alta al menos un coach real activo** en `staff` (formulario ya existente en
-  `dashboard/index.php`) — la Fase 22 validó todo el flujo con un coach de prueba (desactivado al
-  terminar), pero la tabla sigue sin ningún coach real y activo en producción, así que el `<select>`
-  de "Nueva Cita" está vacío para el uso diario real.
+- **Dar de alta al menos un coach real activo** en `staff` — desde la Fase 25, esto ya no depende
+  de `super_admin`: `admin` (Administración/Recepción) puede hacerlo directamente desde la pestaña
+  "Clientes y Membresías" → "+ Nuevo Usuario del Staff". La tabla sigue sin ningún coach real y
+  activo en producción, así que el `<select>` de "Nueva Cita" sigue vacío para el uso diario real.
 - **Revisar las membresías activas duplicadas** encontradas en la Fase 21 (§26.2) — varios atletas
   (Regina Lobo, Gabriela Barrera, Guillermo Lobo, David Perpuly) tienen 2 membresías del mismo
   servicio activas a la vez; confirmar si son renovaciones legítimas o remanentes de la migración

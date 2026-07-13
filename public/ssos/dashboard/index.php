@@ -26,6 +26,13 @@ $verPieDeCancha = in_array($rol, ['coach', 'admin', 'super_admin'], true);
 $verControl = $rol === 'super_admin';
 $verHerramientas = $rol === 'super_admin';
 
+// Alta de coaches: Dirección (super_admin) puede crear cualquier rol de staff
+// (candado ya existente más abajo excluye super_admin); Administración/Recepción
+// (admin) sólo puede dar de alta cuentas de Coach — nunca admin ni super_admin,
+// para que un puesto de recepción no pueda auto-escalar ni crear pares.
+$puedeCrearUsuarios = in_array($rol, ['admin', 'super_admin'], true);
+$rolesCreablesPorRol = $rol === 'super_admin' ? ['coach', 'admin', 'atleta'] : ['coach'];
+
 // El Calendario es la pestaña de aterrizaje del Dashboard (Fase 23) — misma
 // lógica de datos/POST que la página standalone agenda/index.php, extraída a
 // agenda_logica.php para no duplicarla. Debe ejecutarse ANTES de cualquier
@@ -39,7 +46,7 @@ if ($verCalendario) {
 $erroresUsuarioNuevo = [];
 $usuarioNuevoCreado = false;
 
-if ($verControl && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'crear_usuario') {
+if ($puedeCrearUsuarios && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'crear_usuario') {
     if (!csrf_validate($_POST['csrf_token'] ?? null)) {
         $erroresUsuarioNuevo[] = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
     } else {
@@ -56,8 +63,8 @@ if ($verControl && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ??
         if (!filter_var($emailNuevo, FILTER_VALIDATE_EMAIL)) {
             $erroresUsuarioNuevo[] = 'El correo no es válido.';
         }
-        if (!in_array($rolNuevo, ['coach', 'admin', 'atleta'], true)) {
-            $erroresUsuarioNuevo[] = 'Selecciona un rol válido (Coach, Administración o Atleta).';
+        if (!in_array($rolNuevo, $rolesCreablesPorRol, true)) {
+            $erroresUsuarioNuevo[] = 'Selecciona un rol válido.';
         }
         if (mb_strlen($passwordNuevo) < 8) {
             $erroresUsuarioNuevo[] = 'La contraseña debe tener al menos 8 caracteres.';
@@ -496,6 +503,57 @@ require __DIR__ . '/../partials/header.php';
     <p class="text-body-secondary">
         Gestión comercial de clientes, cobros y catálogo de paquetes/membresías.
     </p>
+
+    <?php if ($rol === 'admin'): ?>
+        <?php if ($usuarioNuevoCreado): ?>
+            <div class="alert alert-success ssos-alert" role="alert">Coach creado exitosamente.</div>
+        <?php endif; ?>
+        <?php foreach ($erroresUsuarioNuevo as $errorUsuario): ?>
+            <div class="alert alert-danger ssos-alert" role="alert"><?= e($errorUsuario) ?></div>
+        <?php endforeach; ?>
+
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <button type="button" class="btn btn-ssos-turquesa" data-bs-toggle="modal" data-bs-target="#modalNuevoCoach">
+                + Nuevo Usuario del Staff
+            </button>
+        </div>
+
+        <div class="modal fade" id="modalNuevoCoach" tabindex="-1" aria-labelledby="modalNuevoCoachLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form method="post" class="modal-content">
+                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="accion" value="crear_usuario">
+                    <input type="hidden" name="rol_nuevo" value="coach">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalNuevoCoachLabel">Nuevo Coach</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="nuevoCoach_nombre" class="form-label">Nombre completo</label>
+                            <input type="text" class="form-control" id="nuevoCoach_nombre" name="nombre_completo" maxlength="150" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="nuevoCoach_email" class="form-label">Correo</label>
+                            <input type="email" class="form-control" id="nuevoCoach_email" name="email" maxlength="150" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="nuevoCoach_especialidad" class="form-label">Especialidad</label>
+                            <input type="text" class="form-control" id="nuevoCoach_especialidad" name="especialidad" maxlength="100" placeholder="Ej. Fuerza y Acondicionamiento" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="nuevoCoach_password" class="form-label">Contraseña temporal</label>
+                            <input type="password" class="form-control" id="nuevoCoach_password" name="password" minlength="8" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-ssos-turquesa">Crear Coach</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <div class="ssos-widget-grid">
         <div class="ssos-widget card shadow-sm border-0">
