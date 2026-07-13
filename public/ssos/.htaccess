@@ -1,0 +1,22 @@
+# ===================================================================
+# HTACCESS BLINDAJE Y ENRUTAMIENTO — BACKOFFICE SSOS
+# Enruta la raíz de /ssos/ hacia login.php y bloquea archivos sensibles.
+# Reside en el repo para sobrevivir a redepliegues FTP desde GitHub Actions.
+# ===================================================================
+
+DirectoryIndex login.php index.php
+
+# Desactivar listado de directorios expuestos en el navegador
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /ssos/
+
+    RewriteRule ^$ login.php [L,R=301]
+</IfModule>
+
+# --- PROTECCIÓN DE EXTENSIONES DE ARCHIVOS SENSIBLES ---
+<FilesMatch "\.(env|sql|log|ini|md)$">
+    Require all denied
+</FilesMatch>

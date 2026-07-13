@@ -6,13 +6,14 @@ declare(strict_types=1);
  *
  * Punto único de acceso a la base de datos.
  * Toda query del sistema pasa por getDB(). Cero conexiones directas fuera de este archivo.
- * Lee credenciales exclusivamente del .env — nunca hardcodeadas.
+ * ÚNICA fuente de verdad de variables de entorno: `core/.env` (unificado con
+ * public/ssos/config/conexion.php — ya NO existe un .env en la raíz del proyecto).
  */
 
 // ─── Cargador de .env ─────────────────────────────────────────────────────────
 
 (static function (): void {
-    $env_path = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env';
+    $env_path = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'core' . DIRECTORY_SEPARATOR . '.env';
 
     if (!file_exists($env_path)) {
         // En producción un .env ausente es un error fatal de configuración.
