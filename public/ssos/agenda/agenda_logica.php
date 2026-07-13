@@ -267,49 +267,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'mover
 }
 
 // ── Datos para la vista ──────────────────────────────────────────────────
+//
+// REGLA DE DISEÑO (misma que AgendaBusinessRules — "config dinámica con
+// fallback determinístico, nunca un error fatal"): las columnas
+// solicitante_* y los valores de estatus 'pendiente_aprobacion' /
+// 'cancelada_por_cliente' vienen de la migración
+// 07_schema_configuracion_agenda_publica.sql. Si esa migración aún no se
+// aplicó en el entorno (columna/tabla inexistente → PDOException), la
+// agenda debe seguir renderizando con esas listas vacías en vez de un 500.
 
-// Solicitudes públicas pendientes de aprobación (Misión 3) — se listan TODAS
-// las futuras, no sólo las de la semana visible, porque un prospecto puede
-// pedir una fecha fuera de la semana que el coach tiene abierta ahora mismo.
-$solicitudesPendientes = $db->query(
-    "SELECT da.id_cita, da.fecha_cita, da.hora_inicio, da.solicitante_nombre, da.solicitante_telefono, da.solicitante_email,
-            s.nombre_completo AS staff_nombre, cs.nombre_servicio
-     FROM disponibilidad_agenda da
-     INNER JOIN staff s ON s.id_staff = da.id_staff
-     INNER JOIN catalogo_servicios cs ON cs.id_servicio = da.id_servicio
-     WHERE da.estatus_cita = 'pendiente_aprobacion' AND da.fecha_cita >= CURDATE()
-     ORDER BY da.fecha_cita, da.hora_inicio"
-)->fetchAll();
+try {
+    // Solicitudes públicas pendientes de aprobación (Misión 3) — se listan TODAS
+    // las futuras, no sólo las de la semana visible, porque un prospecto puede
+    // pedir una fecha fuera de la semana que el coach tiene abierta ahora mismo.
+    $solicitudesPendientes = $db->query(
+        "SELECT da.id_cita, da.fecha_cita, da.hora_inicio, da.solicitante_nombre, da.solicitante_telefono, da.solicitante_email,
+                s.nombre_completo AS staff_nombre, cs.nombre_servicio
+         FROM disponibilidad_agenda da
+         INNER JOIN staff s ON s.id_staff = da.id_staff
+         INNER JOIN catalogo_servicios cs ON cs.id_servicio = da.id_servicio
+         WHERE da.estatus_cita = 'pendiente_aprobacion' AND da.fecha_cita >= CURDATE()
+         ORDER BY da.fecha_cita, da.hora_inicio"
+    )->fetchAll();
+} catch (\Throwable $e) {
+    error_log('[SSOS agenda solicitudesPendientes] ' . $e->getMessage());
+    $solicitudesPendientes = [];
+}
 
-// Cancelaciones autónomas del cliente (Misión 5) sin atender todavía — "alerta
-// visual" al coach/admin: se resuelve con la misma tabla, sin infraestructura
-// de notificaciones nueva (no hay SMTP/WhatsApp activado en este entorno).
-$cancelacionesClienteRecientes = $db->query(
-    "SELECT da.id_cita, da.fecha_cita, da.hora_inicio, a.nombre_completo AS atleta_nombre, s.nombre_completo AS staff_nombre
-     FROM disponibilidad_agenda da
-     LEFT JOIN atletas a ON a.id_atleta = da.id_atleta
-     INNER JOIN staff s ON s.id_staff = da.id_staff
-     WHERE da.estatus_cita = 'cancelada_por_cliente' AND da.updated_at >= (NOW() - INTERVAL 7 DAY)
-     ORDER BY da.updated_at DESC"
-)->fetchAll();
+try {
+    // Cancelaciones autónomas del cliente (Misión 5) sin atender todavía — "alerta
+    // visual" al coach/admin: se resuelve con la misma tabla, sin infraestructura
+    // de notificaciones nueva (no hay SMTP/WhatsApp activado en este entorno).
+    $cancelacionesClienteRecientes = $db->query(
+        "SELECT da.id_cita, da.fecha_cita, da.hora_inicio, a.nombre_completo AS atleta_nombre, s.nombre_completo AS staff_nombre
+         FROM disponibilidad_agenda da
+         LEFT JOIN atletas a ON a.id_atleta = da.id_atleta
+         INNER JOIN staff s ON s.id_staff = da.id_staff
+         WHERE da.estatus_cita = 'cancelada_por_cliente' AND da.updated_at >= (NOW() - INTERVAL 7 DAY)
+         ORDER BY da.updated_at DESC"
+    )->fetchAll();
+} catch (\Throwable $e) {
+    error_log('[SSOS agenda cancelacionesClienteRecientes] ' . $e->getMessage());
+    $cancelacionesClienteRecientes = [];
+}
 
-$staffList = $db->query('SELECT id_staff, nombre_completo FROM staff WHERE activo = 1 ORDER BY nombre_completo')->fetchAll();
-$servicios = $db->query("SELECT id_servicio, nombre_servicio FROM catalogo_servicios WHERE activo = 1 ORDER BY nombre_servicio")->fetchAll();
-$atletasActivos = $db->query("SELECT id_atleta, nombre_completo FROM atletas WHERE estatus = 'activo' ORDER BY nombre_completo")->fetchAll();
+try {
+    $staffList = $db->query('SELECT id_staff, nombre_completo FROM staff WHERE activo = 1 ORDER BY nombre_completo')->fetchAll();
+} catch (\Throwable $e) {
+    error_log('[SSOS agenda staffList] ' . $e->getMessage());
+    $staffList = [];
+}
+
+try {
+    $servicios = $db->query("SELECT id_servicio, nombre_servicio FROM catalogo_servicios WHERE activo = 1 ORDER BY nombre_servicio")->fetchAll();
+} catch (\Throwable $e) {
+    error_log('[SSOS agenda servicios] ' . $e->getMessage());
+    $servicios = [];
+}
+
+try {
+    $atletasActivos = $db->query("SELECT id_atleta, nombre_completo FROM atletas WHERE estatus = 'activo' ORDER BY nombre_completo")->fetchAll();
+} catch (\Throwable $e) {
+    error_log('[SSOS agenda atletasActivos] ' . $e->getMessage());
+    $atletasActivos = [];
+}
+
 $coloresStaff = AgendaBusinessRules::coloresParaStaffList($db, array_column($staffList, 'id_staff'));
 
 $sabado = $lunes->modify('+5 days')->format('Y-m-d');
-$stmtSemana = $db->prepare(
-    "SELECT da.*, a.nombre_completo AS atleta_nombre, s.nombre_completo AS staff_nombre, cs.nombre_servicio
-     FROM disponibilidad_agenda da
-     LEFT JOIN atletas a ON a.id_atleta = da.id_atleta
-     INNER JOIN staff s ON s.id_staff = da.id_staff
-     INNER JOIN catalogo_servicios cs ON cs.id_servicio = da.id_servicio
-     WHERE da.fecha_cita BETWEEN :lunes AND :sabado
-     ORDER BY da.hora_inicio"
-);
-$stmtSemana->execute(['lunes' => $lunes->format('Y-m-d'), 'sabado' => $sabado]);
-$citasSemana = $stmtSemana->fetchAll();
+try {
+    $stmtSemana = $db->prepare(
+        "SELECT da.*, a.nombre_completo AS atleta_nombre, s.nombre_completo AS staff_nombre, cs.nombre_servicio
+         FROM disponibilidad_agenda da
+         LEFT JOIN atletas a ON a.id_atleta = da.id_atleta
+         INNER JOIN staff s ON s.id_staff = da.id_staff
+         INNER JOIN catalogo_servicios cs ON cs.id_servicio = da.id_servicio
+         WHERE da.fecha_cita BETWEEN :lunes AND :sabado
+         ORDER BY da.hora_inicio"
+    );
+    $stmtSemana->execute(['lunes' => $lunes->format('Y-m-d'), 'sabado' => $sabado]);
+    $citasSemana = $stmtSemana->fetchAll();
+} catch (\Throwable $e) {
+    error_log('[SSOS agenda citasSemana] ' . $e->getMessage());
+    $citasSemana = [];
+}
 
 // citasPorCelda[fecha][hora] = array de citas ; ocupacionPorCelda[fecha][hora] = int (sólo reservada/confirmada)
 $citasPorCelda = [];
@@ -355,21 +396,26 @@ $pctOcupacionSemana = $franjasOperativasTotales > 0
 // entrenamiento + paquete de nutrición) — se muestra una fila POR MEMBRESÍA, no
 // por cliente, con el nombre del servicio para no repetir el nombre del cliente
 // sin contexto (verificado contra datos reales: varios atletas tienen 2 filas).
-$stmtClientesMes = $db->prepare(
-    "SELECT a.id_atleta, a.nombre_completo, m.id_membresia, m.sesiones_totales, m.sesiones_restantes, cs.nombre_servicio
-     FROM membresias m
-     INNER JOIN atletas a ON a.id_atleta = m.id_atleta
-     INNER JOIN catalogo_servicios cs ON cs.id_servicio = m.id_servicio
-     WHERE m.estatus = 'activa' AND m.sesiones_totales > 0
-       AND m.fecha_inicio <= :fin_mes AND (m.fecha_fin IS NULL OR m.fecha_fin >= :inicio_mes)
-     ORDER BY m.sesiones_restantes ASC
-     LIMIT 20"
-);
-$stmtClientesMes->execute([
-    'inicio_mes' => $lunes->format('Y-m-01'),
-    'fin_mes' => $lunes->format('Y-m-t'),
-]);
-$clientesDelMes = $stmtClientesMes->fetchAll();
+try {
+    $stmtClientesMes = $db->prepare(
+        "SELECT a.id_atleta, a.nombre_completo, m.id_membresia, m.sesiones_totales, m.sesiones_restantes, cs.nombre_servicio
+         FROM membresias m
+         INNER JOIN atletas a ON a.id_atleta = m.id_atleta
+         INNER JOIN catalogo_servicios cs ON cs.id_servicio = m.id_servicio
+         WHERE m.estatus = 'activa' AND m.sesiones_totales > 0
+           AND m.fecha_inicio <= :fin_mes AND (m.fecha_fin IS NULL OR m.fecha_fin >= :inicio_mes)
+         ORDER BY m.sesiones_restantes ASC
+         LIMIT 20"
+    );
+    $stmtClientesMes->execute([
+        'inicio_mes' => $lunes->format('Y-m-01'),
+        'fin_mes' => $lunes->format('Y-m-t'),
+    ]);
+    $clientesDelMes = $stmtClientesMes->fetchAll();
+} catch (\Throwable $e) {
+    error_log('[SSOS agenda clientesDelMes] ' . $e->getMessage());
+    $clientesDelMes = [];
+}
 $alertasSesionesBajas = count(array_filter($clientesDelMes, static fn ($c) => (int) $c['sesiones_restantes'] <= 2));
 
 $etiquetasEstatus = [
