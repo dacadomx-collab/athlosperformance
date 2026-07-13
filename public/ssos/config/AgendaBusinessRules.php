@@ -223,8 +223,10 @@ final class AgendaBusinessRules
         return null;
     }
 
-    public static function colorParaStaff(PDO $db, int $idStaff): string
+    public static function colorParaStaff(PDO $db, int|string $idStaff): string
     {
+        $idStaff = (int) $idStaff;
+
         try {
             $stmt = $db->prepare('SELECT color_hex FROM staff_colores WHERE id_staff = :id');
             $stmt->execute(['id' => $idStaff]);
@@ -252,7 +254,8 @@ final class AgendaBusinessRules
     {
         $colores = [];
         foreach ($idsStaff as $id) {
-            $colores[$id] = self::colorParaStaff($db, $id);
+            $idStaff = (int) $id;
+            $colores[$idStaff] = self::colorParaStaff($db, $idStaff);
         }
         return $colores;
     }
