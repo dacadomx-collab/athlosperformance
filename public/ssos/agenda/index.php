@@ -28,10 +28,30 @@ require_once __DIR__ . '/../config/helpers.php';
 
 require_role('coach', 'admin', 'super_admin');
 
-require_once __DIR__ . '/agenda_logica.php';
+// CAPTURA DE DIAGNÓSTICO TEMPORAL (2026-07-13) — display_errors sigue
+// desactivado en php.ini de producción (correcto: no debe filtrar rutas/DSN
+// a una petición no autenticada). A partir de AQUÍ el usuario ya pasó
+// require_role(), así que mostrar el detalle del error en pantalla sólo
+// expone información interna a un coach/admin/super_admin ya autenticado —
+// mismo perímetro de confianza que ya protege esta página. El error completo
+// también se registra siempre en el log de PHP del servidor. Quitar este
+// bloque una vez confirmado en producción cuál es el error real.
+try {
+    require_once __DIR__ . '/agenda_logica.php';
 
-$ssos_page_title = 'Agenda';
-$ssos_active_nav = 'agenda';
-require __DIR__ . '/../partials/header.php';
-require __DIR__ . '/agenda_vista.php';
-require __DIR__ . '/../partials/footer.php';
+    $ssos_page_title = 'Agenda';
+    $ssos_active_nav = 'agenda';
+    require __DIR__ . '/../partials/header.php';
+    require __DIR__ . '/agenda_vista.php';
+    require __DIR__ . '/../partials/footer.php';
+} catch (\Throwable $e) {
+    error_log('[SSOS agenda FATAL] ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString());
+    if (!headers_sent()) {
+        http_response_code(500);
+    }
+    echo '<pre style="padding:2rem;font-family:monospace;white-space:pre-wrap;background:#fff3f3;color:#900;border:1px solid #900;margin:2rem;">'
+        . "Error interno al cargar la Agenda (diagnóstico temporal):\n\n"
+        . htmlspecialchars(get_class($e) . ': ' . $e->getMessage()) . "\n"
+        . htmlspecialchars($e->getFile() . ':' . $e->getLine())
+        . '</pre>';
+}
