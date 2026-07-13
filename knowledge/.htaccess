@@ -1,0 +1,25 @@
+# ===================================================================
+#  PERFORMANCE — LIBERACIÓN DE ACCESO Y ENRUTAMIENTO
+# ===================================================================
+
+# Anular el bloqueo de la carpeta padre
+Order allow,deny
+Allow from all
+Satisfy Any
+Require all granted
+
+DirectoryIndex index.html
+
+Options -Indexes
+Options -MultiViews
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Rutas limpias para Next.js estático
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_DOCUMENT_ROOT}/$1.html -f
+    RewriteRule ^(.*)$ $1.html [L]
+</IfModule>

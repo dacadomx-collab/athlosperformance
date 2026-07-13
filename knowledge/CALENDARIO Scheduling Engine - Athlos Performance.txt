@@ -1,0 +1,841 @@
+﻿Con el contexto de Athlos y las recomendaciones previas sobre el flujo operativo del laboratorio, considero que el calendario no debe diseñarse como un simple "agenda de citas", sino como un Scheduling Engine desacoplado del negocio. Es decir, un motor genérico de disponibilidad, reservas, sincronización y reglas que posteriormente pueda reutilizarse en cualquier sistema (clínicas, consultorios, laboratorios, spas, coworkings, despachos, etc.). Esto mantiene la filosofía de convertir el calendario en un componente de infraestructura y no en un módulo específico de un proyecto. Esa aproximación además es consistente con la arquitectura modular que ya hemos venido definiendo para el sistema.
+________________
+
+
+1. Arquitectura recomendada (Event Driven + Sync Engine)
+No recomiendo que el calendario escriba directamente sobre Google Calendar o Apple Calendar.
+Recomiendo introducir una capa intermedia.
+                  Frontend
+
+
+         FullCalendar / Mobile Calendar
+
+
+                     │
+
+
+             Calendar API Gateway
+
+
+                     │
+
+
+        ┌────────────┴─────────────┐
+
+
+ Reservation Engine         Availability Engine
+
+
+        │                           │
+
+
+        └────────────┬──────────────┘
+
+
+             Calendar Event Bus
+
+
+                     │
+
+
+      ┌──────────────┼──────────────┐
+
+
+ Google Sync      Apple Sync     Notification Engine
+
+
+      │                │                │
+
+
+Google Calendar     ICS Feed       WhatsApp
+OAuth               CalDAV         Email
+Webhooks            webcal://      SMS
+
+
+Esta separación ofrece varias ventajas:
+* desacopla completamente el proveedor de calendario
+* facilita agregar Microsoft Outlook en el futuro
+* evita dependencias directas del frontend
+* centraliza las reglas de negocio
+* simplifica auditoría
+________________
+
+
+2. Modelo de Eventos
+En lugar de "actualizar registros", todo debe funcionar mediante eventos.
+Ejemplo:
+AppointmentCreated
+
+
+↓
+
+
+ReservationCreated
+
+
+↓
+
+
+CapacityUpdated
+
+
+↓
+
+
+GoogleSyncRequested
+
+
+↓
+
+
+AppleFeedUpdated
+
+
+↓
+
+
+NotificationQueued
+
+
+Si posteriormente alguien mueve la cita:
+AppointmentMoved
+
+
+↓
+
+
+AvailabilityRecalculated
+
+
+↓
+
+
+ConflictDetection
+
+
+↓
+
+
+GoogleSyncRequested
+
+
+↓
+
+
+AppleFeedUpdated
+
+
+↓
+
+
+NotificationQueued
+
+
+Todo queda registrado.
+Nunca existen actualizaciones "silenciosas".
+________________
+
+
+3. Sincronización Google Calendar
+Tecnología
+OAuth 2.0
+Scopes mínimos:
+calendar.events
+
+
+calendar.readonly
+
+
+No solicitar permisos innecesarios.
+________________
+
+
+Flujo
+Coach conecta Google Calendar
+
+
+↓
+
+
+Guardar:
+
+
+Google User ID
+
+
+Refresh Token
+
+
+Calendar ID
+
+
+Sync Token
+
+
+↓
+
+
+Crear Watch Channel (Webhook)
+
+
+↓
+
+
+Google envía notificaciones
+
+
+↓
+
+
+Nuestro Sync Engine consulta cambios
+
+
+↓
+
+
+Actualiza BD
+
+
+↓
+
+
+Recalcula disponibilidad
+
+
+↓
+
+
+Actualiza frontend
+
+
+________________
+
+
+Webhooks
+Google únicamente indica que "algo cambió".
+Después debe ejecutarse:
+events.list()
+
+
+syncToken=XXXX
+
+
+Esto evita descargar nuevamente todo el calendario.
+Muy eficiente.
+________________
+
+
+4. Resolución de Conflictos
+Este punto normalmente se implementa mal.
+Mi recomendación:
+No usar "Last Write Wins".
+Usar prioridades.
+Prioridad 1
+
+
+Sistema administrativo
+
+
+↓
+
+
+Prioridad 2
+
+
+Recepción
+
+
+↓
+
+
+Prioridad 3
+
+
+Coach
+
+
+↓
+
+
+Prioridad 4
+
+
+Google Calendar
+
+
+↓
+
+
+Prioridad 5
+
+
+Apple Calendar
+
+
+Ejemplo:
+Coach mueve una cita desde Android.
+↓
+Google envía webhook.
+↓
+Nuestro sistema detecta:
+Appointment ID
+
+
+Google Event ID
+
+
+Version
+
+
+Timestamp
+
+
+Si nadie modificó la cita mientras tanto:
+Aceptar cambio.
+Si hubo cambios simultáneos:
+Crear estado:
+ConflictDetected
+
+
+y mostrar al administrador:
+El coach modificó la cita
+
+
+pero recepción realizó otra modificación.
+
+
+Seleccione:
+
+
+○ Mantener Sistema
+
+
+○ Mantener Google
+
+
+○ Fusionar
+
+
+Nunca sobrescribir automáticamente.
+________________
+
+
+5. Apple Calendar
+Apple no posee una API equivalente.
+La arquitectura recomendada es:
+webcal://
+
+
+↓
+
+
+Feed ICS dinámico
+
+
+↓
+
+
+Apple Calendar
+
+
+↓
+
+
+Actualización automática
+
+
+Ejemplo:
+webcal://empresa.com/calendar/coach/12.ics
+
+
+Cada coach tiene un feed distinto.
+________________
+
+
+Para clientes
+Otro feed:
+webcal://
+
+
+cliente/9842.ics
+
+
+De esta forma únicamente visualizan sus propias citas.
+________________
+
+
+6. Add to Calendar (1 clic)
+Cada reserva genera automáticamente:
+Google Calendar
+
+
+↓
+
+
+Apple Calendar
+
+
+↓
+
+
+ICS universal
+
+
+Botones:
+Agregar a Google
+
+
+Agregar a Apple
+
+
+Descargar .ICS
+
+
+Sin iniciar sesión.
+________________
+
+
+7. Motor de Disponibilidad
+Aquí está el verdadero valor.
+Nunca consultar disponibilidad directamente del calendario.
+Siempre utilizar un Availability Engine.
+Entradas:
+Horario laboral
+
+
+↓
+
+
+Vacaciones
+
+
+↓
+
+
+Días festivos
+
+
+↓
+
+
+Eventos bloqueados
+
+
+↓
+
+
+Capacidad máxima
+
+
+↓
+
+
+Duración
+
+
+↓
+
+
+Buffers
+
+
+↓
+
+
+Tiempo de traslado
+
+
+↓
+
+
+Cancelaciones
+
+
+↓
+
+
+No-shows
+
+
+Salida:
+Slots disponibles
+
+
+________________
+
+
+Ejemplo
+Lunes
+06
+
+
+07
+
+
+08
+
+
+09
+
+
+10
+
+
+Cada hora contiene:
+Capacidad
+
+
+4
+
+
+Ocupados
+
+
+3
+
+
+Disponibles
+
+
+1
+
+
+Semáforo:
+🟡
+________________
+
+
+8. Capacidad por Hora
+No guardar únicamente citas.
+Guardar ocupación.
+Tabla sugerida:
+TimeSlot
+
+
+date
+
+
+hour
+
+
+capacity
+
+
+reserved
+
+
+available
+
+
+Ejemplo:
+06:00
+
+
+Capacity = 4
+
+
+Reserved = 3
+
+
+Available = 1
+
+
+Cuando llega la cuarta reserva:
+Available = 0
+
+
+Estado:
+Rojo
+No aceptar nuevas reservas.
+________________
+
+
+9. Cancelaciones
+Motor automático.
+Cancelación
+
+
+↓
+
+
+¿Faltan más de 3 horas?
+
+
+Sí
+
+
+↓
+
+
+Liberar cupo
+
+
+↓
+
+
+Actualizar TimeSlot
+
+
+↓
+
+
+Actualizar Google
+
+
+↓
+
+
+Actualizar Apple
+
+
+↓
+
+
+Notificar lista de espera
+
+
+________________
+
+
+10. Vista Continua (Google Style)
+La mayoría de calendarios tienen cambio "brusco" entre meses.
+Mi recomendación:
+Vista continua.
+Junio
+
+
+Semana 4
+
+
+Semana 5
+
+
+──────────────
+
+
+Julio
+
+
+Semana 1
+
+
+Semana 2
+
+
+Con etiquetas flotantes.
+JULIO 2027
+
+
+Mientras se hace scroll.
+La experiencia es mucho más natural.
+________________
+
+
+11. Librerías Recomendadas
+Opción 1 (la mejor)
+FullCalendar Premium
+Ventajas:
+* Timeline
+* Resource Scheduler
+* Drag & Drop
+* Resize
+* Multi Resource
+* Excelente API
+* Virtualización parcial
+Ideal para aplicaciones empresariales.
+________________
+
+
+Opción 2
+TanStack Virtual + React Aria Calendar
+Mayor trabajo.
+Más flexible.
+Muy buena para aplicaciones enormes.
+________________
+
+
+Opción 3
+React Big Calendar
+Adecuado para proyectos sencillos.
+No alcanza el nivel UX de FullCalendar.
+________________
+
+
+Mi elección
+FullCalendar Scheduler
+
+
++
+
+
+React DnD
+
+
++
+
+
+Floating UI
+
+
++
+
+
+Framer Motion
+
+
++
+
+
+TanStack Query
+
+
+________________
+
+
+12. Arquitectura Mobile
+No usar un calendario mensual.
+Usar Agenda.
+Hoy
+
+
+06:00
+
+
+Carlos
+
+
+Coach Azul
+
+
+────────────
+
+
+07:00
+
+
+Ana
+
+
+Coach Verde
+
+
+────────────
+
+
+08:00
+
+
+Disponible
+
+
+────────────
+
+
+Gestos:
+Swipe derecha
+↓
+Semana anterior
+Swipe izquierda
+↓
+Semana siguiente
+Long Press
+↓
+Mover cita
+Pinch
+↓
+Cambiar escala horaria
+________________
+
+
+13. Modelo de Datos Recomendado
+Calendar
+
+
+CalendarOwner
+
+
+WorkingHours
+
+
+Holiday
+
+
+AvailabilityRule
+
+
+TimeSlot
+
+
+Reservation
+
+
+Appointment
+
+
+AppointmentParticipant
+
+
+Resource
+
+
+Specialist
+
+
+Location
+
+
+Room
+
+
+CalendarSync
+
+
+SyncProvider
+
+
+SyncLog
+
+
+NotificationQueue
+
+
+RecurrenceRule
+
+
+AuditEvent
+
+
+Este modelo permite soportar múltiples sedes, especialistas, recursos físicos (salas, equipos) y distintos proveedores de sincronización sin alterar la estructura principal.
+________________
+
+
+14. Especificación del "Módulo de Calendario Genérico" (Plantilla Maestra)
+Para convertir este componente en un activo reutilizable dentro de cualquier ecosistema, recomiendo documentarlo como un módulo independiente con las siguientes secciones:
+Sección
+	Contenido
+	Objetivo
+	Gestión de disponibilidad, reservas y sincronización omnicanal.
+	Actores
+	Administrador, operador, especialista, cliente y servicios externos.
+	Entidades
+	Calendario, recurso, franja horaria, reserva, cita, participante, sincronización, notificación.
+	Reglas de negocio
+	Horarios, capacidad, buffers, cancelaciones, recurrencias, permisos y prioridades.
+	Casos de uso
+	Crear, mover, cancelar, reprogramar, bloquear horarios, asignar recursos y consultar disponibilidad.
+	Motor de disponibilidad
+	Algoritmos de generación de slots, validaciones y cálculo de capacidad.
+	Motor de sincronización
+	Adaptadores para Google, Apple (ICS/CalDAV) y futuros proveedores como Outlook.
+	API pública
+	Endpoints REST/GraphQL para disponibilidad, reservas, sincronización y webhooks.
+	Eventos del dominio
+	AppointmentCreated, AppointmentUpdated, AppointmentCancelled, AvailabilityChanged, SyncCompleted, ConflictDetected.
+	UX/UI
+	Patrones para escritorio (matriz semanal/mensual), móvil (agenda vertical), accesibilidad, drag & drop y semaforización.
+	Seguridad
+	OAuth 2.0, RBAC, auditoría, versionado de eventos y trazabilidad completa.
+	Extensibilidad
+	Adaptadores para nuevos calendarios, motores de notificaciones y reglas de negocio específicas sin modificar el núcleo.
+	Recomendación estratégica
+Si el objetivo es construir una plataforma con filosofía de "andamiaje empresarial" reutilizable, diseñaría este componente como un Calendar Scheduling Engine (CSE), completamente desacoplado del dominio. El laboratorio, una clínica, un despacho legal o una empresa de servicios consumirían exactamente el mismo motor mediante configuración. La lógica de horarios, capacidad, sincronización, recurrencias, conflictos y disponibilidad viviría en el CSE; las reglas específicas de cada negocio (por ejemplo, "máximo 4 personas por hora" o "cancelación válida con 3 horas de anticipación") serían políticas configurables. Así el calendario deja de ser un módulo de Athlos y se convierte en una pieza de infraestructura reutilizable para cualquier sistema futuro.
