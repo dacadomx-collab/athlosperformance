@@ -27,13 +27,34 @@ declare(strict_types=1);
  */
 
 // ─── Cargador de .env (formato INI) — ÚNICA fuente: core/.env ─────────────
+//
+// Búsqueda en cascada: en local (XAMPP) este archivo vive en
+// public/ssos/config/, 3 niveles bajo la raíz del proyecto. En cPanel,
+// el export estático de Next.js sólo despliega el CONTENIDO de public/
+// (public/ssos/* -> .../ssos/* en la raíz del sitio), por lo que ahí
+// este mismo archivo queda 2 niveles bajo la raíz del sitio. Se prueban
+// ambas profundidades para que el mismo código sirva en ambos entornos.
 
 (static function (): void {
-    $env_path = __DIR__ . '/../../../core/.env';
+    $candidatos = [
+        __DIR__ . '/../../core/.env',    // producción cPanel: ssos/config -> raíz_sitio/core/.env
+        __DIR__ . '/../../../core/.env', // local XAMPP: public/ssos/config -> raíz_proyecto/core/.env
+    ];
 
-    if (!file_exists($env_path)) {
+    $env_path = null;
+    foreach ($candidatos as $candidato) {
+        if (file_exists($candidato)) {
+            $env_path = $candidato;
+            break;
+        }
+    }
+
+    if ($env_path === null) {
         http_response_code(500);
-        die('Error de configuración del servidor: falta core/.env (única fuente de verdad de variables de entorno).');
+        die(
+            'Error de configuración del servidor: falta core/.env (única fuente de verdad de variables '
+            . 'de entorno). Rutas probadas: ' . implode(', ', $candidatos)
+        );
     }
 
     $config = parse_ini_file($env_path, true, INI_SCANNER_TYPED);

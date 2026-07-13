@@ -13,9 +13,20 @@ declare(strict_types=1);
 // ─── Cargador de .env ─────────────────────────────────────────────────────────
 
 (static function (): void {
-    $env_path = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'core' . DIRECTORY_SEPARATOR . '.env';
+    $candidatos = [
+        dirname(__DIR__) . DIRECTORY_SEPARATOR . 'core' . DIRECTORY_SEPARATOR . '.env',
+        dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'core' . DIRECTORY_SEPARATOR . '.env',
+    ];
 
-    if (!file_exists($env_path)) {
+    $env_path = null;
+    foreach ($candidatos as $candidato) {
+        if (file_exists($candidato)) {
+            $env_path = $candidato;
+            break;
+        }
+    }
+
+    if ($env_path === null) {
         // En producción un .env ausente es un error fatal de configuración.
         if (getenv('APP_ENV') !== 'local') {
             http_response_code(500);
