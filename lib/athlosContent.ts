@@ -45,19 +45,22 @@ export const COACHES = [
 
 export const EVIDENCE_LINKS = [
   {
-    provider: "Facebook",
+    provider: "Instagram",
     label: "Sesión de fuerza controlada en laboratorio",
-    href: "https://www.facebook.com/share/r/1D6BnnZR3F/"
+    href: "https://www.instagram.com/p/DX4sQRLhfI2/",
+    thumbnail: "/img_insta.png"
   },
   {
     provider: "Instagram",
     label: "Resultados medibles de un ciclo de entrenamiento",
-    href: "https://www.instagram.com/p/DX7OY33Ac31/?utm_source=ig_web_button_share_sheet&igsh=MzRlODBiNWFlZA=="
+    href: "https://www.instagram.com/p/DX7OY33Ac31/?utm_source=ig_web_button_share_sheet&igsh=MzRlODBiNWFlZA==",
+    thumbnail: "/img_insta1.png"
   },
   {
     provider: "Instagram",
     label: "Detrás de cámaras: evaluación funcional",
-    href: "https://www.instagram.com/reel/DXsJZEfkhC3/?utm_source=ig_web_button_share_sheet&igsh=MzRlODBiNWFlZA=="
+    href: "https://www.instagram.com/reel/DXsJZEfkhC3/?utm_source=ig_web_button_share_sheet&igsh=MzRlODBiNWFlZA==",
+    thumbnail: "/img_insta2.png"
   }
 ] as const
 

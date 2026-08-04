@@ -32,7 +32,13 @@ export function EvidenceSection() {
 
         <div className="evidence-grid">
           {EVIDENCE_LINKS.map((link) => (
-            <SocialEmbedFacade provider={link.provider} label={link.label} href={link.href} key={link.href} />
+            <SocialEmbedFacade 
+              provider={link.provider} 
+              label={link.label} 
+              href={link.href} 
+              thumbnail={link.thumbnail}
+              key={link.href} 
+            />
           ))}
         </div>
       </div>

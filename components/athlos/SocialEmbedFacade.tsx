@@ -7,9 +7,10 @@ interface SocialEmbedFacadeProps {
   provider: "Instagram" | "Facebook"
   label: string
   href: string
+  thumbnail?: string
 }
 
-export function SocialEmbedFacade({ provider, label, href }: SocialEmbedFacadeProps) {
+export function SocialEmbedFacade({ provider, label, href, thumbnail }: SocialEmbedFacadeProps) {
   const [isLoaded, setIsLoaded] = useState(false)
 
   if (isLoaded) {
@@ -32,6 +33,11 @@ export function SocialEmbedFacade({ provider, label, href }: SocialEmbedFacadePr
       className="social-embed social-embed--facade"
       onClick={() => setIsLoaded(true)}
       aria-label={`Cargar video de ${provider}: ${label}`}
+      style={{
+        backgroundImage: thumbnail ?`url(${thumbnail})`: undefined, 
+        backgroundSize: "cover", 
+        backgroundPosition: "center"
+      }}
     >
       <span className="media-card__play" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
