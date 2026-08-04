@@ -62,7 +62,7 @@ export function SegmentedSolutions({ segment }: SegmentedSolutionsProps) {
       </a>
 
       <CtaButton className="segment-panel__cta" href="#consent-gate">
-        Agendar Evaluación Inicial
+        Agenda tu clase muestra
       </CtaButton>
     </div>
   )

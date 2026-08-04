@@ -3,9 +3,9 @@ import { CtaButton } from "@/components/athlos/CtaButton"
 import { HeroBackgroundVideo } from "@/components/athlos/HeroBackgroundVideo"
 
 const heroMetrics = [
-  ["01", "Evaluación integral"],
-  ["02", "Interpretación de datos"],
-  ["03", "Prescripción personalizada"]
+  ["Evaluación integral"],
+  ["Interpretación de datos"],
+  ["Prescripción personalizada"]
 ] as const
 
 export function HeroSection() {
@@ -15,17 +15,17 @@ export function HeroSection() {
         <div className="hero__content">
           <p className="hero__kicker">Sport Science Lab · La Paz BCS</p>
           <div className="hero__title-group">
-            <h1 id="hero-title">El rendimiento no se improvisa. Se mide.</h1>
+            <h1 id="hero-title">El rendimiento se construye con datos,<br /> no con suposiciones.</h1>
             <p className="hero__subtitle">
-              Laboratorio de Ciencias del Ejercicio y Movimiento Humano. Transformamos datos biomecánicos,
+              Laboratorio de Ciencias del Deporte. Transformamos datos biomecánicos,
               funcionales y clínicos en programas de entrenamiento personalizados para rendimiento deportivo,
               salud y longevidad.
             </p>
           </div>
           <div className="hero__actions">
-            <CtaButton href="#consent-gate">Agendar Evaluación Inicial</CtaButton>
+            <CtaButton href="#consent-gate">Agenda tu clase muestra</CtaButton>
             <CtaButton href="#metodologia" variant="secondary">
-              Conoce Nuestra Metodología
+              Conoce nuestra metodología
             </CtaButton>
           </div>
         </div>

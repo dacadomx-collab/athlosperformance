@@ -136,7 +136,7 @@ export function ConsentLeadDialog() {
             <p className="section-kicker">Aviso de privacidad</p>
             <h2 id={titleId}>Antes de continuar</h2>
             <p className="consent-gate__notice">
-              Para agendar tu evaluación inicial necesitamos tratar datos personales y, si los
+              Para agendar tu clase muestra necesitamos tratar datos personales y, si los
               compartes, datos relacionados con tu salud (lesiones, condiciones médicas u
               objetivos físicos). Estos datos se usan únicamente para diseñar tu programa y
               contactarte; no se comparten con terceros sin tu autorización. Puedes solicitar su

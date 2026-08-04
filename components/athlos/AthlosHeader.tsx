@@ -77,7 +77,7 @@ export function AthlosHeader() {
             ))}
           </nav>
           <CtaButton href="#consent-gate" onClick={closeMenu}>
-            Agendar Evaluación Inicial
+            Agendar tu clase muestra
           </CtaButton>
         </div>
       </div>
