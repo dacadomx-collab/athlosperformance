@@ -3,9 +3,9 @@ import { CtaButton } from "@/components/athlos/CtaButton"
 import { HeroBackgroundVideo } from "@/components/athlos/HeroBackgroundVideo"
 
 const heroMetrics = [
-  ["Evaluación integral"],
-  ["Interpretación de datos"],
-  ["Prescripción personalizada"]
+  "Evaluación integral",
+  "Interpretación de datos",
+  "Prescripción personalizada"
 ] as const
 
 export function HeroSection() {
@@ -46,9 +46,8 @@ export function HeroSection() {
         </div>
       </div>
       <div className="hero__metrics" aria-label="Resumen metodológico">
-        {heroMetrics.map(([step, label]) => (
-          <div key={step}>
-            <span>{step}</span>
+        {heroMetrics.map((label, index) => (
+          <div key={index}>
             <p>{label}</p>
           </div>
         ))}
