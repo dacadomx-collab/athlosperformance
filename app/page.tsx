@@ -17,8 +17,8 @@ export default function HomePage() {
         <HeroSection />
         <DifferentiationSection />
         <MethodologyTimeline />
-        <TeamSection />
         <EvaluationSplitSection />
+        <TeamSection />
         <EvidenceSection />
         <FinalCtaSection />
         <ContactSection />

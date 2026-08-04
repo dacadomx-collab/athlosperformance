@@ -63,8 +63,7 @@ export const EVIDENCE_LINKS = [
 
 export const CERTIFICATIONS = [
   { name: "ISAK", description: "Antropometría y composición corporal" },
-  { name: "McKenzie", description: "Diagnóstico y terapia mecánica de columna" },
-  { name: "Mulligan", description: "Terapia manual y movilización articular" }
+  { name: "Dinamómetro (MAT)", description: "Evaluación objetiva de fuerza y asimetrías musculares" },
 ] as const
 
 export const ATHLOS_LOCAL_VIDEOS = {
@@ -155,8 +154,8 @@ export const SEGMENT_CONTENT = {
     eyebrow: "Alto Rendimiento",
     evaluationTitle: "Tu Ficha de Evaluación Clínica",
     evaluationBody:
-      "Analizamos tu estructura desde el interior. Calculamos tu densidad corporal, porcentaje de grasa exacta (Fórmula de Siri), masa ósea (Fórmula de Rocha) y te ubicamos en una Somatocarta matemática. Adicionalmente, evaluamos tus patrones de movimiento (como la compensación de rodillas en sentadilla profunda) para asegurar un entrenamiento libre de fricción articular.",
-    metrics: ["Somatocarta", "Fórmula de Siri", "Fórmula de Rocha", "Patrones de movimiento"],
+      "Analizamos tu estructura desde el interior mediante el protocolo internacional ISAK. Realizamos mediciones precisas de pliegues cutáneos, perímetros y diámetros óseos para determinar tu composición corporal exacta (grasa, músculo y hueso) y ubicarte en una Somatocarta matemática. Adicionalmente, evaluamos tus patrones de movimiento (como la compensación de rodillas en sentadilla profunda) para asegurar un entrenamiento libre de fricción articular.",
+    metrics: ["Somatocarta", "Protocolo ISAK", "Patrones de movimiento"],
     planningTerms: ["Mesociclo", "Microciclo", "Sesión"],
     solutionTitle: "Datos para competir al máximo nivel",
     solutionBody:
