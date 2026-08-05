@@ -32,12 +32,20 @@ export function EvidenceSection() {
 
         <div className="evidence-grid">
           {EVIDENCE_LINKS.map((link) => (
-            <SocialEmbedFacade 
-              provider={link.provider} 
-              label={link.label} 
-              href={link.href} 
-              thumbnail={link.thumbnail}
-              key={link.href} 
+            <iframe
+              key={link.href}
+              src={link.href}
+              loading="lazy"
+              title={link.label}
+              allow="encrypted-media; picture-in-picture"
+              allowFullScreen
+              style={{
+                width: '100%',
+                height: '660px', // Mantenemos la altura para que la cuadrícula no se rompa
+                border: 'none',
+                borderRadius: '12px',
+                backgroundColor: 'white' // Fondo blanco nativo para que luzca como la publicación real
+              }}
             />
           ))}
         </div>
