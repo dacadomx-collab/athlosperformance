@@ -66,7 +66,7 @@ export const EVIDENCE_LINKS = [
 
 export const CERTIFICATIONS = [
   { name: "ISAK", description: "Antropometría y composición corporal" },
-  { name: "Dinamómetro (MAT)", description: "Evaluación objetiva de fuerza y asimetrías musculares" },
+  { name: "Dinamómetro (MAT)", description: "Evaluación de fuerza, rango de movimiento y asimetrías" },
 ] as const
 
 export const ATHLOS_LOCAL_VIDEOS = {

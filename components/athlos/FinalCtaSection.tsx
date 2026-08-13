@@ -12,9 +12,7 @@ export function FinalCtaSection() {
         </p>
         <div className="final-cta__actions">
           <CtaButton href="#consent-gate">Agenda tu Clase Muestra</CtaButton>
-          <CtaButton href={ATHLOS_WHATSAPP_HREF} variant="secondary" target="_blank" rel="noopener noreferrer">
-            Hablar con el Staff Médico
-          </CtaButton>
+          
         </div>
         <p className="final-cta__note">
           ¿Presenta hernias o desgaste articular? Permita que nuestro equipo valide su caso.
