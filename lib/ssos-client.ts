@@ -1,12 +1,17 @@
 /**
- * Cliente del webhook FrontDesk del BackOffice SSOS (public/ssos/api/leads_webhook.php).
+ * Cliente del BackOffice SSOS para los endpoints públicos que este sitio
+ * estático consume en runtime: el webhook FrontDesk
+ * (public/ssos/api/leads_webhook.php) y los Casos de Éxito
+ * (public/ssos/api/testimonios_publicos.php).
  *
  * Este sitio se exporta 100% estático (next.config.mjs: output "export"), sin
- * runtime de servidor — por eso este cliente llama al endpoint directamente
- * desde el navegador y NUNCA envía una API key: cualquier secreto embebido
- * en este bundle sería público. La autorización para este canal la resuelve
- * el backend validando el header Origin del navegador contra ALLOWED_ORIGINS
- * (ver api_require_key_or_allowed_origin() en public/ssos/config/helpers.php).
+ * runtime de servidor — por eso este cliente llama a los endpoints
+ * directamente desde el navegador y NUNCA envía una API key: cualquier
+ * secreto embebido en este bundle sería público. La autorización para el
+ * webhook FrontDesk la resuelve el backend validando el header Origin del
+ * navegador contra ALLOWED_ORIGINS (ver api_require_key_or_allowed_origin()
+ * en public/ssos/config/helpers.php); testimonios_publicos.php es lectura
+ * pública sin autenticación (mismo criterio que agenda_publica.php).
  */
 
 export type CanalOrigen = "whatsapp" | "instagram" | "facebook"
@@ -65,5 +70,40 @@ export async function submitLead(payload: LeadPayload): Promise<LeadResult> {
     code,
     message: data?.message ?? DEFAULT_ERROR_MESSAGES[code] ?? DEFAULT_ERROR_MESSAGES.UNKNOWN_ERROR,
     errors: data?.errors,
+  }
+}
+
+export interface TestimonioPublico {
+  idTestimonio: number
+  nombreCliente: string
+  comentario: string
+  fotoUrl: string | null
+  fechaTestimonio: string
+}
+
+/**
+ * Trae los testimonios activos para el carrusel público. Falla en silencio
+ * (devuelve un arreglo vacío) ante cualquier error de red o de formato — el
+ * carrusel es contenido de refuerzo, nunca debe romper ni bloquear el resto
+ * de la Landing Page si el BackOffice está caído.
+ */
+export async function fetchTestimoniosPublicos(): Promise<TestimonioPublico[]> {
+  try {
+    const response = await fetch(`${SSOS_API_BASE}/api/testimonios_publicos.php`)
+    const data = await response.json().catch(() => null)
+
+    if (!response.ok || data?.status !== "success" || !Array.isArray(data.testimonios)) {
+      return []
+    }
+
+    return data.testimonios.map((t: Record<string, unknown>) => ({
+      idTestimonio: Number(t.id_testimonio),
+      nombreCliente: String(t.nombre_cliente ?? ""),
+      comentario: String(t.comentario ?? ""),
+      fotoUrl: typeof t.foto_url === "string" ? t.foto_url : null,
+      fechaTestimonio: String(t.fecha_testimonio ?? ""),
+    }))
+  } catch {
+    return []
   }
 }

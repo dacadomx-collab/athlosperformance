@@ -1,0 +1,18 @@
+# ===================================================================
+# BLINDAJE — FOTOS DE TESTIMONIOS SUBIDAS POR USUARIOS
+# Directorio de sólo assets estáticos (jpg/png/webp). Ninguna extensión
+# ejecutable puede correr aquí aunque un archivo malicioso burle la
+# validación de MIME/extensión en el backend (defensa en profundidad).
+# ===================================================================
+
+Options -Indexes -ExecCGI
+RemoveHandler .php .php3 .php4 .php5 .phtml
+RemoveType .php .php3 .php4 .php5 .phtml
+
+<FilesMatch "\.(php|php3|php4|php5|phtml|pl|py|cgi|sh|asp|aspx)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>

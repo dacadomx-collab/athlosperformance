@@ -16,6 +16,17 @@
     --athlos-turquesa: #00B8C9;
     --athlos-gris-claro: #F7FAFC;
 
+    /* Auditoría WCAG (2026-08-12): --athlos-turquesa como TEXTO sobre fondos
+       claros (--ssos-bg/--ssos-surface) mide ~2.42:1 — no pasa el mínimo AA
+       de 4.5:1 para texto. Como color de fondo/borde no tiene este problema
+       (por eso NO se toca --athlos-turquesa en sí). --athlos-turquesa-text es
+       la variable dedicada para cualquier `color:` de texto: en modo claro
+       usa un tono más oscuro (~5.5:1 verificado), en modo oscuro reutiliza el
+       turquesa original (ahí sí pasa, ~6.16:1) — mismo patrón ya validado y
+       en producción en el sitio público (styles/athlos-theme.css,
+       --athlos-turquoise-text, Módulo 7). */
+    --athlos-turquesa-text: #00707D;
+
     --ssos-bg: var(--athlos-gris-claro);
     --ssos-surface: #FFFFFF;
     --ssos-text: #16232E;
@@ -27,6 +38,8 @@
 
 [data-theme="dark"] {
     color-scheme: dark;
+
+    --athlos-turquesa-text: var(--athlos-turquesa);
 
     --ssos-bg: #0A1D2E;
     --ssos-surface: #12293D;
@@ -84,6 +97,46 @@ body.ssos-app-body {
     gap: 1rem;
 }
 
+/* Barra de navegación horizontal de escritorio — oculta por defecto (mobile-first),
+   visible desde 992px (breakpoint lg, ya usado en el resto de este archivo, ej. la
+   matriz de Agenda). Complementa el Offcanvas, nunca lo reemplaza — ver header.php. */
+.ssos-navbar-desktop-nav {
+    display: none;
+}
+
+@media (min-width: 992px) {
+    .ssos-navbar-desktop-nav {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1.1rem;
+    }
+
+    .ssos-navbar-desktop-nav a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 0.35rem 0.15rem;
+        color: var(--ssos-navbar-text);
+        font-size: 0.85rem;
+        font-weight: 700;
+        white-space: nowrap;
+        opacity: 0.82;
+        border-bottom: 2px solid transparent;
+        transition: opacity 150ms ease, border-color 150ms ease;
+    }
+
+    .ssos-navbar-desktop-nav a:hover,
+    .ssos-navbar-desktop-nav a:focus-visible {
+        opacity: 1;
+    }
+
+    .ssos-navbar-desktop-nav a.is-active {
+        opacity: 1;
+        border-bottom-color: var(--athlos-turquesa);
+    }
+}
+
 .ssos-navbar .navbar-toggler {
     border-color: rgba(247, 250, 252, 0.35);
 }
@@ -104,7 +157,7 @@ body.ssos-app-body {
 .ssos-offcanvas .nav-link:hover,
 .ssos-offcanvas .nav-link.active {
     background: rgba(0, 184, 201, 0.12);
-    color: var(--athlos-turquesa);
+    color: var(--athlos-turquesa-text);
 }
 
 .ssos-offcanvas .ssos-role-badge {
@@ -127,7 +180,17 @@ body.ssos-app-body {
     cursor: pointer;
     font-size: 1.1rem;
     box-shadow: 0 6px 16px rgba(14, 58, 93, 0.18);
-    z-index: 1050;
+    /* Bug real encontrado en auditoría: 1050 quedaba POR ENCIMA del offcanvas
+       de Bootstrap (z-index 1045) y su backdrop (1040). El botón flotante
+       "volver arriba" (position:fixed, bottom/right:20px) geométricamente se
+       superpone con la esquina inferior derecha del panel .ssos-offcanvas
+       (offcanvas-end, mismo lado) — con z-index 1050 interceptaba los clics
+       destinados a los últimos ítems del menú (ej. "Cerrar sesión") cada vez
+       que el usuario abría la hamburguesa habiendo scrolleado >300px antes
+       (backToTop.is-visible). Bajado a 1030 (capa "fixed" de Bootstrap) para
+       que SIEMPRE quede detrás del offcanvas/backdrop; sigue por encima del
+       contenido normal de la página (z-index:auto). */
+    z-index: 1030;
 }
 
 /* Dentro del navbar (ssos-navbar-actions) el toggle es un ítem flex normal,
@@ -356,6 +419,33 @@ body.ssos-app-body {
     vertical-align: middle;
 }
 
+/* ─── Testimonios (Casos de Éxito) ──────────────────────────────────────── */
+
+.ssos-testimonio-thumb {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 1px solid var(--ssos-border);
+}
+
+.ssos-testimonio-thumb--placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ssos-bg);
+    color: var(--ssos-text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.ssos-testimonio-resena {
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ─── Botones institucionales ───────────────────────────────────────────── */
 
 .btn-ssos-primary {
@@ -414,6 +504,22 @@ body.ssos-app-body {
 [data-theme="dark"] .btn-ssos-outline:focus {
     background: var(--athlos-turquesa);
     color: #06262B;
+}
+
+/* Auditoría responsiva (2026-08-12): Bootstrap .btn-sm mide ~31px de alto
+   (padding 0.25rem + font-size 0.875rem) — por debajo del mínimo táctil de
+   44×44px. En escritorio esa densidad es la correcta para tablas de datos
+   con mouse; el problema es específicamente móvil. Ampliado sólo ahí, sin
+   tocar el tamaño visual/fuente (el área de toque crece por padding, no por
+   texto más grande) — aplica a los botones de acción de toda tabla
+   (.ssos-table-card: Equipo, Testimonios, Clientes, etc.). */
+@media (max-width: 767.98px) {
+    .ssos-table-card .btn-sm {
+        min-height: 44px;
+        min-width: 44px;
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+    }
 }
 
 /* ─── Semáforo de estatus del atleta ────────────────────────────────────── */
@@ -599,7 +705,32 @@ body.ssos-app-body {
    modo claro (o, peor, con fondo nativo oscuro del SO + texto oscuro fijo
    de Bootstrap = el bug de contraste reportado). */
 
+/* Auditoría visual pre-deploy (2026-08-12): el "modal transparente" reportado
+   en Testimonios no era un problema de fondo/z-index de Bootstrap — la causa
+   raíz real era HTML inválido (un modal insertado como hijo directo de
+   <tbody>, ver testimonios/index.php), que el navegador reubica en el DOM
+   ("foster parenting") de forma impredecible. Corregido ahí. Este bloque
+   queda como refuerzo explícito y documentado de las 3 garantías pedidas
+   (fondo opaco por tema, z-index por encima de cualquier tabla, separación
+   del header) — z-index/fondo ya coincidían con el default de Bootstrap 5.3
+   (.modal 1055, .modal-backdrop 1050, ambos ya por encima de cualquier
+   z-index propio de este archivo salvo el toast, 1080, que debe quedar
+   siempre visible incluso con un modal abierto). */
+.modal {
+    z-index: 1055;
+}
+
+.modal-backdrop {
+    z-index: 1050;
+}
+
+.modal-dialog {
+    margin-top: max(1.75rem, env(safe-area-inset-top));
+}
+
 .modal-content {
+    position: relative;
+    z-index: 1;
     background: var(--ssos-surface);
     color: var(--ssos-text);
     border: 1px solid var(--ssos-border);
@@ -608,6 +739,14 @@ body.ssos-app-body {
 .modal-header,
 .modal-footer {
     border-color: var(--ssos-border);
+}
+
+/* Vista previa del nombre de archivo seleccionado (input type="file") —
+   confirma la selección antes de enviar, ver main.js data-ssos-preview-nombre-archivo. */
+.ssos-archivo-seleccionado {
+    color: var(--athlos-turquesa-text);
+    font-weight: 600;
+    word-break: break-all;
 }
 
 .btn-close {
@@ -663,7 +802,7 @@ body.ssos-app-body {
 }
 
 .ssos-tabs .nav-link:hover {
-    color: var(--athlos-turquesa);
+    color: var(--athlos-turquesa-text);
 }
 
 .ssos-tabs .nav-link.active {

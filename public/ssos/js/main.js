@@ -81,6 +81,46 @@
     document.addEventListener("DOMContentLoaded", activarTabDesdeHash);
     window.addEventListener("hashchange", activarTabDesdeHash);
 
+    // ─── Dashboard Único: mantener sincronizado el hash de la URL con la
+    // pestaña Bootstrap realmente visible. Bootstrap NO actualiza el hash por
+    // sí solo al cambiar de tab (sólo alterna clases CSS) — sin esto, el hash
+    // quedaba "congelado" en el valor de la carga inicial de la página, así
+    // que cualquier acción que dependiera de "qué pestaña se ve ahora mismo"
+    // (compartir el enlace, recargar, F5) perdía el contexto real del usuario. ─
+    document.addEventListener("shown.bs.tab", function (event) {
+        var idPestana = (event.target.id || "").replace("tab-btn-", "");
+        if (idPestana) {
+            history.replaceState(null, "", "#" + idPestana);
+        }
+    });
+
+    // ─── Retención de pestaña activa al guardar cualquier formulario (auditoría
+    // UX): inyecta/actualiza un campo oculto "tab_origen" con el id de la
+    // pestaña Bootstrap actualmente visible, justo antes de enviar CUALQUIER
+    // <form method="post"> de la página. dashboard/index.php lo lee en el
+    // servidor para volver a mostrar exactamente esa pestaña tras procesar la
+    // acción, en vez de caer siempre a la primera. No-op inofensivo en
+    // páginas sin sistema de pestañas (no encuentra ningún .tab-pane.active). ─
+    document.addEventListener("submit", function (event) {
+        var form = event.target;
+        if (!(form instanceof HTMLFormElement) || form.method.toLowerCase() !== "post") {
+            return;
+        }
+        var paneActivo = document.querySelector(".tab-pane.active[id^='pane-']");
+        if (!paneActivo) {
+            return;
+        }
+        var idPestana = paneActivo.id.replace("pane-", "");
+        var campoTab = form.querySelector('input[name="tab_origen"]');
+        if (!campoTab) {
+            campoTab = document.createElement("input");
+            campoTab.type = "hidden";
+            campoTab.name = "tab_origen";
+            form.appendChild(campoTab);
+        }
+        campoTab.value = idPestana;
+    });
+
     // ─── Copiar Link de Progreso (WhatsApp 1-click) ─────────────────────────
     function mostrarToast(mensaje) {
         var toastEl = document.getElementById("ssosToast");
@@ -218,6 +258,102 @@
             modalEditarAtleta.querySelector("#editar_telefono").value = boton.dataset.telefono || "";
             modalEditarAtleta.querySelector("#editar_email").value = boton.dataset.email || "";
             modalEditarAtleta.querySelector("#editar_fecha_nacimiento").value = boton.dataset.fechaNacimiento || "";
+        });
+    }
+
+    // ─── Testimonios (Casos de Éxito): modal compartido "Editar Testimonio" —
+    // mismo patrón que modalEditarAtleta/modalEquipoEditar (un solo modal
+    // rellenado vía data-* del botón que lo abrió, en vez de un modal por fila
+    // — la versión anterior insertaba un <div class="modal"> como hijo directo
+    // de <tbody>, HTML inválido que el navegador "repara" reubicándolo en el
+    // DOM (foster parenting), causando el modal transparente/traslapado con la
+    // tabla reportado en la auditoría visual). ────────────────────────────────
+    var modalEditarTestimonio = document.getElementById("modalEditarTestimonio");
+    if (modalEditarTestimonio) {
+        modalEditarTestimonio.addEventListener("show.bs.modal", function (event) {
+            var boton = event.relatedTarget;
+            if (!boton) {
+                return;
+            }
+            modalEditarTestimonio.querySelector("#testimonioEditar_id").value = boton.dataset.id || "";
+            modalEditarTestimonio.querySelector("#testimonioEditar_nombre").value = boton.dataset.nombre || "";
+            modalEditarTestimonio.querySelector("#testimonioEditar_comentario").value = boton.dataset.comentario || "";
+            modalEditarTestimonio.querySelector("#testimonioEditar_fecha").value = boton.dataset.fecha || "";
+            modalEditarTestimonio.querySelector("#testimonioEditar_orden").value = boton.dataset.orden || "0";
+            var campoFoto = modalEditarTestimonio.querySelector("#testimonioEditar_foto");
+            if (campoFoto) {
+                campoFoto.value = "";
+            }
+            var previewFoto = modalEditarTestimonio.querySelector("#testimonioEditar_foto_nombre");
+            if (previewFoto) {
+                previewFoto.textContent = "";
+            }
+        });
+    }
+
+    // ─── Vista previa del nombre de archivo en cualquier <input type="file">
+    // marcado con data-ssos-preview-nombre-archivo="id-del-elemento-destino" —
+    // confirma al usuario que la imagen sí se seleccionó antes de "Guardar". ──
+    document.addEventListener("change", function (event) {
+        var input = event.target;
+        if (!(input instanceof HTMLInputElement) || input.type !== "file" || !input.dataset.ssosPreviewNombreArchivo) {
+            return;
+        }
+        var destino = document.getElementById(input.dataset.ssosPreviewNombreArchivo);
+        if (!destino) {
+            return;
+        }
+        destino.textContent = input.files && input.files.length > 0 ? "📎 " + input.files[0].name : "";
+    });
+
+    // ─── Equipo del Laboratorio: modal compartido "Editar Miembro" — mismo
+    // patrón que modalEditarAtleta (un solo modal, rellenado vía data-* del
+    // botón que lo abrió, en vez de un modal por fila de la tabla). ─────────
+    var modalEquipoEditar = document.getElementById("modalEquipoEditar");
+    if (modalEquipoEditar) {
+        modalEquipoEditar.addEventListener("show.bs.modal", function (event) {
+            var boton = event.relatedTarget;
+            if (!boton) {
+                return;
+            }
+            modalEquipoEditar.querySelector("#equipoEditar_id").value = boton.dataset.id || "";
+            modalEquipoEditar.querySelector("#equipoEditar_nombre").value = boton.dataset.nombre || "";
+            modalEquipoEditar.querySelector("#equipoEditar_email").value = boton.dataset.email || "";
+            modalEquipoEditar.querySelector("#equipoEditar_rol").value = boton.dataset.rol || "coach";
+            modalEquipoEditar.querySelector("#equipoEditar_especialidad").value = boton.dataset.especialidad || "";
+        });
+    }
+
+    // ─── Equipo del Laboratorio: modal compartido "Resetear Contraseña" ─────
+    var modalEquipoResetPassword = document.getElementById("modalEquipoResetPassword");
+    if (modalEquipoResetPassword) {
+        modalEquipoResetPassword.addEventListener("show.bs.modal", function (event) {
+            var boton = event.relatedTarget;
+            if (!boton) {
+                return;
+            }
+            modalEquipoResetPassword.querySelector("#equipoResetPassword_id").value = boton.dataset.id || "";
+            modalEquipoResetPassword.querySelector("#equipoResetPassword_nombre").textContent = boton.dataset.nombre || "";
+            var campoPassword = modalEquipoResetPassword.querySelector("#equipoResetPassword_password");
+            if (campoPassword) {
+                campoPassword.value = "";
+            }
+        });
+    }
+
+    // ─── Clientes y Membresías: filtro "Ocultar suspendidos/inactivos" —
+    // client-side puro (toggle de display), sin recargar la página. Mismo
+    // patrón ya usado en el sidebar de la Agenda (toggle de citas por coach). ─
+    var checkOcultarSuspendidos = document.querySelector("[data-ssos-ocultar-suspendidos]");
+    var tablaClientes = document.getElementById("ssosTablaClientes");
+    if (checkOcultarSuspendidos && tablaClientes) {
+        checkOcultarSuspendidos.addEventListener("change", function () {
+            var ocultar = checkOcultarSuspendidos.checked;
+            tablaClientes.querySelectorAll("tr[data-estatus]").forEach(function (fila) {
+                var estatus = fila.getAttribute("data-estatus");
+                var debeOcultarse = ocultar && (estatus === "suspendido" || estatus === "inactivo");
+                fila.style.display = debeOcultarse ? "none" : "";
+            });
         });
     }
 

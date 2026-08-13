@@ -24,14 +24,23 @@ $verCalendario = in_array($rol, ['coach', 'admin', 'super_admin'], true);
 $verClientes = in_array($rol, ['admin', 'super_admin'], true);
 $verPieDeCancha = in_array($rol, ['coach', 'admin', 'super_admin'], true);
 $verControl = $rol === 'super_admin';
+$verEquipo = in_array($rol, ['admin', 'super_admin'], true);
 $verHerramientas = $rol === 'super_admin';
 
-// Alta de coaches: Dirección (super_admin) puede crear cualquier rol de staff
-// (candado ya existente más abajo excluye super_admin); Administración/Recepción
-// (admin) sólo puede dar de alta cuentas de Coach — nunca admin ni super_admin,
-// para que un puesto de recepción no pueda auto-escalar ni crear pares.
+// Alta de staff: Dirección (super_admin) puede crear cualquier rol de staff
+// (candado ya existente más abajo excluye super_admin como rol asignable
+// incluso para ella misma vía este formulario — ver nota en editar_miembro_equipo);
+// Administración/Recepción (admin) puede dar de alta cuentas de Coach o Admin
+// — nunca super_admin, para que un puesto de recepción no pueda auto-escalar
+// ni crear pares con el máximo privilegio.
 $puedeCrearUsuarios = in_array($rol, ['admin', 'super_admin'], true);
-$rolesCreablesPorRol = $rol === 'super_admin' ? ['coach', 'admin', 'atleta'] : ['coach'];
+$rolesCreablesPorRol = $rol === 'super_admin' ? ['coach', 'admin', 'atleta'] : ['coach', 'admin'];
+
+// Candado de seguridad del módulo Equipo (Punto 3): admin jamás puede ver,
+// editar, resetear contraseña ni cambiar estatus de una cuenta super_admin,
+// ni asignar el rol super_admin a nadie — reforzado en cada handler de abajo,
+// nunca sólo en la UI (Mandamiento 2: seguridad militar, cero confianza en el cliente).
+$rolesEquipoAsignables = ['coach', 'admin']; // NUNCA incluye super_admin, sin importar el actor
 
 // El Calendario es la pestaña de aterrizaje del Dashboard (Fase 23) — misma
 // lógica de datos/POST que la página standalone agenda/index.php, extraída a
@@ -129,6 +138,170 @@ if ($puedeCrearUsuarios && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acc
     }
 }
 
+/**
+ * Devuelve la clave_rol actual de un usuario, o null si no existe.
+ * Usada por los 3 handlers de Equipo para reforzar el candado de seguridad
+ * ANTES de tocar la fila — nunca se confía en un rol/estatus que el
+ * formulario/cliente haya podido enviar.
+ */
+function obtenerClaveRolUsuario(PDO $db, int $idUsuario): ?string
+{
+    $stmt = $db->prepare(
+        'SELECT r.clave_rol FROM usuarios u INNER JOIN roles r ON r.id_rol = u.id_rol WHERE u.id_usuario = :id'
+    );
+    $stmt->execute(['id' => $idUsuario]);
+    $clave = $stmt->fetchColumn();
+    return $clave !== false ? (string) $clave : null;
+}
+
+// ── Equipo: edición de datos + rol (Admin + Dirección) ──────────────────────
+$erroresEquipo = [];
+$equipoOk = null;
+
+if ($verEquipo && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'editar_miembro_equipo') {
+    if (!csrf_validate($_POST['csrf_token'] ?? null)) {
+        $erroresEquipo[] = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
+    } else {
+        $idMiembro = filter_input(INPUT_POST, 'id_usuario', FILTER_VALIDATE_INT);
+        $nombreMiembro = trim((string) ($_POST['nombre_completo'] ?? ''));
+        $emailMiembro = trim((string) ($_POST['email'] ?? ''));
+        $rolMiembroNuevo = (string) ($_POST['rol'] ?? '');
+        $especialidadMiembro = trim((string) ($_POST['especialidad'] ?? ''));
+
+        $rolActualMiembro = $idMiembro ? obtenerClaveRolUsuario($db, $idMiembro) : null;
+
+        if (!$idMiembro || $rolActualMiembro === null) {
+            $erroresEquipo[] = 'Usuario inválido.';
+        } elseif ($idMiembro === (int) $_SESSION['id_usuario']) {
+            $erroresEquipo[] = 'No puedes editar tu propia cuenta desde este panel.';
+        } elseif ($rolActualMiembro === 'super_admin' || !in_array($rolMiembroNuevo, $rolesEquipoAsignables, true)) {
+            // Candado de seguridad: bloquea tanto tocar a un super_admin existente
+            // como asignar super_admin (que ni siquiera aparece en $rolesEquipoAsignables).
+            $erroresEquipo[] = 'No tienes permiso para modificar esta cuenta o asignar ese rol.';
+        } else {
+            if ($nombreMiembro === '' || mb_strlen($nombreMiembro) > 150) {
+                $erroresEquipo[] = 'El nombre es obligatorio (máximo 150 caracteres).';
+            }
+            if (!filter_var($emailMiembro, FILTER_VALIDATE_EMAIL)) {
+                $erroresEquipo[] = 'El correo no es válido.';
+            }
+            if ($rolMiembroNuevo === 'coach' && $especialidadMiembro === '') {
+                $erroresEquipo[] = 'La especialidad es obligatoria para cuentas de Coach.';
+            }
+
+            if (empty($erroresEquipo)) {
+                try {
+                    $db->beginTransaction();
+
+                    $stmt = $db->prepare('SELECT id_usuario FROM usuarios WHERE email = :email AND id_usuario != :id LIMIT 1');
+                    $stmt->execute(['email' => $emailMiembro, 'id' => $idMiembro]);
+                    if ($stmt->fetch()) {
+                        throw new \RuntimeException('Ya existe otro usuario con ese correo.');
+                    }
+
+                    $stmt = $db->prepare('SELECT id_staff FROM usuarios WHERE id_usuario = :id');
+                    $stmt->execute(['id' => $idMiembro]);
+                    $idStaffMiembro = $stmt->fetchColumn();
+                    $idStaffMiembro = $idStaffMiembro !== false ? (int) $idStaffMiembro : null;
+
+                    // admin -> coach sin ficha de staff previa (ej. cuenta creada
+                    // directo como admin): se crea la ficha ahora. En cualquier
+                    // otro caso la ficha de staff (si existe) se conserva intacta
+                    // — cambiar de rol no borra el historial operativo del coach.
+                    if ($rolMiembroNuevo === 'coach' && $idStaffMiembro === null) {
+                        $stmt = $db->prepare(
+                            'INSERT INTO staff (nombre_completo, especialidad, email, activo) VALUES (:nombre, :especialidad, :email, 1)'
+                        );
+                        $stmt->execute(['nombre' => $nombreMiembro, 'especialidad' => $especialidadMiembro, 'email' => $emailMiembro]);
+                        $idStaffMiembro = (int) $db->lastInsertId();
+                    } elseif ($idStaffMiembro !== null) {
+                        $stmt = $db->prepare('UPDATE staff SET nombre_completo = :nombre, especialidad = :especialidad, email = :email WHERE id_staff = :id');
+                        $stmt->execute(['nombre' => $nombreMiembro, 'especialidad' => $especialidadMiembro, 'email' => $emailMiembro, 'id' => $idStaffMiembro]);
+                    }
+
+                    $stmt = $db->prepare('SELECT id_rol FROM roles WHERE clave_rol = :clave');
+                    $stmt->execute(['clave' => $rolMiembroNuevo]);
+                    $idRolMiembroNuevo = $stmt->fetchColumn();
+
+                    $stmt = $db->prepare(
+                        'UPDATE usuarios SET nombre_completo = :nombre, email = :email, id_rol = :id_rol, id_staff = :id_staff WHERE id_usuario = :id'
+                    );
+                    $stmt->execute([
+                        'nombre' => $nombreMiembro,
+                        'email' => $emailMiembro,
+                        'id_rol' => $idRolMiembroNuevo,
+                        'id_staff' => $idStaffMiembro,
+                        'id' => $idMiembro,
+                    ]);
+
+                    $db->commit();
+                    $equipoOk = 'Miembro del equipo actualizado.';
+                } catch (\Throwable $e) {
+                    if ($db->inTransaction()) {
+                        $db->rollBack();
+                    }
+                    if ($e->getMessage() === 'Ya existe otro usuario con ese correo.') {
+                        $erroresEquipo[] = $e->getMessage();
+                    } else {
+                        $erroresEquipo[] = 'No se pudo actualizar el miembro. Detalle técnico registrado en el log del servidor.';
+                        error_log('[SSOS dashboard editar_miembro_equipo] ' . $e->getMessage());
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Equipo: resetear contraseña (Admin + Dirección) ─────────────────────────
+if ($verEquipo && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'resetear_password_equipo') {
+    if (!csrf_validate($_POST['csrf_token'] ?? null)) {
+        $erroresEquipo[] = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
+    } else {
+        $idMiembro = filter_input(INPUT_POST, 'id_usuario', FILTER_VALIDATE_INT);
+        $passwordNuevaEquipo = (string) ($_POST['password_nueva'] ?? '');
+        $rolActualMiembro = $idMiembro ? obtenerClaveRolUsuario($db, $idMiembro) : null;
+
+        if (!$idMiembro || $rolActualMiembro === null) {
+            $erroresEquipo[] = 'Usuario inválido.';
+        } elseif ($idMiembro === (int) $_SESSION['id_usuario']) {
+            $erroresEquipo[] = 'No puedes resetear tu propia contraseña desde este panel.';
+        } elseif ($rolActualMiembro === 'super_admin') {
+            $erroresEquipo[] = 'No tienes permiso para modificar esta cuenta.';
+        } elseif (mb_strlen($passwordNuevaEquipo) < 8) {
+            $erroresEquipo[] = 'La contraseña debe tener al menos 8 caracteres.';
+        } else {
+            $stmt = $db->prepare(
+                'UPDATE usuarios SET password_hash = :hash, requiere_cambio_password = 1 WHERE id_usuario = :id'
+            );
+            $stmt->execute(['hash' => password_hash($passwordNuevaEquipo, PASSWORD_DEFAULT), 'id' => $idMiembro]);
+            $equipoOk = 'Contraseña reseteada. El usuario deberá cambiarla en su próximo inicio de sesión.';
+        }
+    }
+}
+
+// ── Equipo: activar/desactivar cuenta — soft delete (Admin + Dirección) ─────
+if ($verEquipo && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'cambiar_estatus_equipo') {
+    if (!csrf_validate($_POST['csrf_token'] ?? null)) {
+        $erroresEquipo[] = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
+    } else {
+        $idMiembro = filter_input(INPUT_POST, 'id_usuario', FILTER_VALIDATE_INT);
+        $nuevoActivoEquipo = filter_input(INPUT_POST, 'nuevo_activo', FILTER_VALIDATE_INT);
+        $rolActualMiembro = $idMiembro ? obtenerClaveRolUsuario($db, $idMiembro) : null;
+
+        if (!$idMiembro || $rolActualMiembro === null || !in_array($nuevoActivoEquipo, [0, 1], true)) {
+            $erroresEquipo[] = 'Solicitud inválida.';
+        } elseif ($idMiembro === (int) $_SESSION['id_usuario']) {
+            $erroresEquipo[] = 'No puedes desactivar tu propia cuenta.';
+        } elseif ($rolActualMiembro === 'super_admin') {
+            $erroresEquipo[] = 'No tienes permiso para modificar esta cuenta.';
+        } else {
+            $stmt = $db->prepare('UPDATE usuarios SET activo = :activo WHERE id_usuario = :id');
+            $stmt->execute(['activo' => $nuevoActivoEquipo, 'id' => $idMiembro]);
+            $equipoOk = $nuevoActivoEquipo === 1 ? 'Cuenta reactivada.' : 'Cuenta desactivada (soft delete) — el acceso queda bloqueado, el historial se conserva.';
+        }
+    }
+}
+
 // ── Edición de ficha de atleta (Admin + Dirección) ──────────────────────────
 $erroresEditarAtleta = [];
 $atletaEditadoOk = false;
@@ -207,10 +380,25 @@ if ($verControl) {
         'SELECT tipo_evento, email_intento, ip_origen, created_at
          FROM sesiones_log ORDER BY id_log_sesion DESC LIMIT 10'
     )->fetchAll();
-    $usuarios_sistema = $db->query(
-        'SELECT u.nombre_completo, u.email, r.clave_rol, u.activo, u.ultimo_login
-         FROM usuarios u INNER JOIN roles r ON r.id_rol = u.id_rol
-         ORDER BY u.created_at DESC'
+}
+
+// ── Tab: Equipo del Laboratorio (Admin + Dirección) ─────────────────────────
+// El listado de staff/administración vivía duplicado a medias entre esta
+// pantalla (sólo Dirección, sólo lectura + alta) y la pestaña Clientes (sólo
+// Admin, sólo alta de Coach, sin listado). Se consolida aquí: un único CRUD
+// completo, visible para ambos roles, con el candado de super_admin aplicado
+// tanto en la consulta (admin JAMÁS recibe esas filas del servidor, no sólo
+// las tiene ocultas en la UI) como en los 3 handlers de arriba.
+if ($verEquipo) {
+    $filtroRolEquipo = $rol === 'admin' ? "AND r.clave_rol != 'super_admin'" : '';
+    $miembrosEquipo = $db->query(
+        "SELECT u.id_usuario, u.nombre_completo, u.email, u.activo, u.ultimo_login,
+                r.clave_rol, s.especialidad
+         FROM usuarios u
+         INNER JOIN roles r ON r.id_rol = u.id_rol
+         LEFT JOIN staff s ON s.id_staff = u.id_staff
+         WHERE r.clave_rol IN ('coach', 'admin', 'super_admin') {$filtroRolEquipo}
+         ORDER BY u.activo DESC, u.nombre_completo ASC"
     )->fetchAll();
 }
 
@@ -310,13 +498,32 @@ if ($verControl) {
 if ($verClientes) {
     $tabsDisponibles[] = ['id' => 'clientes', 'icono' => '👥', 'label' => 'Clientes y Membresías'];
 }
+if ($verEquipo) {
+    $tabsDisponibles[] = ['id' => 'equipo', 'icono' => '🧑‍💼', 'label' => 'Equipo del Laboratorio'];
+}
 if ($verPieDeCancha) {
     $tabsDisponibles[] = ['id' => 'pie-de-cancha', 'icono' => '🏋️‍♂️', 'label' => 'Sesiones del Día'];
 }
 if ($verHerramientas) {
     $tabsDisponibles[] = ['id' => 'herramientas', 'icono' => '🛠️', 'label' => 'Herramientas & API'];
 }
-$tabActivaPorDefecto = $tabsDisponibles[0]['id'] ?? 'calendario';
+
+// Retención de pestaña activa tras un POST (auditoría UX): sin esto, CUALQUIER
+// guardado (crear/editar equipo, atleta, etc.) volvía a mostrar siempre la
+// PRIMERA pestaña de $tabsDisponibles, sin importar en cuál trabajaba el
+// usuario — perdía su contexto en cada guardado. `tab_origen` lo inyecta
+// main.js automáticamente en cualquier <form method="post"> justo antes de
+// enviarlo, leyendo la pestaña visualmente activa en ese momento — cero
+// campos ocultos manuales por formulario (ver initRetencionPestanaActiva()).
+// `?tab=` (GET) es el mismo mecanismo para navegación por enlace directo.
+// Nunca se confía en el valor recibido sin validarlo contra la lista real de
+// pestañas disponibles para ESTE rol — evita que alguien fuerce un id de
+// pestaña que no debería poder ver.
+$tabSolicitada = (string) ($_POST['tab_origen'] ?? $_GET['tab'] ?? '');
+$idsTabsDisponibles = array_column($tabsDisponibles, 'id');
+$tabActivaPorDefecto = in_array($tabSolicitada, $idsTabsDisponibles, true)
+    ? $tabSolicitada
+    : ($tabsDisponibles[0]['id'] ?? 'calendario');
 
 $ssos_page_title = 'Dashboard';
 $ssos_active_nav = 'dashboard';
@@ -354,21 +561,10 @@ require __DIR__ . '/../partials/header.php';
      id="pane-control" role="tabpanel" aria-labelledby="tab-btn-control">
 
     <p class="text-body-secondary">
-        Control absoluto de base de datos, usuarios del sistema y auditoría de seguridad.
+        Control absoluto de base de datos y auditoría de seguridad. La gestión de personal
+        (alta, edición, roles, contraseñas) vive ahora en la pestaña
+        <strong>🧑‍💼 Equipo del Laboratorio</strong>.
     </p>
-
-    <?php if ($usuarioNuevoCreado): ?>
-        <div class="alert alert-success ssos-alert" role="alert">Usuario creado exitosamente.</div>
-    <?php endif; ?>
-    <?php foreach ($erroresUsuarioNuevo as $errorUsuario): ?>
-        <div class="alert alert-danger ssos-alert" role="alert"><?= e($errorUsuario) ?></div>
-    <?php endforeach; ?>
-
-    <div class="d-flex flex-wrap gap-2 mb-4">
-        <button type="button" class="btn btn-ssos-turquesa" data-bs-toggle="modal" data-bs-target="#modalNuevoUsuario">
-            + Nuevo Usuario del Staff
-        </button>
-    </div>
 
     <div class="ssos-widget-grid">
         <div class="ssos-widget card shadow-sm border-0">
@@ -383,32 +579,6 @@ require __DIR__ . '/../partials/header.php';
                 <div class="ssos-widget-label">Atletas Registrados</div>
             </div>
         </div>
-    </div>
-
-    <div class="ssos-table-card mb-4">
-        <h5 class="mb-3">Usuarios del sistema</h5>
-        <table class="table table-hover align-middle mb-0">
-            <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>Email</th>
-                    <th>Rol</th>
-                    <th>Activo</th>
-                    <th>Último acceso</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($usuarios_sistema as $u): ?>
-                    <tr>
-                        <td><?= e($u['nombre_completo']) ?></td>
-                        <td><?= e($u['email']) ?></td>
-                        <td><?= e($etiquetasRol[$u['clave_rol']] ?? $u['clave_rol']) ?></td>
-                        <td><?= $u['activo'] ? 'Sí' : 'No' ?></td>
-                        <td><?= e($u['ultimo_login'] ?? '—') ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
     </div>
 
     <div class="ssos-table-card">
@@ -439,60 +609,6 @@ require __DIR__ . '/../partials/header.php';
             </tbody>
         </table>
     </div>
-
-    <div class="modal fade" id="modalNuevoUsuario" tabindex="-1" aria-labelledby="modalNuevoUsuarioLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <form method="post" class="modal-content">
-                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                <input type="hidden" name="accion" value="crear_usuario">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalNuevoUsuarioLabel">Nuevo Usuario del Staff</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="nuevo_nombre" class="form-label">Nombre completo</label>
-                        <input type="text" class="form-control" id="nuevo_nombre" name="nombre_completo" maxlength="150" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="nuevo_email" class="form-label">Correo</label>
-                        <input type="email" class="form-control" id="nuevo_email" name="email" maxlength="150" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="nuevo_rol" class="form-label">Rol</label>
-                        <select class="form-select" id="nuevo_rol" name="rol_nuevo" required>
-                            <option value="coach">Coach Especialista</option>
-                            <option value="admin">Administración / Recepción</option>
-                            <option value="atleta">Atleta / Cliente</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="nuevo_especialidad" class="form-label">Especialidad (sólo Coach)</label>
-                        <input type="text" class="form-control" id="nuevo_especialidad" name="especialidad" maxlength="100" placeholder="Ej. Fuerza y Acondicionamiento">
-                    </div>
-                    <div class="mb-3">
-                        <label for="nuevo_atleta_vinculado" class="form-label">Atleta a vincular (sólo Atleta/Cliente)</label>
-                        <select class="form-select" id="nuevo_atleta_vinculado" name="id_atleta_vinculado">
-                            <option value="">— Ninguno —</option>
-                            <?php foreach ($atletasActivos as $atletaOpcion): ?>
-                                <option value="<?= (int) $atletaOpcion['id_atleta'] ?>"><?= e($atletaOpcion['nombre_completo']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div class="form-text">El acceso del portal muestra únicamente las citas de este atleta.</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="nuevo_password" class="form-label">Contraseña</label>
-                        <input type="password" class="form-control" id="nuevo_password" name="password" minlength="8" required>
-                        <div class="form-text">Mínimo 8 caracteres.</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-ssos-turquesa">Crear Usuario</button>
-                </div>
-            </form>
-        </div>
-    </div>
 </div>
 <?php endif; ?>
 
@@ -501,59 +617,9 @@ require __DIR__ . '/../partials/header.php';
      id="pane-clientes" role="tabpanel" aria-labelledby="tab-btn-clientes">
 
     <p class="text-body-secondary">
-        Gestión comercial de clientes, cobros y catálogo de paquetes/membresías.
+        Gestión comercial de clientes, cobros y catálogo de paquetes/membresías. El alta de
+        Coaches/Administración vive en la pestaña <strong>🧑‍💼 Equipo del Laboratorio</strong>.
     </p>
-
-    <?php if ($rol === 'admin'): ?>
-        <?php if ($usuarioNuevoCreado): ?>
-            <div class="alert alert-success ssos-alert" role="alert">Coach creado exitosamente.</div>
-        <?php endif; ?>
-        <?php foreach ($erroresUsuarioNuevo as $errorUsuario): ?>
-            <div class="alert alert-danger ssos-alert" role="alert"><?= e($errorUsuario) ?></div>
-        <?php endforeach; ?>
-
-        <div class="d-flex flex-wrap gap-2 mb-4">
-            <button type="button" class="btn btn-ssos-turquesa" data-bs-toggle="modal" data-bs-target="#modalNuevoCoach">
-                + Nuevo Usuario del Staff
-            </button>
-        </div>
-
-        <div class="modal fade" id="modalNuevoCoach" tabindex="-1" aria-labelledby="modalNuevoCoachLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <form method="post" class="modal-content">
-                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                    <input type="hidden" name="accion" value="crear_usuario">
-                    <input type="hidden" name="rol_nuevo" value="coach">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalNuevoCoachLabel">Nuevo Coach</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="nuevoCoach_nombre" class="form-label">Nombre completo</label>
-                            <input type="text" class="form-control" id="nuevoCoach_nombre" name="nombre_completo" maxlength="150" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="nuevoCoach_email" class="form-label">Correo</label>
-                            <input type="email" class="form-control" id="nuevoCoach_email" name="email" maxlength="150" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="nuevoCoach_especialidad" class="form-label">Especialidad</label>
-                            <input type="text" class="form-control" id="nuevoCoach_especialidad" name="especialidad" maxlength="100" placeholder="Ej. Fuerza y Acondicionamiento" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="nuevoCoach_password" class="form-label">Contraseña temporal</label>
-                            <input type="password" class="form-control" id="nuevoCoach_password" name="password" minlength="8" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-ssos-turquesa">Crear Coach</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    <?php endif; ?>
 
     <div class="ssos-widget-grid">
         <div class="ssos-widget card shadow-sm border-0">
@@ -594,6 +660,11 @@ require __DIR__ . '/../partials/header.php';
         <div class="alert alert-danger ssos-alert" role="alert"><?= e($errorEditar) ?></div>
     <?php endforeach; ?>
 
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="ssosOcultarSuspendidos" data-ssos-ocultar-suspendidos>
+        <label class="form-check-label" for="ssosOcultarSuspendidos">Ocultar atletas suspendidos/inactivos</label>
+    </div>
+
     <div class="ssos-table-card">
         <table class="table table-hover align-middle mb-0">
             <thead>
@@ -606,7 +677,7 @@ require __DIR__ . '/../partials/header.php';
                     <th>Acciones</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="ssosTablaClientes">
                 <?php if (empty($ultimos_clientes)): ?>
                     <tr>
                         <td colspan="6" class="text-center text-body-secondary py-4">
@@ -615,7 +686,7 @@ require __DIR__ . '/../partials/header.php';
                     </tr>
                 <?php endif; ?>
                 <?php foreach ($ultimos_clientes as $cliente): ?>
-                    <tr>
+                    <tr data-estatus="<?= e($cliente['estatus']) ?>">
                         <td><?= e($cliente['nombre_completo']) ?></td>
                         <td><?= e($cliente['telefono']) ?></td>
                         <td><?= e($cliente['tipo_membresia']) ?></td>
@@ -688,6 +759,221 @@ require __DIR__ . '/../partials/header.php';
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-ssos-turquesa">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($verEquipo): ?>
+<div class="tab-pane fade ssos-tab-pane <?= 'equipo' === $tabActivaPorDefecto ? 'show active' : '' ?>"
+     id="pane-equipo" role="tabpanel" aria-labelledby="tab-btn-equipo">
+
+    <p class="text-body-secondary">
+        Alta, edición, contraseñas y rol (Coach ⇄ Administración) del personal del laboratorio.
+        <?php if ($rol === 'admin'): ?>Las cuentas de Dirección de Laboratorio no son visibles ni editables desde aquí.<?php endif; ?>
+    </p>
+
+    <?php if ($equipoOk): ?>
+        <div class="alert alert-success ssos-alert" role="alert"><?= e($equipoOk) ?></div>
+    <?php endif; ?>
+    <?php if ($usuarioNuevoCreado): ?>
+        <div class="alert alert-success ssos-alert" role="alert">Miembro del equipo creado exitosamente.</div>
+    <?php endif; ?>
+    <?php foreach (array_merge($erroresUsuarioNuevo, $erroresEquipo) as $errorEquipo): ?>
+        <div class="alert alert-danger ssos-alert" role="alert"><?= e($errorEquipo) ?></div>
+    <?php endforeach; ?>
+
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <button type="button" class="btn btn-ssos-turquesa" data-bs-toggle="modal" data-bs-target="#modalEquipoNuevo">
+            + Nuevo Miembro del Equipo
+        </button>
+    </div>
+
+    <div class="ssos-table-card">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                    <th>Especialidad</th>
+                    <th>Estatus</th>
+                    <th>Último acceso</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($miembrosEquipo)): ?>
+                    <tr>
+                        <td colspan="7" class="text-center text-body-secondary py-4">Aún no hay miembros de equipo registrados.</td>
+                    </tr>
+                <?php endif; ?>
+                <?php foreach ($miembrosEquipo as $miembro): ?>
+                    <?php $esSuperAdmin = $miembro['clave_rol'] === 'super_admin'; ?>
+                    <tr>
+                        <td><?= e($miembro['nombre_completo']) ?></td>
+                        <td><?= e($miembro['email']) ?></td>
+                        <td><?= e($etiquetasRol[$miembro['clave_rol']] ?? $miembro['clave_rol']) ?></td>
+                        <td><?= e($miembro['especialidad'] ?? '—') ?></td>
+                        <td><?= $miembro['activo'] ? '🟢 Activo' : '⚪ Inactivo' ?></td>
+                        <td><?= e($miembro['ultimo_login'] ?? '—') ?></td>
+                        <td>
+                            <?php if ($esSuperAdmin || (int) $miembro['id_usuario'] === (int) $_SESSION['id_usuario']): ?>
+                                <span class="text-body-secondary small">Sin acciones</span>
+                            <?php else: ?>
+                                <div class="d-flex flex-wrap gap-1">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="modal" data-bs-target="#modalEquipoEditar"
+                                            data-id="<?= (int) $miembro['id_usuario'] ?>"
+                                            data-nombre="<?= e($miembro['nombre_completo']) ?>"
+                                            data-email="<?= e($miembro['email']) ?>"
+                                            data-rol="<?= e($miembro['clave_rol']) ?>"
+                                            data-especialidad="<?= e($miembro['especialidad'] ?? '') ?>"
+                                            title="Editar">✏️ Editar</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="modal" data-bs-target="#modalEquipoResetPassword"
+                                            data-id="<?= (int) $miembro['id_usuario'] ?>"
+                                            data-nombre="<?= e($miembro['nombre_completo']) ?>"
+                                            title="Resetear contraseña">🔑 Contraseña</button>
+                                    <form method="post" onsubmit="return confirm('<?= $miembro['activo'] ? '¿Desactivar esta cuenta? El acceso quedará bloqueado de inmediato.' : '¿Reactivar esta cuenta?' ?>');">
+                                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                                        <input type="hidden" name="accion" value="cambiar_estatus_equipo">
+                                        <input type="hidden" name="id_usuario" value="<?= (int) $miembro['id_usuario'] ?>">
+                                        <input type="hidden" name="nuevo_activo" value="<?= $miembro['activo'] ? '0' : '1' ?>">
+                                        <button type="submit" class="btn btn-sm <?= $miembro['activo'] ? 'btn-outline-danger' : 'btn-outline-success' ?>">
+                                            <?= $miembro['activo'] ? '🗑️ Eliminar' : '♻️ Reactivar' ?>
+                                        </button>
+                                    </form>
+                                </div>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Alta de miembro — reusa el handler crear_usuario ya existente -->
+    <div class="modal fade" id="modalEquipoNuevo" tabindex="-1" aria-labelledby="modalEquipoNuevoLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" class="modal-content">
+                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="accion" value="crear_usuario">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEquipoNuevoLabel">Nuevo Miembro del Equipo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="equipoNuevo_nombre" class="form-label">Nombre completo</label>
+                        <input type="text" class="form-control" id="equipoNuevo_nombre" name="nombre_completo" maxlength="150" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="equipoNuevo_email" class="form-label">Correo</label>
+                        <input type="email" class="form-control" id="equipoNuevo_email" name="email" maxlength="150" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="equipoNuevo_rol" class="form-label">Rol</label>
+                        <select class="form-select" id="equipoNuevo_rol" name="rol_nuevo" required>
+                            <?php foreach ($rolesCreablesPorRol as $rolOpcion): ?>
+                                <option value="<?= e($rolOpcion) ?>"><?= e($etiquetasRol[$rolOpcion] ?? $rolOpcion) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="equipoNuevo_especialidad" class="form-label">Especialidad (sólo Coach)</label>
+                        <input type="text" class="form-control" id="equipoNuevo_especialidad" name="especialidad" maxlength="100" placeholder="Ej. Fuerza y Acondicionamiento">
+                    </div>
+                    <?php if (in_array('atleta', $rolesCreablesPorRol, true)): ?>
+                        <div class="mb-3">
+                            <label for="equipoNuevo_atleta_vinculado" class="form-label">Atleta a vincular (sólo Atleta/Cliente)</label>
+                            <select class="form-select" id="equipoNuevo_atleta_vinculado" name="id_atleta_vinculado">
+                                <option value="">— Ninguno —</option>
+                                <?php foreach ($atletasActivos as $atletaOpcion): ?>
+                                    <option value="<?= (int) $atletaOpcion['id_atleta'] ?>"><?= e($atletaOpcion['nombre_completo']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php endif; ?>
+                    <div class="mb-3">
+                        <label for="equipoNuevo_password" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="equipoNuevo_password" name="password" minlength="8" required>
+                        <div class="form-text">Mínimo 8 caracteres.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-ssos-turquesa">Crear Miembro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Editar miembro — modal compartido, se rellena vía JS (main.js) desde los data-* del botón -->
+    <div class="modal fade" id="modalEquipoEditar" tabindex="-1" aria-labelledby="modalEquipoEditarLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" class="modal-content">
+                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="accion" value="editar_miembro_equipo">
+                <input type="hidden" name="id_usuario" id="equipoEditar_id" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEquipoEditarLabel">Editar Miembro del Equipo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="equipoEditar_nombre" class="form-label">Nombre completo</label>
+                        <input type="text" class="form-control" id="equipoEditar_nombre" name="nombre_completo" maxlength="150" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="equipoEditar_email" class="form-label">Correo</label>
+                        <input type="email" class="form-control" id="equipoEditar_email" name="email" maxlength="150" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="equipoEditar_rol" class="form-label">Rol</label>
+                        <select class="form-select" id="equipoEditar_rol" name="rol" required>
+                            <option value="coach">Coach Especialista</option>
+                            <option value="admin">Administración / Recepción</option>
+                        </select>
+                        <div class="form-text">El rol Dirección de Laboratorio no es asignable desde este panel.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="equipoEditar_especialidad" class="form-label">Especialidad (sólo Coach)</label>
+                        <input type="text" class="form-control" id="equipoEditar_especialidad" name="especialidad" maxlength="100" placeholder="Ej. Fuerza y Acondicionamiento">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-ssos-turquesa">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resetear contraseña — modal compartido, mismo patrón que modalEquipoEditar -->
+    <div class="modal fade" id="modalEquipoResetPassword" tabindex="-1" aria-labelledby="modalEquipoResetPasswordLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" class="modal-content">
+                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="accion" value="resetear_password_equipo">
+                <input type="hidden" name="id_usuario" id="equipoResetPassword_id" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEquipoResetPasswordLabel">Resetear Contraseña</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Nueva contraseña para <strong id="equipoResetPassword_nombre"></strong>:</p>
+                    <div class="mb-3">
+                        <label for="equipoResetPassword_password" class="form-label">Contraseña nueva</label>
+                        <input type="password" class="form-control" id="equipoResetPassword_password" name="password_nueva" minlength="8" required>
+                        <div class="form-text">Mínimo 8 caracteres. El usuario deberá cambiarla en su próximo inicio de sesión.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-ssos-turquesa">Resetear Contraseña</button>
                 </div>
             </form>
         </div>
@@ -784,10 +1070,10 @@ require __DIR__ . '/../partials/header.php';
 
 </div>
 
-<?php if ($verControl && !empty($erroresUsuarioNuevo)): ?>
+<?php if ($verEquipo && !empty($erroresUsuarioNuevo)): ?>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            new bootstrap.Modal(document.getElementById('modalNuevoUsuario')).show();
+            new bootstrap.Modal(document.getElementById('modalEquipoNuevo')).show();
         });
     </script>
 <?php endif; ?>

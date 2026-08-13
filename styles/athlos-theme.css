@@ -1170,6 +1170,128 @@ h3 {
   line-height: 1.5;
 }
 
+.testimonial-carousel {
+  display: grid;
+  gap: 1.5rem;
+  justify-items: center;
+}
+
+.testimonial-carousel__viewport {
+  width: 100%;
+}
+
+.testimonial-card {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 6vw, 2.75rem);
+  border: 1px solid var(--athlos-line);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(145deg, var(--surface), transparent),
+    color-mix(in srgb, var(--page-bg) 72%, transparent);
+  box-shadow: var(--shadow-premium);
+  text-align: center;
+  animation: fade-up 480ms ease backwards;
+}
+
+.testimonial-card__avatar {
+  position: relative;
+  width: 4rem;
+  height: 4rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 184, 201, 0.14);
+  box-shadow: 0 0 0 1px var(--athlos-line);
+}
+
+.testimonial-card__avatar img {
+  object-fit: cover;
+}
+
+.testimonial-card__avatar span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--athlos-turquoise-text);
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.testimonial-card__quote {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.05rem, 3vw, 1.3rem);
+  line-height: 1.65;
+}
+
+.testimonial-card__footer {
+  color: var(--athlos-turquoise-text);
+}
+
+.testimonial-card__footer cite {
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.testimonial-carousel__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.testimonial-carousel__arrow {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border: 1px solid var(--athlos-line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 190ms ease, border-color 190ms ease;
+}
+
+.testimonial-carousel__arrow:hover,
+.testimonial-carousel__arrow:focus-visible {
+  border-color: rgba(0, 184, 201, 0.45);
+  transform: translateY(-1px);
+}
+
+.testimonial-carousel__dots {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.testimonial-carousel__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--athlos-line);
+  cursor: pointer;
+  transition: background 190ms ease, transform 190ms ease;
+}
+
+.testimonial-carousel__dot.is-active {
+  background: var(--athlos-turquoise);
+  transform: scale(1.35);
+}
+
 .coach-lightbox {
   position: fixed;
   inset: 0;

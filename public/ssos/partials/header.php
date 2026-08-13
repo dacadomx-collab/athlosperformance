@@ -28,6 +28,29 @@ $ssos_dashboard_href = ssos_base_url() . '/dashboard/index.php';
 // se oculta sólo en el propio dashboard, para no linkear una página a sí misma.
 $ssos_breadcrumb_atleta = $ssos_breadcrumb_atleta ?? null;
 $ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard' && $ssos_rol !== 'atleta';
+
+/**
+ * Fuente única de verdad de los ítems de navegación GLOBAL (entre páginas
+ * distintas) por rol — se recorre DOS veces más abajo (barra horizontal en
+ * escritorio + menú Offcanvas en móvil), así que un mismo enlace nunca puede
+ * faltar en una de las dos superficies.
+ *
+ * CORRECCIÓN (auditoría visual "triple menú"): este arreglo ya NO incluye
+ * los anclajes internos del Dashboard (#control, #clientes, #equipo,
+ * #pie-de-cancha, #herramientas) — ese Dashboard ya tiene su PROPIA barra de
+ * pestañas nativa (`.ssos-tabs` en dashboard/index.php) para esa navegación.
+ * Duplicarlos aquí producía 3 superficies de navegación simultáneas y
+ * redundantes en pantalla (barra superior + pestañas del Dashboard +
+ * Offcanvas) en vez de una jerarquía clara. Este menú global sólo enlaza
+ * páginas VERDADERAMENTE separadas (URL propia, fuera del sistema de tabs
+ * del Dashboard) — el logo (`.navbar-brand`) ya funciona como acceso directo
+ * al Dashboard, así que tampoco se repite aquí como ítem de texto.
+ */
+$ssos_nav_items = [];
+if (in_array($ssos_rol, ['coach', 'admin', 'super_admin'], true)) {
+    $ssos_nav_items[] = ['activo' => $ssos_active_nav === 'agenda', 'href' => ssos_base_url() . '/agenda/index.php', 'icono' => '📅', 'label' => 'Agenda'];
+    $ssos_nav_items[] = ['activo' => $ssos_active_nav === 'testimonios', 'href' => ssos_base_url() . '/testimonios/index.php', 'icono' => '🌟', 'label' => 'Casos de Éxito'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="es" data-theme="light">
@@ -47,6 +70,19 @@ $ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard' && $ssos_r
             <img src="<?= e(ssos_base_url()) ?>/img/logo.jpg" alt="Athlos Performance">
             <span>Athlos Performance</span>
         </a>
+
+        <!-- Barra de navegación horizontal — visible sólo en escritorio (≥992px, mismo
+             breakpoint lg de Bootstrap ya usado en el resto de main.css). El menú
+             hamburguesa sigue existiendo también en escritorio (da acceso a rol/nombre/
+             cerrar sesión) — esto es un COMPLEMENTO, nunca reemplaza al Offcanvas. -->
+        <?php if (!empty($ssos_nav_items)): ?>
+            <nav class="ssos-navbar-desktop-nav" aria-label="Navegación principal">
+                <?php foreach ($ssos_nav_items as $item): ?>
+                    <a class="<?= $item['activo'] ? 'is-active' : '' ?>" href="<?= e($item['href']) ?>"><?= $item['icono'] ?> <?= e($item['label']) ?></a>
+                <?php endforeach; ?>
+            </nav>
+        <?php endif; ?>
+
         <div class="ssos-navbar-actions">
             <button type="button" class="ssos-theme-toggle ssos-theme-toggle--inline" data-ssos-theme-toggle aria-label="Cambiar modo día/noche">🌙</button>
             <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#ssosOffcanvasNav" aria-controls="ssosOffcanvasNav" aria-label="Abrir menú">
@@ -68,19 +104,9 @@ $ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard' && $ssos_r
         <?php endif; ?>
 
         <nav class="nav nav-pills flex-column mb-auto">
-            <?php if ($ssos_rol === 'super_admin'): ?>
-                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#control" data-bs-dismiss="offcanvas">📊 Dirección y Control</a>
-            <?php endif; ?>
-            <?php if (in_array($ssos_rol, ['admin', 'super_admin'], true)): ?>
-                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#clientes" data-bs-dismiss="offcanvas">👥 Clientes y Membresías</a>
-            <?php endif; ?>
-            <?php if (in_array($ssos_rol, ['coach', 'admin', 'super_admin'], true)): ?>
-                <a class="nav-link <?= $ssos_active_nav === 'pie_de_cancha' ? 'active' : '' ?>" href="<?= e($ssos_dashboard_href) ?>#pie-de-cancha" data-bs-dismiss="offcanvas">🏋️‍♂️ Sesiones del Día</a>
-                <a class="nav-link <?= $ssos_active_nav === 'agenda' ? 'active' : '' ?>" href="<?= e(ssos_base_url()) ?>/agenda/index.php" data-bs-dismiss="offcanvas">📅 Agenda</a>
-            <?php endif; ?>
-            <?php if ($ssos_rol === 'super_admin'): ?>
-                <a class="nav-link" href="<?= e($ssos_dashboard_href) ?>#herramientas" data-bs-dismiss="offcanvas">🛠️ Herramientas & API</a>
-            <?php endif; ?>
+            <?php foreach ($ssos_nav_items as $item): ?>
+                <a class="nav-link <?= $item['activo'] ? 'active' : '' ?>" href="<?= e($item['href']) ?>" data-bs-dismiss="offcanvas"><?= $item['icono'] ?> <?= e($item['label']) ?></a>
+            <?php endforeach; ?>
         </nav>
 
         <a href="<?= e(ssos_base_url()) ?>/logout.php" class="btn btn-outline-secondary btn-sm mt-3">Cerrar sesión</a>

@@ -90,6 +90,18 @@ function ssos_asset_repo(string $path): string
 }
 
 /**
+ * URL absoluta hacia un asset en `public/media/` (ej. fotos de testimonios
+ * subidas desde el BackOffice) — `media/` es HERMANO de `ssos/` dentro de
+ * `public/` (a diferencia de `assets/`, que vive en la raíz del repo), así
+ * que basta con subir 1 nivel desde `ssos_base_url()` (que siempre termina
+ * en ".../ssos") en vez de los 2 niveles que usa `ssos_asset_repo()`.
+ */
+function ssos_asset_media(string $path): string
+{
+    return dirname(ssos_base_url()) . '/media/' . ltrim($path, '/');
+}
+
+/**
  * Landing tras login: el Calendario (agenda/index.php) es la vista inicial
  * para los 3 roles operativos — el Dashboard tabulado (Control/Clientes/Pie
  * de Cancha/Herramientas) sigue existiendo tal cual y sigue accesible desde
