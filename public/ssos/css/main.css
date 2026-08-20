@@ -27,6 +27,24 @@
        --athlos-turquoise-text, Módulo 7). */
     --athlos-turquesa-text: #00707D;
 
+    /* Auditoría WCAG 100/100 (2026-08-12): mismo patrón que --athlos-turquesa-text
+       arriba, aplicado a los 3 colores semánticos de estado (verde=activo,
+       rojo=suspendido, ámbar=alerta) que antes eran valores fijos usados como
+       TEXTO. Verificado por cálculo de luminancia relativa contra AMBOS fondos
+       reales (--ssos-bg claro y oscuro), no sólo uno:
+       - Verde #1E9E5A: 3.29:1 en claro (FALLA) / 4.96:1 en oscuro (pasa).
+       - Rojo #D64545: 4.18:1 en claro (FALLA) / 3.91:1 en oscuro (FALLA, ambos).
+       - Ámbar #D68910: 2.82:1 en claro (FALLA) / 5.28:1 en oscuro (pasa).
+       Los 3 tonos de "modo claro" de abajo se recalibraron para pasar ≥4.5:1
+       contra --ssos-bg/--ssos-surface claros; el oscuro reutiliza el original
+       donde ya pasaba (verde, ámbar) o usa un tono más claro para el rojo
+       (los rojos oscuros y los rojos claros necesitan luminancias opuestas
+       para pasar contra fondos opuestos — no existe un solo rojo que sirva
+       para ambos temas). */
+    --ssos-estado-verde: #157A44;
+    --ssos-estado-rojo: #B23434;
+    --ssos-estado-ambar: #A15C00;
+
     --ssos-bg: var(--athlos-gris-claro);
     --ssos-surface: #FFFFFF;
     --ssos-text: #16232E;
@@ -40,6 +58,9 @@
     color-scheme: dark;
 
     --athlos-turquesa-text: var(--athlos-turquesa);
+    --ssos-estado-verde: #1E9E5A;
+    --ssos-estado-rojo: #E57373;
+    --ssos-estado-ambar: #D68910;
 
     --ssos-bg: #0A1D2E;
     --ssos-surface: #12293D;
@@ -551,8 +572,8 @@ body.ssos-app-body {
 }
 
 .ssos-estatus-select--activo {
-    color: #1E9E5A;
-    border-color: #1E9E5A;
+    color: var(--ssos-estado-verde);
+    border-color: var(--ssos-estado-verde);
 }
 
 .ssos-estatus-select--inactivo {
@@ -561,8 +582,8 @@ body.ssos-app-body {
 }
 
 .ssos-estatus-select--suspendido {
-    color: #D64545;
-    border-color: #D64545;
+    color: var(--ssos-estado-rojo);
+    border-color: var(--ssos-estado-rojo);
 }
 
 /* ─── PIE DE CANCHA: tarjetas grandes táctiles ──────────────────────────── */
@@ -785,7 +806,16 @@ body.ssos-app-body {
 
 /* ─── Navegación por pestañas del Dashboard Único ───────────────────────── */
 
+/* Unificación de navegación (2026-08-12): esta barra quedó redundante con la
+   navegación global del header (misma lista de secciones, ver header.php
+   $ssos_nav_items) — se oculta visualmente en TODOS los anchos, pero se
+   mantiene en el DOM sin alterar su HTML/JS: Bootstrap sigue necesitando
+   estos botones (`data-bs-target="#pane-X"`) para saber qué `.tab-pane`
+   activar cuando `activarTabDesdeHash()` (main.js) los invoca vía
+   `new bootstrap.Tab(boton).show()` — `display:none` no le impide a la API
+   de Bootstrap encontrarlos ni operarlos, sólo los saca del layout visual. */
 .ssos-tabs {
+    display: none;
     border-bottom: 1px solid var(--ssos-border);
     margin-bottom: 1.5rem;
     flex-wrap: wrap;
@@ -1020,7 +1050,7 @@ body.ssos-app-body {
 }
 
 .ssos-agenda-cliente-mes--alerta .ssos-agenda-cliente-mes-nombre {
-    color: #D68910;
+    color: var(--ssos-estado-ambar);
 }
 
 .ssos-agenda-cliente-mes-servicio {

@@ -30,26 +30,39 @@ $ssos_breadcrumb_atleta = $ssos_breadcrumb_atleta ?? null;
 $ssos_mostrar_breadcrumb_dashboard = $ssos_active_nav !== 'dashboard' && $ssos_rol !== 'atleta';
 
 /**
- * Fuente única de verdad de los ítems de navegación GLOBAL (entre páginas
- * distintas) por rol — se recorre DOS veces más abajo (barra horizontal en
- * escritorio + menú Offcanvas en móvil), así que un mismo enlace nunca puede
- * faltar en una de las dos superficies.
+ * Fuente única de verdad de TODA la navegación principal por rol — se
+ * recorre DOS veces más abajo (barra horizontal única en escritorio + menú
+ * Offcanvas en móvil), así que un mismo enlace nunca puede faltar en una de
+ * las dos superficies.
  *
- * CORRECCIÓN (auditoría visual "triple menú"): este arreglo ya NO incluye
- * los anclajes internos del Dashboard (#control, #clientes, #equipo,
- * #pie-de-cancha, #herramientas) — ese Dashboard ya tiene su PROPIA barra de
- * pestañas nativa (`.ssos-tabs` en dashboard/index.php) para esa navegación.
- * Duplicarlos aquí producía 3 superficies de navegación simultáneas y
- * redundantes en pantalla (barra superior + pestañas del Dashboard +
- * Offcanvas) en vez de una jerarquía clara. Este menú global sólo enlaza
- * páginas VERDADERAMENTE separadas (URL propia, fuera del sistema de tabs
- * del Dashboard) — el logo (`.navbar-brand`) ya funciona como acceso directo
- * al Dashboard, así que tampoco se repite aquí como ítem de texto.
+ * DECISIÓN DE ARQUITECTURA (2026-08-12, "unificación de navegación"): este
+ * arreglo es ahora la ÚNICA fuente de verdad de navegación, incluidas las
+ * secciones internas del Dashboard (#control, #clientes, #equipo,
+ * #pie-de-cancha, #herramientas). La barra de pestañas propia de
+ * dashboard/index.php (`.ssos-tabs`) sigue existiendo en el DOM — Bootstrap
+ * necesita esos botones para saber qué `.tab-pane` mostrar — pero se oculta
+ * visualmente (`display: none` en main.css) porque quedó redundante con esta
+ * barra. Un enlace del tipo "dashboard/index.php#equipo" funciona igual
+ * llegando desde otra página (recarga completa, activarTabDesdeHash() activa
+ * el tab al cargar) que ya estando en el Dashboard (navegación same-document
+ * por hash, dispara "hashchange", mismo listener ya activa el tab sin
+ * recargar) — cero JavaScript nuevo, reutiliza el mecanismo ya existente.
  */
 $ssos_nav_items = [];
+if ($ssos_rol === 'super_admin') {
+    $ssos_nav_items[] = ['activo' => false, 'href' => $ssos_dashboard_href . '#control', 'icono' => '📊', 'label' => 'Dirección y Control'];
+}
+if (in_array($ssos_rol, ['admin', 'super_admin'], true)) {
+    $ssos_nav_items[] = ['activo' => false, 'href' => $ssos_dashboard_href . '#clientes', 'icono' => '👥', 'label' => 'Clientes y Membresías'];
+    $ssos_nav_items[] = ['activo' => false, 'href' => $ssos_dashboard_href . '#equipo', 'icono' => '🧑‍💼', 'label' => 'Equipo del Laboratorio'];
+}
 if (in_array($ssos_rol, ['coach', 'admin', 'super_admin'], true)) {
+    $ssos_nav_items[] = ['activo' => $ssos_active_nav === 'pie_de_cancha', 'href' => $ssos_dashboard_href . '#pie-de-cancha', 'icono' => '🏋️‍♂️', 'label' => 'Sesiones del Día'];
     $ssos_nav_items[] = ['activo' => $ssos_active_nav === 'agenda', 'href' => ssos_base_url() . '/agenda/index.php', 'icono' => '📅', 'label' => 'Agenda'];
     $ssos_nav_items[] = ['activo' => $ssos_active_nav === 'testimonios', 'href' => ssos_base_url() . '/testimonios/index.php', 'icono' => '🌟', 'label' => 'Casos de Éxito'];
+}
+if ($ssos_rol === 'super_admin') {
+    $ssos_nav_items[] = ['activo' => false, 'href' => $ssos_dashboard_href . '#herramientas', 'icono' => '🛠️', 'label' => 'Herramientas & API'];
 }
 ?>
 <!DOCTYPE html>
