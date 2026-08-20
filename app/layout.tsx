@@ -20,9 +20,6 @@ export const metadata: Metadata = {
     "rendimiento físico La Paz"
   ],
   metadataBase: new URL(SITE_URL),
-  icons: {
-    icon: "/favicon.ico"
-  },
   openGraph: {
     type: "website",
     locale: "es_MX",
