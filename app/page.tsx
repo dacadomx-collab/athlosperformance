@@ -7,6 +7,7 @@ import { EvidenceSection } from "@/components/athlos/EvidenceSection"
 import { FinalCtaSection } from "@/components/athlos/FinalCtaSection"
 import { HeroSection } from "@/components/athlos/HeroSection"
 import { MethodologyTimeline } from "@/components/athlos/MethodologyTimeline"
+import { RecomendacionesSection } from "@/components/athlos/RecomendacionesSection"
 import { TeamSection } from "@/components/athlos/TeamSection"
 import { TestimonialCarousel } from "@/components/athlos/TestimonialCarousel"
 
@@ -22,6 +23,7 @@ export default function HomePage() {
         <TeamSection />
         <EvidenceSection />
         <TestimonialCarousel />
+        <RecomendacionesSection />
         <FinalCtaSection />
         <ContactSection />
       </main>

@@ -1292,6 +1292,117 @@ h3 {
   transform: scale(1.35);
 }
 
+.recommendation-grid {
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recommendation-card {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.25rem, 4vw, 1.75rem);
+  border: 1px solid var(--athlos-line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-premium);
+  animation: fade-up 480ms ease backwards;
+  transition: transform 190ms ease, border-color 190ms ease;
+}
+
+.recommendation-card:hover,
+.recommendation-card:focus-within {
+  transform: translateY(-2px);
+  border-color: rgba(0, 184, 201, 0.45);
+}
+
+.recommendation-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.recommendation-card__avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  background: rgba(0, 184, 201, 0.14);
+  box-shadow: 0 0 0 1px var(--athlos-line);
+  color: var(--athlos-turquoise-text);
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.recommendation-card__identity {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.recommendation-card__identity cite {
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+}
+
+.recommendation-card__badge {
+  justify-self: start;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid rgba(0, 184, 201, 0.32);
+  border-radius: 999px;
+  background: rgba(0, 184, 201, 0.06);
+  color: var(--athlos-turquoise-text);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recommendation-card__quote {
+  margin: 0;
+}
+
+.recommendation-card__quote p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+.recommendation-card__metrics {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.85rem 0 0;
+  list-style: none;
+  border-top: 1px solid var(--athlos-line);
+}
+
+.recommendation-card__metrics li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.recommendation-card__metrics span {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.recommendation-card__metrics strong {
+  color: var(--athlos-turquoise-text);
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+}
+
 .coach-lightbox {
   position: fixed;
   inset: 0;
@@ -1628,7 +1739,8 @@ h3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .team-grid {
+  .team-grid,
+  .recommendation-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1651,6 +1763,10 @@ h3 {
 
   .team-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .recommendation-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .site-header__cta {

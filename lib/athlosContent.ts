@@ -69,6 +69,68 @@ export const CERTIFICATIONS = [
   { name: "Dinamómetro (MAT)", description: "Evaluación de fuerza, rango de movimiento y asimetrías" },
 ] as const
 
+export interface RecomendacionMetric {
+  label: string
+  value: string
+}
+
+export interface RecomendacionSocialLink {
+  provider: "Instagram" | "Facebook"
+  label: string
+  href: string
+  thumbnail?: string
+}
+
+export interface RecomendacionItem {
+  slug: string
+  name: string
+  discipline: string
+  quote: string
+  metrics: readonly RecomendacionMetric[]
+  social?: RecomendacionSocialLink
+}
+
+// Data de muestra (mock) para maquetar el módulo de Recomendaciones antes de
+// tener casos reales cargados. Sin `social` (no hay reel/post real que
+// enlazar todavía) — el staff reemplaza estos 3 registros por historias
+// reales con su enlace de Instagram/Facebook cuando estén disponibles, sin
+// tocar RecomendacionesSection.tsx.
+export const RECOMENDACIONES: readonly RecomendacionItem[] = [
+  {
+    slug: "triatlon-transicion-carga",
+    name: "Atleta de Triatlón",
+    discipline: "Triatlón",
+    quote:
+      "Antes de Athlos entrenaba por volumen, sin saber si mi cuerpo lo toleraba. Hoy cada bloque de carga está justificado con datos de mi propia evaluación.",
+    metrics: [
+      { label: "Potencia tren inferior", value: "+21%" },
+      { label: "Asimetría entre piernas", value: "-8%" }
+    ]
+  },
+  {
+    slug: "rehabilitacion-rodilla-regreso-actividad",
+    name: "Paciente en Rehabilitación de Rodilla",
+    discipline: "Rehabilitación de Rodilla",
+    quote:
+      "Llegué después de una cirugía sin saber si iba a volver a correr. El seguimiento clínico semana a semana me devolvió la confianza en mi rodilla, no solo la movilidad.",
+    metrics: [
+      { label: "Rango de movimiento", value: "+34°" },
+      { label: "Dolor reportado (EVA)", value: "-6 pts" }
+    ]
+  },
+  {
+    slug: "fuerza-funcional-composicion-corporal",
+    name: "Cliente de Fuerza Funcional",
+    discipline: "Fuerza Funcional",
+    quote:
+      "La diferencia fue medir en vez de adivinar: composición corporal real, no báscula. Ajustaron mi programa con datos y por fin vi progreso sostenido.",
+    metrics: [
+      { label: "Masa muscular", value: "+3.4 kg" },
+      { label: "% Grasa corporal", value: "-5.1%" }
+    ]
+  }
+] as const
+
 export const ATHLOS_LOCAL_VIDEOS = {
   evaluacion: {
     src: "/media/evaluacion-potencia-tren-inferior-atletas-athlos.mp4",
