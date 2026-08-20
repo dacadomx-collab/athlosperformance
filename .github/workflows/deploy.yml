@@ -44,4 +44,4 @@ jobs:
           protocol: ftps
           security: loose
           local-dir: ./out/
-          server-dir: /home/mercagee/public_html/athlosgym/
+          server-dir: /
