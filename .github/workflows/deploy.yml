@@ -41,5 +41,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           port: 21
+          protocol: ftps
+          security: loose
           local-dir: ./out/
-          server-dir: /public_html/athlosgym/
+          server-dir: /home/mercagee/public_html/athlosgym/
