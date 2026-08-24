@@ -9,7 +9,7 @@ export const ATHLOS_NAV_ITEMS = [
 export const DIFFERENTIATION_SPOTLIGHT = {
   provider: "Instagram",
   label: "Laboratorio en movimiento",
-  href: "https://www.instagram.com/reel/DYxBlVyN9tl/?utm_source=ig_web_button_share_sheet&igsh=MzRlODBiNWFlZA=="
+    href: "https://www.instagram.com/reel/DY1CrjOzZUC/?utm_source=ig_web_button_share_sheet&igsh=MzRlODBiNWFlZA=="
 } as const
 
 export const COACHES = [
@@ -133,18 +133,23 @@ export const RECOMENDACIONES: readonly RecomendacionItem[] = [
 
 export const ATHLOS_LOCAL_VIDEOS = {
   evaluacion: {
-    src: "/media/evaluacion-potencia-tren-inferior-atletas-athlos.mp4",
-    poster: "/media/evaluacion-potencia-tren-inferior-atletas-athlos-poster.jpg",
+    src: "/metodogia_cientifica_1.mp4",
+    poster: "/portada_metodologia_1.jpg",
     label: "Evaluación de potencia en tren inferior"
   },
   prescripcion: {
-    src: "/media/prescripcion-carga-mecanica-entrenamiento-athlos.mp4",
-    poster: "/media/prescripcion-carga-mecanica-entrenamiento-athlos-poster.jpg",
+    src: "/metodologia_cientifica_2.mp4",
+    poster: "/portada_metodologia_2.jpg",
     label: "Prescripción de carga mecánica"
   },
   seguimiento: {
-    src: "/media/entrenamiento-fuerza-controlada-laboratorio-athlos.mp4",
-    poster: "/media/entrenamiento-fuerza-controlada-laboratorio-athlos-poster.jpg",
+    src: "/metodologia_cientifica_3.mp4",
+    poster: "/portada_metodologia_3.jpg",
+    label: "Seguimiento de fuerza controlada"
+  },
+  interpretacion: {
+    src: "/metodologia_cientifica_4.mp4",
+    poster: "/portada_metodologia_4.jpg",
     label: "Seguimiento de fuerza controlada"
   }
 } as const
@@ -225,7 +230,8 @@ export const SEGMENT_CONTENT = {
     solutionTitle: "Datos para competir al máximo nivel",
     solutionBody:
       "Ayudamos a atletas y personas activas a optimizar su rendimiento mediante evaluaciones objetivas que permiten mejorar la fuerza, potencia, movilidad y prevención de lesiones.",
-    benefits: ["Mayor eficiencia biomecánica", "Programación basada en evidencia", "Reducción de riesgo de lesión"]
+    benefits: ["Mayor eficiencia biomecánica", "Programación basada en evidencia", "Reducción de riesgo de lesión"],
+    videoUrl: "/menores65.mp4"
   },
   longevidad: {
     tabLabel: "Mayores de 65",
@@ -238,7 +244,9 @@ export const SEGMENT_CONTENT = {
     solutionTitle: "Más años de vida. Más vida en esos años.",
     solutionBody:
       "Programas especializados para adultos mayores, diseñados a partir de criterios geriátricos que priorizan la seguridad, la preservación de la masa ósea (mitigando la osteopenia) y la autonomía.",
-    benefits: ["Prevención de sarcopenia y caídas", "Mejora del equilibrio dinámico", "Entorno médico supervisado"]
+    benefits: ["Prevención de sarcopenia y caídas", "Mejora del equilibrio dinámico", "Entorno médico supervisado"],
+    videoUrl: "/mayores65.mp4"
+
   }
 } as const
 

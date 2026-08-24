@@ -24,20 +24,20 @@ export function EvaluationSplitSection() {
 
         <div className="segment-switcher" role="tablist" aria-label="Seleccionar perfil de evaluación">
           {SEGMENTS.map((segment) => (
-            <button
-              key={segment}
-              role="tab"
-              type="button"
-              id={`tab-${segment}`}
-              aria-selected={activeSegment === segment}
-              aria-controls={`panel-${segment}`}
-              tabIndex={activeSegment === segment ? 0 : -1}
-              className="segment-tab"
-              onClick={() => setActiveSegment(segment)}
-            >
-              {SEGMENT_CONTENT[segment].tabLabel}
-            </button>
-          ))}
+          <button
+            key={segment}
+            type="button"
+            id={`tab-${segment}`}
+            role="tab"
+            tabIndex={0}
+            aria-selected={activeSegment === segment}
+            aria-controls={`panel-${segment}`}
+            className="segment-tab"
+            onClick={() => setActiveSegment(segment)}
+          >
+            {SEGMENT_CONTENT[segment].tabLabel}
+          </button>
+        ))}
         </div>
 
         <SegmentedSolutions segment={activeSegment} />

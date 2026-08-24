@@ -43,23 +43,29 @@ export function SegmentedSolutions({ segment }: SegmentedSolutionsProps) {
         )}
       </div>
 
-      <a
-        className="media-card"
-        href={media.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`Ver evidencia en movimiento en ${media.provider}: ${media.label}`}
-      >
-        <span className="media-card__play" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 6v12l10-6-10-6Z" fill="currentColor" />
-          </svg>
-        </span>
-        <span className="media-card__meta">
-          <span className="media-card__provider">{media.provider}</span>
-          <span>{media.label}</span>
-        </span>
-      </a>
+      {/* --- CUADRANTE 3: Abajo Izquierda (¡El video en tamaño Pro!) --- */}
+      {content.videoUrl ? (
+        <div className="media-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'default', textDecoration: 'none', padding: '1.25rem' }}>
+          <div style={{ width: '120px', height: '213px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
+            <video
+              src={content.videoUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          </div>
+          <span className="media-card__meta">
+            <span className="media-card__provider" style={{ color: '#00f2fe', fontSize: '1.1rem', fontWeight: 600 }}>Registro Visual</span>
+            <span style={{ fontSize: '0.95rem', color: '#cbd5e1', marginTop: '8px', display: 'block', lineHeight: 1.5 }}>
+              Ejecución biomecánica directa en el laboratorio.
+            </span>
+          </span>
+        </div>
+      ) : (
+        <div /> 
+      )}
 
       <CtaButton className="segment-panel__cta" href="#consent-gate">
         Agenda tu clase muestra

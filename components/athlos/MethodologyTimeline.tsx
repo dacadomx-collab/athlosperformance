@@ -52,16 +52,11 @@ function PhaseMedia({ step }: { step: string }) {
       )
     case "02":
       return (
-        <div className="phase-data-panel">
-          <span className="phase-data-panel__grid" aria-hidden="true" />
-          <div className="phase-data-panel__bars" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-          <span className="phase-data-panel__label">Procesamiento de datos</span>
-        </div>
+        <AthlosVideoPlayer
+          src={ATHLOS_LOCAL_VIDEOS.interpretacion.src}
+          poster={ATHLOS_LOCAL_VIDEOS.interpretacion.poster}
+          label={ATHLOS_LOCAL_VIDEOS.interpretacion.label}
+        />
       )
     case "03":
       return (
