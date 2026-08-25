@@ -9,7 +9,7 @@ export const ATHLOS_NAV_ITEMS = [
 export const DIFFERENTIATION_SPOTLIGHT = {
   provider: "Instagram",
   label: "Laboratorio en movimiento",
-    href: "https://www.instagram.com/reel/DY1CrjOzZUC/?utm_source=ig_web_button_share_sheet&igsh=MzRlODBiNWFlZA=="
+    href: "https://www.instagram.com/p/DXziCy3BWFd/"
 } as const
 
 export const COACHES = [
@@ -138,8 +138,8 @@ export const ATHLOS_LOCAL_VIDEOS = {
     label: "Evaluación de potencia en tren inferior"
   },
   prescripcion: {
-    src: "/metodologia_cientifica_2.mp4",
-    poster: "/portada_metodologia_2.jpg",
+    src: "/metodologia_cientifica_4.mp4",
+    poster: "/portada_metodologia_4.jpg",
     label: "Prescripción de carga mecánica"
   },
   seguimiento: {
@@ -148,8 +148,8 @@ export const ATHLOS_LOCAL_VIDEOS = {
     label: "Seguimiento de fuerza controlada"
   },
   interpretacion: {
-    src: "/metodologia_cientifica_4.mp4",
-    poster: "/portada_metodologia_4.jpg",
+    src: "/metodologia_cientifica_2.mp4",
+    poster: "/portada_metodologia_2.jpg",
     label: "Seguimiento de fuerza controlada"
   }
 } as const
