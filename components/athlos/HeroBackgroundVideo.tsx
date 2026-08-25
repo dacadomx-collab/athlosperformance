@@ -28,7 +28,7 @@ export function HeroBackgroundVideo({ src, poster }: HeroBackgroundVideoProps) {
       preload="metadata"
       aria-hidden="true"
     >
-      <source src="./hero.mp4" type="video/mp4" />
+      <source src="/hero.mp4" type="video/mp4" />
     </video>
   )
 }

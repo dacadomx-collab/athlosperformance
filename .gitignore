@@ -64,6 +64,7 @@ logs/
 # El pipeline FTP despliega el repo via git checkout; sin esta excepcion
 # estos archivos nunca llegarian a produccion.
 !public/media/*.mp4
+!public/*.mp4
 
 # --- SISTEMA OPERATIVO ---
 # macOS
